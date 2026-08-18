@@ -1,0 +1,27 @@
+{
+  "name": "bts-extension",
+  "version": "26.8.22",
+  "description": "崩铁杀（星穹铁道·三国杀）- 无名杀游戏扩展构建脚本",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs --zip",
+    "zip:release": "node scripts/zip.mjs --version",
+    "dev:install": "node scripts/sync.mjs install",
+    "dev:export": "node scripts/sync.mjs export",
+
+    "zip": "node scripts/zip.mjs",
+    "rebuild": "node scripts/rebuild.mjs",
+    "opt:png": "node scripts/opt-png.mjs",
+    "assets:migrate": "node scripts/migrate.mjs",
+    "purge": "node scripts/purge.mjs",
+    "voice": "node scripts/voice.mjs",
+
+    "publish": "node scripts/publish.mjs"
+  },
+  "author": "一个月惹",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

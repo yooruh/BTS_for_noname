@@ -1,0 +1,93 @@
+/* 崩铁杀扩展样式：势力名完整、紧密显示。
+ *
+ * 势力注册走无名杀本体的 addGroup 注册表（precontent.js registerKingdoms）：
+ *  - config.color → 引擎 dynamicStyle 按 data-nature 生成势力发光色；
+ *  - config.image → 注册 group_<id> 势力牌（身份模式「选择势力」界面显示 PNG 图标）。
+ * 本文件只处理「固定宽度位置显示长势力名」的布局适配（选将分组 tab、武将卡势力标签、竖排名称）。
+ *
+ * ⚠ 本体的 layout.css 在扩展 CSS 之后加载，同特异性规则会覆盖扩展样式，
+ *   故以下规则统一加 !important。
+ *
+ * 字体：势力名显式使用无名杀「界面字体」配置项"默认"的具体字体值
+ * （引擎 library/index.js 外观页 textMenu 的 default 分支：
+ *   'STHeiti','SimHei','Microsoft JhengHei','Microsoft YaHei',
+ *   'WenQuanYi Micro Hei','Suits',Helvetica,Arial,sans-serif）
+ * ——即全局默认字体的黑体链，而非势力默认（identity_font 默认 huangcao 黄草）
+ * 或 name_font 默认的 xinwei 新魏。
+ *
+ * 势力名文字不加描边（用户要求，不做故意加黑），以加大字号保证可读。
+ *
+ * 势力名排版规律（content.js 在创建武将卡时按字数插入 <br>）：
+ *  ≤3 字一行；4~5 字首行 2 字+其余第二行；≥6 字每行 3 字。
+ */
+
+/* 势力名文字不再加描边（用户要求改回，不做故意加黑），
+ * 通过加大字号让势力名在标签内更清晰。 */
+
+/* ── 选将界面的分组 tab ──────────────────────────────────────────────
+ * 本体样式：font-size 26px + white-space: nowrap，栏宽 106~136px，
+ * 完整势力名（如「黑塔空间站」5 字）会被截断。
+ * 调整为：默认字体 + 负字距（更紧密）+ 稍小字号，必要时折行，
+ * 保证 2~5 字势力名都能完整、紧凑地显示；官方 1~2 字势力不受影响。 */
+.dialog.character > .packnode > div,
+.dialog.choose-character > .packnode > div {
+    font-family: 'STHeiti', 'SimHei', 'Microsoft JhengHei', 'Microsoft YaHei',
+        'WenQuanYi Micro Hei', 'Suits', Helvetica, Arial, sans-serif !important;
+    font-size: 17px !important;
+    line-height: 1.2 !important;
+    letter-spacing: -2px !important;
+    white-space: normal !important;
+    text-align: center !important;
+    word-break: break-all !important;
+}
+
+/* ── 游戏中竖排名称（.name_seat，writing-mode: vertical-rl，势力色 data-nature）──
+ * 本体字号随 .name 继承且字距松散；收紧字号/行高并给负字距
+ * （竖排下 letter-spacing 沿书写方向，即纵向字距），长名更紧密完整。 */
+.player > .name_seat {
+    font-family: 'STHeiti', 'SimHei', 'Microsoft JhengHei', 'Microsoft YaHei',
+        'WenQuanYi Micro Hei', 'Suits', Helvetica, Arial, sans-serif !important;
+    font-size: 15px !important;
+    line-height: 15px !important;
+    letter-spacing: -3px !important;
+}
+
+/* ── 选将武将卡右上角的势力标签（.button.character > .identity）──
+ * 本体直接内联完整势力名（如「黑塔空间站」5 字），小标签内会溢出/截断。
+ * 文字按排版规律由 content.js 折行（2/3 字一行），此处限宽兜底；
+ * 字号加大至 13px 保证可读，不加描边。
+ * 背景色由 lib.translate[`<势力key>Color`] 提供（precontent 已注册，旧样式/部分模式可见）。 */
+.dialog .button.character > .identity,
+.button.character > .identity {
+    max-width: 40px !important;
+}
+.button.character > .identity > div,
+.button.character > .identity > div > div {
+    font-family: 'STHeiti', 'SimHei', 'Microsoft JhengHei', 'Microsoft YaHei',
+        'WenQuanYi Micro Hei', 'Suits', Helvetica, Arial, sans-serif !important;
+    font-size: 13px !important;
+    line-height: 1.15 !important;
+    letter-spacing: -1px !important;
+    max-width: 38px !important;
+    word-break: break-all !important;
+    text-align: center !important;
+}
+
+/* ── 扩展设置菜单按钮（在线更新 / 应用推荐设置）──────────────────────────
+ * 与叁岛 lit-config-button 同风格，但不依赖主题 CSS 变量。 */
+.bts-config-button {
+    min-height: 30px;
+    padding: 5px 12px;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: linear-gradient(#4a4a4a, #333);
+    color: #e8e8e8;
+    font: 700 14px/18px 'STHeiti', 'SimHei', 'Microsoft YaHei', sans-serif;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+.bts-config-button:hover {
+    background: linear-gradient(#5a5a5a, #3f3f3f);
+    color: #fff;
+}
