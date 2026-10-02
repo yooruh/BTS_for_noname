@@ -188,6 +188,7 @@ export const skill = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_lingke_skin1': '皮肤1',
+    'bts_ch_lingke_skin1': '皮肤1',
     bts_ch_lingke: '玲可',
     bts_sk_fangan: '方案',
     bts_sk_fangan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一至两名角色，这些角色各回复1点体力并移除1层异常（由你选择移除哪种）。`,

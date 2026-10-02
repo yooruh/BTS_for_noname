@@ -132,6 +132,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_jiepade_skin1': '皮肤1',
     'bts_ch_jiepade_skin2': '皮肤2',
+    'bts_ch_jiepade_skin1': '皮肤1',
+    'bts_ch_jiepade_skin2': '皮肤2',
     bts_ch_jiepade: '杰帕德',
     bts_sk_yongyi: '永屹',
     bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各附加1层${get.poptip('bts_glossary_hudun_faq')}。`,

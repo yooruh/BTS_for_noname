@@ -121,8 +121,12 @@ export const marks = {
 };
 
 export const translate = {
-    'bts_mk_xingkong-clear': '星空已用',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_aisida_skin1': '皮肤1',
+    'bts_ch_aisida_skin2': '皮肤2',
+    'bts_ch_aisida_skin1': '皮肤1',
+    'bts_ch_aisida_skin2': '皮肤2',
+    'bts_mk_xingkong-clear': '星空已用',
     'bts_ch_aisida_skin1': '皮肤1',
     'bts_ch_aisida_skin2': '皮肤2',
     bts_ch_aisida: '艾丝妲',

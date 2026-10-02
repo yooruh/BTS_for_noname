@@ -78,7 +78,7 @@ export const AUDIO_COUNTS = {
     'bts_sk_heyun': 2,
     'bts_sk_hongguang': 2,
     'bts_sk_huangwu': 2,
-    'bts_sk_huashou': 4,
+    'bts_sk_huashou': 2,
     'bts_sk_huiyi': 2,
     'bts_sk_hujian': 2,
     'bts_sk_huoying': 2,

@@ -265,6 +265,7 @@ export const skill = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_ren_qianye_skin1': '皮肤1',
+    'bts_ch_ren_qianye_skin1': '皮肤1',
     bts_ch_ren_qianye: '千冶·刃',
     bts_sk_xinrou: '薪肉',
     bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}和1点体力，失去${get.poptip('bts_sk_xinrou')}，获得${get.poptip('bts_sk_qianye')}、${get.poptip('bts_sk_fennu')}、${get.poptip('bts_sk_jinchang')}、${get.poptip('bts_sk_renzang')}，所有其他角色各附加2层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,

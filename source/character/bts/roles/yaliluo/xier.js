@@ -205,6 +205,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_xier_skin1': '皮肤1',
     'bts_ch_xier_skin2': '皮肤2',
+    'bts_ch_xier_skin1': '皮肤1',
+    'bts_ch_xier_skin2': '皮肤2',
     bts_ch_xier: '希儿',
     bts_sk_luandie: '乱蝶',
     bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色（移除其拥有的${get.poptip('bts_glossary_abnormal_luandie_faq')}数代替失去等量的${get.poptip('bts_glossary_nuqi_faq')}），你附加2层${get.poptip('bts_glossary_bless_zengfu_faq')}，对其造成1点伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法对其造成伤害前，令其附加1层${get.poptip('bts_glossary_abnormal_luandie_faq')}。`,

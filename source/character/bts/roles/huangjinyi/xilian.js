@@ -344,8 +344,12 @@ export const marks = {
 };
 
 export const translate = {
-    bts_mk_shiyue_used: '誓约已用',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_xilian_skin1': '皮肤1',
+    'bts_ch_xilian_skin2': '皮肤2',
+    'bts_ch_xilian_skin3': '皮肤3',
+    'bts_ch_xilian_skin53': '皮肤53',
+    bts_mk_shiyue_used: '誓约已用',
     'bts_ch_xilian_skin1': '皮肤1',
     'bts_ch_xilian_skin2': '皮肤2',
     'bts_ch_xilian_skin3': '皮肤3',

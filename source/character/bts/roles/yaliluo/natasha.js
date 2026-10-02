@@ -124,6 +124,7 @@ export const skill = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_natasha_skin1': '皮肤1',
+    'bts_ch_natasha_skin1': '皮肤1',
     bts_ch_natasha: '娜塔莎',
     bts_sk_xinsheng: '新生',
     bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各回复1点体力，若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加2层${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,

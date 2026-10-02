@@ -289,10 +289,13 @@ export const marks = {
 };
 
 export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_jizi_qixing_skin1': '皮肤1',
+    'bts_ch_jizi_qixing_skin2': '皮肤2',
+    'bts_ch_jizi_qixing_skin3': '皮肤3',
     bts_mk_zhuxing_active: '逐星状态',
     'bts_mk_guangshu-play': '光束目标',
     'bts_mk_guangshu_count-play': '光束计数',
-    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_jizi_qixing_skin1': '皮肤1',
     'bts_ch_jizi_qixing_skin2': '皮肤2',
     'bts_ch_jizi_qixing_skin3': '皮肤3',

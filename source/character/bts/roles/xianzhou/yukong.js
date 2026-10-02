@@ -108,6 +108,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_yukong_skin1': '皮肤1',
     'bts_ch_yukong_skin2': '皮肤2',
+    'bts_ch_yukong_skin1': '皮肤1',
+    'bts_ch_yukong_skin2': '皮肤2',
     bts_ch_yukong: '驭空',
     bts_sk_guanyun: '贯云',
     bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，你与任意名其他角色各附加2层${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}。`,

@@ -135,6 +135,8 @@ export const translate = {
     '$bts_sk_longli3': "神蛟腾云，起！",
     '$bts_sk_kangxin1': "云吟御水",
     '$bts_sk_kangxin2': "破绽百出",
+
+    '~bts_ch_danheng_yinyue': "不该是…现在。",
 };
 
 export const simpleTranslate = {

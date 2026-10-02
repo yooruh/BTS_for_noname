@@ -195,6 +195,8 @@ export const translate = {
     '$bts_sk_resha2': "硬着陆！",
     '$bts_sk_paozhu_funny1': "尽情享用，都算我的",
     '$bts_sk_paozhu_funny2': "这一杯，敬你们",
+
+    '~bts_ch_shajin_xilang': "扫兴呐",
 };
 
 export const simpleTranslate = {

@@ -240,6 +240,8 @@ export const translate = {
     '$bts_sk_yaofeng2': "同心一意可好？",
     '$bts_sk_liubu1': "流云易散",
     '$bts_sk_liubu2': "长梦已醒",
+
+    '~bts_ch_tingyun_wangguiren': "命定如此么……",
 };
 
 export const simpleTranslate = {

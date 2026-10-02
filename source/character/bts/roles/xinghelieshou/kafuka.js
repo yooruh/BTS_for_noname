@@ -204,8 +204,17 @@ export const marks = {
 };
 
 export const translate = {
-    'bts_mk_canku-start': '残酷已发动',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_kafuka_skin1': '皮肤1',
+    'bts_ch_kafuka_skin2': '皮肤2',
+    'bts_ch_kafuka_skin3': '皮肤3',
+    'bts_ch_kafuka_skin4': '皮肤4',
+    'bts_ch_kafuka_skin5': '皮肤5',
+    'bts_ch_kafuka_skin6': '皮肤6',
+    'bts_ch_kafuka_skin7': '皮肤7',
+    'bts_ch_kafuka_skin8': '皮肤8',
+    'bts_ch_kafuka_skin9': '皮肤9',
+    'bts_mk_canku-start': '残酷已发动',
     'bts_ch_kafuka_skin1': '皮肤1',
     'bts_ch_kafuka_skin2': '皮肤2',
     'bts_ch_kafuka_skin3': '皮肤3',

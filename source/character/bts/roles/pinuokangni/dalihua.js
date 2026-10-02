@@ -146,12 +146,14 @@ export const translate = {
     bts_bless_gongwu_info: `来源：${get.poptip('bts_sk_tianshi')}赋予；属性伤弃敌牌、置牌；回合结束自然减少1层`,
     bts_abnormal_baixie: '败谢',
 
-    '$bts_sk_chenni1': "曲终人亡的时刻…美不胜收",
-    '$bts_sk_chenni2': "记忆的坟茔，已然敞开——",
-    '$bts_sk_bonong1': "有趣起来了",
-    '$bts_sk_bonong2': "还是老一套么？",
+    '$bts_sk_chenni1': "记忆的坟茔，已然敞开——",
+    '$bts_sk_chenni2': "曲终人亡的时刻…美不胜收",
+    '$bts_sk_bonong1': "迫不及待了？",
+    '$bts_sk_bonong2': "想…背叛我？",
     '$bts_sk_tianshi1': "为我，焚身起舞吧",
     '$bts_sk_tianshi2': "将我，铭心蚀骨吧",
+
+    '~bts_ch_dalihua': "陪我…一起吧……",
 };
 
 export const simpleTranslate = {

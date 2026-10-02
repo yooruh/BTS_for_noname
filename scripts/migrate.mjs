@@ -178,7 +178,6 @@ function updateRoleTranslateSkinKeys(file, entries) {
 // ── 2. 皮肤迁移 v3（migrate-skins）────────────────────────────────────────
 function migrateSkins(srcRoot, { dryRun }) {
     const SRC_FULLSKIN = join(srcRoot, 'image', 'fullskin', 'generals', 'full');
-    const SRC_CARD = join(srcRoot, 'image', 'generals', 'card');
     const SRC_SKINS = join(
         srcRoot,
         'image',
@@ -206,7 +205,9 @@ function migrateSkins(srcRoot, { dryRun }) {
             base.toUpperCase(),
             base[0].toUpperCase() + base.slice(1),
         ];
-        for (const dir of [SRC_FULLSKIN, SRC_CARD]) {
+        // 立绘只取「局内素材」= image/fullskin/generals/full（源全身立绘）；
+        // 不取 image/generals/card 的角色卡素材（无名杀不用卡图，2026-10-03 用户定案）。
+        for (const dir of [SRC_FULLSKIN]) {
             if (!existsSync(dir)) continue;
             const files = readdirSync(dir);
             for (const c of candidates) {
@@ -228,13 +229,10 @@ function migrateSkins(srcRoot, { dryRun }) {
         const dst = join(DST_CHARACTER, `${id}.png`);
         const src = findDefaultSource(id);
         if (src) {
-            if (src.dir === SRC_CARD) {
-                if (ffmpeg(join(src.dir, src.file), dst, { dryRun })) okDefault++;
-            } else {
-                if (dryRun) { okDefault++; continue; }
-                copyFileSync(join(src.dir, src.file), dst);
-                okDefault++;
-            }
+            // fullskin 已是 png：直接复制（原逻辑就区分 card 需转码，现口径仅 fullskin）
+            if (dryRun) { okDefault++; continue; }
+            copyFileSync(join(src.dir, src.file), dst);
+            okDefault++;
         } else if (id === 'bts_ch_xing') {
             if (!dryRun) copyFileSync(join(DST_CHARACTER, 'bts_ch_kaituozhe.png'), dst);
             okDefault++;

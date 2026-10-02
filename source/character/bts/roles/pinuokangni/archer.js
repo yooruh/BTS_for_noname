@@ -147,6 +147,8 @@ export const skill = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_archer_skin1': '皮肤1',
+    'bts_ch_archer_skin1': '皮肤1',
+    'bts_ch_archer_skin1': '皮肤1',
     bts_ch_archer: 'Archer',
     bts_sk_jianzhi: '剑制',
     bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害（${get.poptip('bts_glossary_xingqi_faq')}时为2点${get.poptip('bts_glossary_guantong_faq')}伤害），获得2枚${get.poptip('bts_sk_xinyan')}。`,

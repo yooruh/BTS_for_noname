@@ -143,8 +143,9 @@ export const marks = {
 };
 
 export const translate = {
-    'bts_mk_misha_frozen-turn': '冻结回合',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_misha_skin1': '皮肤1',
+    'bts_mk_misha_frozen-turn': '冻结回合',
     'bts_ch_misha_skin1': '皮肤1',
     bts_ch_misha: '米沙',
     bts_sk_mengchong: '传冲',

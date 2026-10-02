@@ -24,6 +24,7 @@ export const BGM_LIST = new Set([
     'bts_ch_himiko',
     'bts_ch_huahuo',
     'bts_ch_huangquan',
+    'bts_ch_huohua',
     'bts_ch_huohuo',
     'bts_ch_jialahe',
     'bts_ch_jiaoqiu',
@@ -33,6 +34,7 @@ export const BGM_LIST = new Set([
     'bts_ch_jizi_qixing',
     'bts_ch_kafuka',
     'bts_ch_kaituozhe',
+    'bts_ch_kelvdela',
     'bts_ch_lingke',
     'bts_ch_lingsha',
     'bts_ch_liuying',
@@ -50,6 +52,7 @@ export const BGM_LIST = new Set([
     'bts_ch_shajin',
     'bts_ch_shajin_xilang',
     'bts_ch_tibao',
+    'bts_ch_tingyun_wangguiren',
     'bts_ch_tuopa',
     'bts_ch_wandi',
     'bts_ch_welt',
@@ -66,5 +69,6 @@ export const BGM_LIST = new Set([
     'bts_ch_yukong',
     'bts_ch_yunli',
     'bts_ch_zhenliyisheng',
-    'bts_ch_zhigengniao'
+    'bts_ch_zhigengniao',
+    'due30'
 ]);

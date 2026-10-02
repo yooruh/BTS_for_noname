@@ -239,8 +239,8 @@ export const translate = {
 
     '$bts_sk_mofa1': "好奇心，可是很危险的",
     '$bts_sk_mofa2': "谜题千千万万，但谜底却是…乌有之物",
-    '$bts_sk_shijie1': "新世界的大门",
-    '$bts_sk_shijie2': "就得打开思路",
+    '$bts_sk_shijie1': "新世界的大门~",
+    '$bts_sk_shijie2': "就得打开思路~",
     '$bts_sk_geju1': "洞见未知的瞬间，为它沉迷吧",
     '$bts_sk_geju2': "筑就空域的壁垒，就此塌落吧",
     '~bts_ch_daheita': "我还会回来……",

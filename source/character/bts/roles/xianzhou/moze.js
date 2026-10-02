@@ -300,6 +300,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_moze_skin1': '皮肤1',
     'bts_ch_moze_skin2': '皮肤2',
+    'bts_ch_moze_skin1': '皮肤1',
+    'bts_ch_moze_skin2': '皮肤2',
     bts_ch_moze: '貊泽',
     bts_sk_fengying: '锋影',
     bts_sk_fengying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，弃置一名其他角色一张牌（${get.poptip('bts_glossary_xingqi_faq')}时获得之），然后视为对其使用【杀】。`,

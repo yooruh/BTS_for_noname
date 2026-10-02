@@ -204,8 +204,11 @@ export const marks = {
 };
 
 export const translate = {
-    bts_mk_caibao_done: '财宝达成',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_gilgamesh_skin1': '皮肤1',
+    'bts_ch_gilgamesh_skin2': '皮肤2',
+    'bts_ch_gilgamesh_skin3': '皮肤3',
+    bts_mk_caibao_done: '财宝达成',
     'bts_ch_gilgamesh_skin1': '皮肤1',
     'bts_ch_gilgamesh_skin2': '皮肤2',
     'bts_ch_gilgamesh_skin3': '皮肤3',

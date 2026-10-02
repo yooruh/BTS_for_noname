@@ -219,8 +219,9 @@ export const marks = {
 };
 
 export const translate = {
-    bts_mk_shengjian: '圣剑状态',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_saber_skin1': '皮肤1',
+    bts_mk_shengjian: '圣剑状态',
     'bts_ch_saber_skin1': '皮肤1',
     bts_ch_saber: 'Saber',
     bts_sk_shengjian: '圣剑',

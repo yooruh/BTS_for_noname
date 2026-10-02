@@ -172,8 +172,24 @@ export const marks = {
 };
 
 export const translate = {
-    'bts_mk_huoying-time': '火萤次数',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_liuying_skin1': '皮肤1',
+    'bts_ch_liuying_skin10': '皮肤10',
+    'bts_ch_liuying_skin11': '皮肤11',
+    'bts_ch_liuying_skin12': '皮肤12',
+    'bts_ch_liuying_skin13': '皮肤13',
+    'bts_ch_liuying_skin14': '皮肤14',
+    'bts_ch_liuying_skin15': '皮肤15',
+    'bts_ch_liuying_skin16': '皮肤16',
+    'bts_ch_liuying_skin2': '皮肤2',
+    'bts_ch_liuying_skin3': '皮肤3',
+    'bts_ch_liuying_skin4': '皮肤4',
+    'bts_ch_liuying_skin5': '皮肤5',
+    'bts_ch_liuying_skin6': '皮肤6',
+    'bts_ch_liuying_skin7': '皮肤7',
+    'bts_ch_liuying_skin8': '皮肤8',
+    'bts_ch_liuying_skin9': '皮肤9',
+    'bts_mk_huoying-time': '火萤次数',
     'bts_ch_liuying_skin1': '皮肤1',
     'bts_ch_liuying_skin10': '皮肤10',
     'bts_ch_liuying_skin11': '皮肤11',

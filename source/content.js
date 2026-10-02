@@ -7,6 +7,7 @@ import { lib, game, ui, get } from '../../../noname.js';
 import {
     registerRules,
     installBgmFollow,
+    installSceneBgm,
     installMarkSourceTrack,
     installBuffSkillLifecycle,
     installCustomEventHooks,
@@ -103,6 +104,8 @@ export async function content(config, pack) {
     installKingdomLayoutHook();
     // 规则类注册：BGM 跟随主公（全局技能 bts_bgm_follow）。
     installBgmFollow();
+    // 非游戏规则注册：场景曲（源 due30）登记进「设置·音效·背景音乐」可选列表。
+    installSceneBgm();
     // 规则类注册：标记来源追踪（全局技能 bts_mk_source_track）。
     installMarkSourceTrack();
     // 规则类注册：buff 标记生命周期（包装 addMark/removeMark + 自定义标记事件）。

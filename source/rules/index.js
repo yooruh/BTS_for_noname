@@ -244,6 +244,24 @@ export function installBgmFollow() {
     game.addGlobalSkill('bts_bgm_follow');
 }
 
+// ── 场景曲注册（源 due30.mp3 → 设置·音效·背景音乐可选）──────────────────────
+// 引擎可选背景音乐列表 = lib.configMenu.audio.config.background_music.item（显示名）
+// + lib.config.all.background_music（合法值/随机池；init 阶段导入 game/package.js 的
+// music 目录）。扩展把自带场景曲登记进二者：文件随扩展发布（audio/bgm/due30.mp3），
+// 链接用 ext: 形式（playBackgroundMusic 对 ext: 分支解析 extension/<路径>），
+// 不改动无名杀安装目录，重装引擎不丢失。扩展加载（init 的 loadExtension）晚于
+// 音乐目录导入、早于设置菜单构建，故登记后打开设置即可见。
+const SCENE_BGM_LINK = 'ext:崩铁杀/audio/bgm/due30.mp3';
+const SCENE_BGM_NAME = '崩铁杀·场景曲（due30）';
+export function installSceneBgm() {
+    const item = lib.configMenu?.audio?.config?.background_music?.item;
+    const all = lib.config?.all?.background_music;
+    if (!item || !all) return;
+    if (item[SCENE_BGM_LINK]) return;
+    item[SCENE_BGM_LINK] = SCENE_BGM_NAME;
+    if (!all.includes(SCENE_BGM_LINK)) all.add(SCENE_BGM_LINK);
+}
+
 // ── buff 标记技能生命周期（叁岛 buff 技能模式）────────────────────────────
 // 所有显示类标记（RULE_MARKS，mark: true + hiddenSkill）以「技能」形式挂载：
 // 标记层数 > 0 时 addSkill（技能不可见，承载标记显示与触发效果），

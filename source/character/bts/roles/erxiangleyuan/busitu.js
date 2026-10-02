@@ -223,6 +223,8 @@ export const translate = {
     '$bts_sk_bianshao2': "露馅了吧",
     '$bts_sk_suyuan1': "以牙还牙",
     '$bts_sk_suyuan2': "争个死活",
+
+    '~bts_ch_busitu': "我的…星星们啊……",
 };
 
 export const simpleTranslate = {

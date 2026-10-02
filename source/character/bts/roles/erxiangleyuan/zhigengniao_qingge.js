@@ -348,6 +348,10 @@ export const translate = {
     '$bts_sk_hesheng2': "灵魂律动，solo时间~",
     '$bts_sk_wanfeng2': "节拍不止，音浪不息~",
     '$bts_sk_xintiao2': "跟随海风，自由摇摆~",
+
+    '~bts_ch_qingkongyueshou': "还没…唱完……",
+    '~bts_ch_zhigengniao_qingge': "还没…唱完……",
+    '~bts_ch_zhigengniao_qingge_and_qingkongyueshou': "还没…唱完……",
 };
 
 export const simpleTranslate = {

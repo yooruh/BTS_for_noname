@@ -141,6 +141,8 @@ export const translate = {
     '$bts_sk_sijian2': "先发制人！",
     '$bts_sk_liequan1': "很嚣张嘛！",
     '$bts_sk_liequan2': "别走神了！",
+
+    '~bts_ch_luka': "不能这么狼狈……",
 };
 
 export const simpleTranslate = {

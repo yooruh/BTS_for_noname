@@ -212,10 +212,21 @@ export const marks = {
 };
 
 export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_huangquan_skin1': '皮肤1',
+    'bts_ch_huangquan_skin10': '皮肤10',
+    'bts_ch_huangquan_skin11': '皮肤11',
+    'bts_ch_huangquan_skin2': '皮肤2',
+    'bts_ch_huangquan_skin3': '皮肤3',
+    'bts_ch_huangquan_skin4': '皮肤4',
+    'bts_ch_huangquan_skin5': '皮肤5',
+    'bts_ch_huangquan_skin6': '皮肤6',
+    'bts_ch_huangquan_skin7': '皮肤7',
+    'bts_ch_huangquan_skin8': '皮肤8',
+    'bts_ch_huangquan_skin9': '皮肤9',
     bts_mk_canmeng_active: '残梦状态',
     bts_mk_canmeng_damage: '残梦伤害',
     bts_mk_canmeng_dis_used: '蚀已用',
-    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_huangquan_skin1': '皮肤1',
     'bts_ch_huangquan_skin10': '皮肤10',
     'bts_ch_huangquan_skin11': '皮肤11',

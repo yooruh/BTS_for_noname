@@ -115,6 +115,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_qingque_skin1': '皮肤1',
     'bts_ch_qingque_skin2': '皮肤2',
+    'bts_ch_qingque_skin1': '皮肤1',
+    'bts_ch_qingque_skin2': '皮肤2',
     bts_ch_qingque: '青雀',
     bts_sk_anke: '暗刻',
     bts_sk_anke_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并摸四张牌。`,

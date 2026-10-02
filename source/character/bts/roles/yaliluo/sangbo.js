@@ -112,6 +112,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_sangbo_skin1': '皮肤1',
     'bts_ch_sangbo_skin2': '皮肤2',
+    'bts_ch_sangbo_skin1': '皮肤1',
+    'bts_ch_sangbo_skin2': '皮肤2',
     bts_ch_sangbo: '桑博',
     bts_sk_jingxi: '惊喜',
     bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加1层${get.poptip('bts_glossary_zhongdu_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，其获得1枚${get.poptip('bts_sk_jingxi')}标记。`,

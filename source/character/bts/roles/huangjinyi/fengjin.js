@@ -255,6 +255,14 @@ export const translate = {
     'bts_ch_fengjin_skin6': '皮肤6',
     'bts_ch_fengjin_skin7': '皮肤7',
     'bts_ch_fengjin_skin8': '皮肤8',
+    'bts_ch_fengjin_skin1': '皮肤1',
+    'bts_ch_fengjin_skin2': '皮肤2',
+    'bts_ch_fengjin_skin3': '皮肤3',
+    'bts_ch_fengjin_skin4': '皮肤4',
+    'bts_ch_fengjin_skin5': '皮肤5',
+    'bts_ch_fengjin_skin6': '皮肤6',
+    'bts_ch_fengjin_skin7': '皮肤7',
+    'bts_ch_fengjin_skin8': '皮肤8',
     bts_ch_fengjin: '风堇',
     bts_ch_xiaoyika: '小伊卡',
     bts_ch_fengjin_and_xiaoyika: '风堇&小伊卡',
@@ -288,6 +296,8 @@ export const translate = {
     '~bts_ch_fengjin': "先祖，我还没……",
     '~bts_ch_xiaoyika': "先祖，我还没……",
     bts_bless_yuguotianqing_info: `来源：${get.poptip('bts_sk_chenhun')}赋予；${get.poptip('bts_glossary_bless_maxhp_faq')}翻倍；回合结束自然减少1层`,
+
+    '~bts_ch_fengjin_and_xiaoyika': "先祖，我还没……",
 };
 export const simpleTranslate = {
     bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}，${get.poptip('bts_glossary_xingqi_faq')}时加${get.poptip('bts_glossary_bless_maxhp_faq')}，治疗自己和目标`,

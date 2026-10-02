@@ -119,8 +119,9 @@ export const marks = {
 };
 
 export const translate = {
-    'bts_mk_xiangbin-sha': '香槟加持',
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_jialahe_skin1': '皮肤1',
+    'bts_mk_xiangbin-sha': '香槟加持',
     'bts_ch_jialahe_skin1': '皮肤1',
     bts_ch_jialahe: '加拉赫',
     bts_sk_xiangbin: '香槟',

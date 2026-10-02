@@ -280,6 +280,18 @@ export const translate = {
     'bts_ch_xiadie_skin7': '皮肤7',
     'bts_ch_xiadie_skin8': '皮肤8',
     'bts_ch_xiadie_skin9': '皮肤9',
+    'bts_ch_xiadie_skin1': '皮肤1',
+    'bts_ch_xiadie_skin10': '皮肤10',
+    'bts_ch_xiadie_skin11': '皮肤11',
+    'bts_ch_xiadie_skin12': '皮肤12',
+    'bts_ch_xiadie_skin2': '皮肤2',
+    'bts_ch_xiadie_skin3': '皮肤3',
+    'bts_ch_xiadie_skin4': '皮肤4',
+    'bts_ch_xiadie_skin5': '皮肤5',
+    'bts_ch_xiadie_skin6': '皮肤6',
+    'bts_ch_xiadie_skin7': '皮肤7',
+    'bts_ch_xiadie_skin8': '皮肤8',
+    'bts_ch_xiadie_skin9': '皮肤9',
     bts_ch_xiadie: '遐蝶',
     bts_ch_silong: '死龙',
     bts_ch_xiadie_and_silong: '遐蝶&死龙',
@@ -316,6 +328,8 @@ export const translate = {
     '~bts_ch_silong': "好温暖啊…西风……",
     '~bts_ch_xiadie': "好温暖啊…西风……",
     bts_mk_xinrui_info: `来源：${get.poptip('bts_sk_huangwu')}赋予；${get.poptip('bts_sk_wangxiao')}：满7召唤${get.poptip('bts_ch_silong')}`,
+
+    '~bts_ch_xiadie_and_silong': "好温暖啊…西风……",
 };
 
 export const simpleTranslate = {

@@ -19,8 +19,8 @@
  *        ——默认预览，--apply 才写盘。
  *   node scripts/voice.mjs clear [--apply]  删除 translate 中残留的台词键（$ / ~，便于按新规范重写）；
  *        ——默认预览，--apply 才写盘。
- *   node scripts/voice.mjs syncdie [--apply] 形态角色阵亡音频复用：把主角色 die 音频复制为形态 die 文件；
- *        ——默认预览，--apply 才写盘。
+ *   node scripts/voice.mjs syncdie [--apply] 形态角色阵亡音频复用（纯形态 + _and_ 组合）：把主角色 die 音频
+ *        复制为形态 die 文件；——默认预览，--apply 才写盘。
  *   node scripts/voice.mjs exclude [list|add|remove] [id…]  无语音技能排除清单管理（scripts/voice-exclude.txt）：
  *        ——清单内技能完全跳过（gen 不预留空位、reorganize 移除条目、write 跳过台词行）；支持 * 通配；
  *        无参=交互菜单。
@@ -170,6 +170,8 @@ async function gen() {
     }
   }
   // 阵亡：按 cInfo 的角色（含形态）。形态角色复用主角色 die（音频用 syncdie 复制文件、台词取主）
+  // 两缺（无 mp3 且无台词）此前直接跳过 → 缺阵亡的角色在清单中完全不可见（2026-10-03 修复：
+  // 主角色/独立角色列为「缺音频」占位，供对照太阳神源补齐；纯形态随主角色行体现，不重复占位）
   for (const ck of Object.keys(cInfo)) {
     const reuse = dieReuse[ck]; // 形态→主
     const srcId = reuse || ck;
@@ -179,12 +181,16 @@ async function gen() {
     // 台词优先级：代码（无名杀既有台词）> 文档（兜底保留手填）
     const text = codeVoice.get(srcMp3) || userText.get(srcMp3) || '';
     const t = !!text;
-    if (!a && !t) continue;
+    if (!a && !t) {
+      if (!reuse) push(ck, { type: '阵亡', label: `${cInfo[ck].name} 阵亡`, mp3: cell(mp3, false), status: AUDIO, text: '' });
+      continue;
+    }
     push(ck, { type: '阵亡', label: `${cInfo[ck].name} 阵亡`, mp3: cell(mp3, a), status: !a ? AUDIO : (t ? DONE : TEXT), text });
   }
-  // 组合阵亡
+  // 组合阵亡：阵亡音频与台词均复用主角色——_and_ 组合的台词严格取主角色（audio/die/<主>.mp3 的 $ ~ 文本，
+  // 与纯形态一致；主台词改动经 gen → write 自动同步到组合键）
   const combos = [];
-  for (const d of [...dieFiles].sort()) { if (Object.hasOwn(cInfo, d)) continue; if (!/_and_/.test(d)) { combos.push({ label: `${nameById[d] ? nameById[d] : d}`, mp3: cell(`audio/die/${d}.mp3`, true), text: codeVoice.get(`audio/die/${d}.mp3`) || userText.get(`audio/die/${d}.mp3`) || '' }); continue; } const mm = /^(bts_[a-z0-9_]+?)_and_/.exec(d); combos.push({ label: `${d}（复用 ${mm[1]}）`, mp3: cell(`audio/die/${d}.mp3`, true), text: codeVoice.get(`audio/die/${d}.mp3`) || userText.get(`audio/die/${d}.mp3`) || '' }); }
+  for (const d of [...dieFiles].sort()) { if (Object.hasOwn(cInfo, d)) continue; if (!/_and_/.test(d)) { combos.push({ label: `${nameById[d] ? nameById[d] : d}`, mp3: cell(`audio/die/${d}.mp3`, true), text: codeVoice.get(`audio/die/${d}.mp3`) || userText.get(`audio/die/${d}.mp3`) || '' }); continue; } const mm = /^(bts_[a-z0-9_]+?)_and_/.exec(d); combos.push({ label: `${d}（复用 ${mm[1]}）`, mp3: cell(`audio/die/${d}.mp3`, true), text: codeVoice.get(`audio/die/${mm[1]}.mp3`) || userText.get(`audio/die/${mm[1]}.mp3`) || '' }); }
   // 输出
   const STAT_ORDER = [DONE, TEXT, AUDIO], STAT_TITLE = { [DONE]: '已配齐', [TEXT]: '缺台词', [AUDIO]: '缺音频' };
   const byStatus = {};
@@ -252,12 +258,12 @@ async function writeBack() {
     for (const m of src.matchAll(/^[ \t]*\/\/\s*['"]?\$(bts_[\w]+?)(\d+)/gm)) keptKeys.add(`${m[1]}|${m[2]}`);
     for (const m of src.matchAll(/^[ \t]*\/\/\s*['"]?~(bts_[A-Za-z0-9_]+)/gm)) keptKeys.add(`die:${m[1]}`);
   }
-  const charFile = roleFile; // 用全局 id→文件 映射（含 character/transformCharacter 的形态 id，形态阵亡键可写回对应文件）
+  const charFile = roleFile; // 用全局 id→文件 映射（含 character/transformCharacter 的形态 id——纯形态与 _and_ 组合的阵亡键均可写回各自角色文件）
   const ins = new Map(), upd = new Map(), skip = [];
   for (const line of (await readFile(DOC, 'utf8')).split('\n')) { const m3 = /audio\/(?:skill|die)\/[A-Za-z0-9_]+\.mp3/.exec(line); if (!m3 || !line.trim().startsWith('|')) continue; const c = line.split('|'); const text = (c[c.length - 2] || '').trim(); if (!text) continue; const p = m3[0];
     let key, kid, ck;
     if (p.startsWith('audio/skill/')) { const m = /^audio\/skill\/(bts_[\w]+?)(\d+)\.mp3$/.exec(p); if (!m) continue; if (isExcluded(m[1])) { skip.push(`'$${m[1]}${m[2]}'（已排除）`); continue; } key = `'$${m[1]}${m[2]}'`; kid = `${m[1]}|${m[2]}`; ck = skillOwner[m[1]]; }
-    else { const m = /^audio\/die\/(bts_[A-Za-z0-9_]+)\.mp3$/.exec(p); if (!m) continue; if (/_and_/.test(m[1])) continue; key = `'~${m[1]}'`; kid = `die:${m[1]}`; ck = m[1]; }
+    else { const m = /^audio\/die\/(bts_[A-Za-z0-9_]+)\.mp3$/.exec(p); if (!m) continue; key = `'~${m[1]}'`; kid = `die:${m[1]}`; ck = m[1]; }
     if (!ck || !charFile[ck]) { skip.push(`${key}（无归属）`); continue; }
     const old = activeVal[kid];
     if (old !== undefined) { if (old === text) continue; if (!upd.has(charFile[ck])) upd.set(charFile[ck], new Map()); upd.get(charFile[ck]).set(key, { jsonVal: JSON.stringify(text), old }); }
@@ -327,7 +333,9 @@ async function reorganize() {
       // 组合 / 无 cInfo 归属的独立阵亡音频 → 组合阵亡区（与 gen 的 dieFiles 分流一致，2026-10-02 对齐）
       if (/_and_/.test(d) || !cInfo[d]) {
         const mm = /^(bts_[a-z0-9_]+?)_and_/.exec(d);
-        combos.push({ label: mm ? `${d}（复用 ${mm[1]}）` : nameById[d] ? nameById[d] : d, mp3: cell(mp3, a), text });
+        // 组合台词严格复用主角色（与 gen 一致：取主角色文档行；主行无台词时保留本行现值）
+        const inherit = mm ? docMp3.get(`audio/die/${mm[1]}.mp3`) : '';
+        combos.push({ label: mm ? `${d}（复用 ${mm[1]}）` : nameById[d] ? nameById[d] : d, mp3: cell(mp3, a), text: inherit || text });
         continue;
       }
       push(d, { type: '阵亡', label: `${cInfo[d].name} 阵亡`, mp3: cell(mp3, a), status: st(a, !!text), text });
@@ -404,26 +412,26 @@ async function clearVoiceKeys() {
 
 // ═════════════════════════  syncDie：形态角色阵亡音频复用主角色  ═════════════════
 // 把每个含 transformCharacter 的角色的「主形态 array 音频」(audio/die/<主>.mp3)
-// 复制为各纯形态 id 的 die 文件（audio/die/<形态id>.mp3），使形态角色也能播放阵亡。
-// 台词用主角色（gen 已对形态条目取主台词）。默认预览，--apply 才写盘。
+// 复制为各形态 id 的 die 文件（audio/die/<形态id>.mp3，含 _and_ 组合），使形态角色也能播放阵亡。
+// 台词用主角色（gen 已对形态/组合条目取主台词）。默认预览，--apply 才写盘。
 async function syncDie() {
   let copied = 0, files = 0;
   const missingMain = new Set();
   for (const full of await walk(rolesRoot, '.js')) {
     const mod = roleMods.get(full);
     const chars = Object.keys(mod?.character ?? {});
-    const morphs = Object.keys(mod?.transformCharacter ?? {}).filter((id) => !/_and_/.test(id));
+    const morphs = Object.keys(mod?.transformCharacter ?? {});
     const main = chars[0];
     if (!main || !morphs.length) continue;
     let mainBuf = null;
-    try { mainBuf = await readFile(join(audioDie, `${main}.mp3`)); } catch { if (applyWrite) missingMain.add(main); continue; }
+    try { mainBuf = await readFile(join(audioDie, `${main}.mp3`)); } catch { missingMain.add(main); continue; }
     let changedHere = false;
     for (const mb of morphs) {
-      const dst = join(audioDie, `${mb.id}.mp3`);
+      const dst = join(audioDie, `${mb}.mp3`);
       let same = false;
       try { same = (await readFile(dst)).equals(mainBuf); } catch { /* 目标不存在 */ }
       if (same) continue;
-      if (!applyWrite) console.log(`◇ 复用 ${main}.mp3 → ${mb.id}.mp3`);
+      if (!applyWrite) console.log(`◇ 复用 ${main}.mp3 → ${mb}.mp3`);
       else await writeFile(dst, mainBuf);
       copied++; changedHere = true;
     }

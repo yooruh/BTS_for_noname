@@ -128,6 +128,7 @@ export const skill = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_ruanmei_skin1': '皮肤1',
+    'bts_ch_ruanmei_skin1': '皮肤1',
     bts_ch_ruanmei: '阮梅',
     bts_sk_yaoduan: '摇缎',
     bts_sk_yaoduan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你附加2层${get.poptip('bts_glossary_bless_canmei_faq')}，和这些角色各附加2层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}。（若你为${get.poptip('bts_glossary_xingqi_faq')}则上述改为3层）`,

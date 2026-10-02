@@ -122,6 +122,8 @@ export const skill = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_alan_skin1': '皮肤1',
+    'bts_ch_alan_skin1': '皮肤1',
+    'bts_ch_alan_skin1': '皮肤1',
     bts_ch_alan: '阿兰',
     bts_sk_kuangcai: '狂裁',
     bts_sk_kuangcai_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择X名有手牌的其他角色（X为你已损失的体力值且至少为1，若你为${get.poptip('bts_glossary_xingqi_faq')}则无限制），获得这些角色各一张牌（手牌或装备牌）。`,

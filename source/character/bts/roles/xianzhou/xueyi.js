@@ -144,6 +144,7 @@ export const marks = {
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_xueyi_skin1': '皮肤1',
+    'bts_ch_xueyi_skin1': '皮肤1',
     bts_ch_xueyi: '雪衣',
     bts_sk_tianfa: '天罚',
     bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对攻击范围内一名其他角色造成1点伤害；若其拥有元素，改为造成3点伤害并移除其元素。`,

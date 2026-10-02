@@ -121,6 +121,8 @@ export const skill = {
 };
 
 export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_huohua_skin1': '皮肤1',
     bts_ch_huohua: '火花',
     bts_sk_kuanghuan: '狂欢',
     bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各以 14.4%+（${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率失去4点体力。`,
@@ -128,7 +130,7 @@ export const translate = {
     bts_sk_lianxian_funny_info: `出牌阶段限两次，你可以执行欢愉行动，若手牌不足5张补至5张。欢愉行动：你弃置一张【杀】（若处于欢愉时刻则改为弃置牌）。`,
     bts_sk_huashou: '花手',
     bts_sk_huashou_info: '锁定技，当你执行欢愉行动后，弃置牌堆底五张牌。',
-    '~bts_ch_huohua': "诶~不演了……",
+    '~bts_ch_huohua': "哼，不演了……",
 
     '$bts_sk_kuanghuan1': "亲爱的粉丝们，久等啦~",
     '$bts_sk_kuanghuan2': "和火花一起，狂欢到世界尽头吧！",

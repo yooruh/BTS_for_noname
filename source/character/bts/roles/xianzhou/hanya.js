@@ -107,6 +107,8 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_hanya_skin1': '皮肤1',
     'bts_ch_hanya_skin2': '皮肤2',
+    'bts_ch_hanya_skin1': '皮肤1',
+    'bts_ch_hanya_skin2': '皮肤2',
     bts_ch_hanya: '寒鸦',
     bts_sk_zunxing: '遵行',
     bts_sk_zunxing_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，其将手牌补至与你相同。`,

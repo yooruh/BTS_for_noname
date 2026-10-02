@@ -218,6 +218,16 @@ export const translate = {
     'bts_ch_agelaiya_skin3': '皮肤3',
     'bts_ch_agelaiya_skin4': '皮肤4',
     'bts_ch_agelaiya_skin5': '皮肤5',
+    'bts_ch_agelaiya_skin1': '皮肤1',
+    'bts_ch_agelaiya_skin2': '皮肤2',
+    'bts_ch_agelaiya_skin3': '皮肤3',
+    'bts_ch_agelaiya_skin4': '皮肤4',
+    'bts_ch_agelaiya_skin5': '皮肤5',
+    'bts_ch_agelaiya_skin1': '皮肤1',
+    'bts_ch_agelaiya_skin2': '皮肤2',
+    'bts_ch_agelaiya_skin3': '皮肤3',
+    'bts_ch_agelaiya_skin4': '皮肤4',
+    'bts_ch_agelaiya_skin5': '皮肤5',
     bts_ch_agelaiya: '阿格莱雅',
     bts_ch_yijiang: '衣匠',
     bts_ch_agelaiya_and_yijiang: '阿格莱雅&衣匠',
@@ -252,6 +262,8 @@ export const translate = {
     '~bts_ch_yijiang': "作茧…自缚……",
     bts_bless_zhigaozhizi: '至高之姿祝福',
     bts_bless_zhigaozhizi_info: `来源：${get.poptip('bts_glossary_bless_gongwu_faq')}赋予；杀当决斗、光伤后+层；回合结束自然减少1层`,
+
+    '~bts_ch_agelaiya_and_yijiang': "作茧…自缚……",
 };
 
 export const simpleTranslate = {

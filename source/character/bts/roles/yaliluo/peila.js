@@ -159,7 +159,7 @@ export const translate = {
     bts_sk_mice_info: `当一名其他角色的回合结束后，若其拥有${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}，你可以弃置一张【杀】，移除其1层${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}。`,
 
     '$bts_sk_yazhi1': "敌方数据收集完毕",
-    '$bts_sk_yazhi2': "网标记激活，接下来就是愉快的反击时间了",
+    '$bts_sk_yazhi2': "收网标记激活，接下来就是愉快的反击时间了",
     '$bts_sk_caiji1': "闭上嘴吧",
     '$bts_sk_caiji2': "还要再来一下？",
     '$bts_sk_mice1': "这样…然后这样……",
