@@ -95,8 +95,8 @@ export const skill = {
             // 源 L4641：弃【杀】；cost 所选牌在技能事件 event.cards
             await player.discard(event.cards);
             // 源 L4643-4647：所有中毒角色各附加1层中毒
-            for (const target of game.filterPlayer((target) =>
-                lib.bts.api.getAbnor(target, 'poison'),
+            for (const target of lib.bts.api.seatOrder(
+                game.filterPlayer((target) => lib.bts.api.getAbnor(target, 'poison')),
             ))
                 lib.bts.api.addAbnormal(target, 'poison', 1, player);
         },
@@ -126,7 +126,7 @@ export const simpleTranslate = {
     bts_sk_jizhu_info: `他人回合内受异常伤害后可令其+1${get.poptip('bts_glossary_zhongdu_faq')}`,
     bts_sk_shizhui_info: `结束阶段可弃杀令全部${get.poptip('bts_glossary_zhongdu_faq')}角色各+1${get.poptip('bts_glossary_zhongdu_faq')}`,
 };
-export const pinyins = { bts_ch_heitiane: 'heitiane' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_jielu: {
@@ -196,6 +196,8 @@ export const glossary = [
         name: '|揭露|',
         // 2026-09-04 归属修正：jielu 异常由黑天鹅「臂湾」赋予；那刻夏的 bts_sk_jielu 是
         // 名为「揭露」的技能（授予升华），二者曾混淆。
-        info: `异常状态：由${get.poptip('bts_sk_biwan')}赋予（黑天鹅）；与其他异常组合结算：中毒→弃牌阶段失去1点体力、摸牌数-1、攻击范围-1；烧伤/麻痹→手牌上限-1。`,
+        // 2026-09-28 组合分支按实现/源重写（源 animal_fix L1508/1613/1794/1820）：
+        // 「弃牌失去体力」仅在烧伤/麻痹同存路线；中毒路线只含摸牌/攻击范围修正。
+        info: `异常状态：由${get.poptip('bts_sk_biwan')}赋予（黑天鹅）；与其他异常组合结算——与${get.poptip('bts_glossary_zhongdu_faq')}同存：摸牌数-1（无${get.poptip('bts_glossary_mabi_faq')}时）、攻击范围-1（无${get.poptip('bts_glossary_abnormal_burn_faq')}时）；与${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_mabi_faq')}同存且无${get.poptip('bts_glossary_zhongdu_faq')}：手牌上限-1，且弃牌阶段开始时失去1点体力。`,
     },
 ];

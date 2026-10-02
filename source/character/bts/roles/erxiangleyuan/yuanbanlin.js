@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '量子·智识·天才少女'; // 属性·命途
 export const intro =
-    `${B('远坂凛')}拿${get.poptip('bts_glossary_magic_diamond_faq')}赌一把：手牌或宝石够多，就清光手牌去赌${get.poptip('bts_glossary_nature_dark_faq')}伤害；别人弃【杀】，她顺手再收一波${get.poptip('bts_glossary_magic_diamond_faq')}。`;
+    `${B('远坂凛')}拿${get.poptip('bts_glossary_magic_diamond_faq')}赌一把：手牌或${get.poptip('bts_glossary_magic_diamond_faq')}够多，就清光手牌去赌${get.poptip('bts_glossary_nature_dark_faq')}伤害；别人弃【杀】，她顺手再收一波${get.poptip('bts_glossary_magic_diamond_faq')}。`;
 
 export const character = {
     bts_ch_yuanbanlin: {
@@ -169,7 +169,8 @@ export const skill = {
     },
 
     // ── 触发技·魔术（源 st_moshu = TriggerSkill CardsMoveOneTime，L10099-10124）──
-    // 一名其他角色弃置【杀】后，你可以获得其数量两倍的宝石；若其没有致命祝福，令其附加2层。
+    // 一名角色弃置【杀】后（含弃牌者本人，源文本参照本 L14713「当一名角色的牌被弃置后」），
+    // 你可以获得其数量两倍的宝石；若其没有致命祝福，令其附加2层。
     bts_sk_moshu: {
         trigger: { global: 'loseAfter' },
         logTarget: 'player',
@@ -224,11 +225,11 @@ export const translate = {
     bts_sk_mingxin: '明薪',
     bts_sk_mingxin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你摸一张牌并展示之，此牌视为【杀】；然后令这些角色各附加${get.poptip('bts_glossary_nature_dark_faq')}和1层诅咒，若你为${get.poptip('bts_glossary_xingqi_faq')}，获得24枚${get.poptip('bts_glossary_magic_diamond_faq')}，若如此做，此回合结束时，你执行一个额外的摸牌阶段和出牌阶段。`,
     bts_sk_mingxin_slash: '明薪·视为杀',
-    bts_sk_mingxin_slash_info: '你可以将明薪展示的牌当【杀】使用（本回合内）。',
+    bts_sk_mingxin_slash_info: `你可以将${get.poptip('bts_sk_mingxin')}展示的牌当【杀】使用（本回合内）。`,
     bts_sk_shiyan: '实验',
     bts_sk_shiyan_info: `出牌阶段，若你拥有至少7张手牌或15枚${get.poptip('bts_glossary_magic_diamond_faq')}，可以弃置所有手牌并选择至少一名其他角色，消耗${get.poptip('bts_glossary_magic_diamond_faq')}以7%起始概率造成${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害；失败时下次概率翻倍，最后摸两张牌并结束出牌阶段。`,
     bts_sk_moshu: '魔术',
-    bts_sk_moshu_info: `一名其他角色弃置【杀】后，你可以获得其数量两倍的${get.poptip('bts_glossary_magic_diamond_faq')}，若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，令其附加2层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
+    bts_sk_moshu_info: `一名角色弃置【杀】后，你可以获得其数量两倍的${get.poptip('bts_glossary_magic_diamond_faq')}，若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，令其附加2层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_mk_magic_diamond: '宝石',
 
     '$bts_sk_mingxin1': "伊什塔尔！（拿去吧~）",
@@ -243,10 +244,10 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_mingxin_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}摸1牌展示当【杀】，群体${get.poptip('bts_glossary_nature_dark_faq')}+诅咒，${get.poptip('bts_glossary_xingqi_faq')}送${get.poptip('bts_glossary_magic_diamond_faq')}额外摸/出牌阶段`,
     bts_sk_shiyan_info: `手牌/${get.poptip('bts_glossary_magic_diamond_faq')}够数就清手牌，烧${get.poptip('bts_glossary_magic_diamond_faq')}赌${get.poptip('bts_glossary_nature_dark_faq')}暗伤`,
-    bts_sk_moshu_info: `别人弃【杀】你能拿双倍${get.poptip('bts_glossary_magic_diamond_faq')}，顺手送他${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_moshu_info: `有人弃【杀】你能拿双倍${get.poptip('bts_glossary_magic_diamond_faq')}，顺手送他${get.poptip('bts_glossary_bless_fatal_faq')}`,
 };
 
-export const pinyins = { bts_ch_yuanbanlin: 'yuanbanlin' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -254,6 +255,6 @@ export const glossary = [
     {
         id: 'bts_glossary_magic_diamond_faq',
         name: '|宝石|',
-        info: `远坂凛专属：${get.poptip('bts_sk_mingxin')}星启、${get.poptip('bts_sk_moshu')}他人弃杀各+量；${get.poptip('bts_sk_shiyan')}耗3枚概率暗伤。`,
+        info: `远坂凛专属：${get.poptip('bts_sk_mingxin')}${get.poptip('bts_glossary_xingqi_faq')}、${get.poptip('bts_sk_moshu')}任一角色弃杀各+量；${get.poptip('bts_sk_shiyan')}耗3枚概率暗伤。`,
     },
 ];

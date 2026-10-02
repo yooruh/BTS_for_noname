@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '量子·存护·太卜司太卜'; // 属性·命途
 export const intro =
-    `${B('符玄')}用穷观替队友挨打，${get.poptip('bts_glossary_st_piji_faq')}能在濒死时把自己拉回来。`;
+    `${B('符玄')}用${get.poptip('bts_sk_qiongguan')}替队友挨打，${get.poptip('bts_glossary_st_piji_faq')}能在濒死时把自己拉回来。`;
 
 export const character = {
     bts_ch_fuxuan: {
@@ -69,7 +69,7 @@ export const skill = {
             // cost 所选目标在技能事件 event.targets（标准约定）
             // 源 L6654-6656：标记记在符玄上、键含目标（"st_qiongguan<目标>-start"），
             // 于符玄下个回合开始前生效（源 L1503-1506 RoundStart 清 -start）。
-            // 已修正：①标记键 bts_st_ 前缀（原裸 qiongguan_，违反命名规范）；
+            // 已修正：①标记键 bts_mk_ 前缀（原裸 qiongguan_，违反命名规范）；
             // ②删除冗余 clear 子技：-start 后缀标记由 rules/globalrules.js bts_gamerule_phase
             // 于符玄下个 phaseZhunbeiBegin 统一清除，且其 priority(1)>穷观(0) 先执行、不会误伤
             // 本回合刚添加的标记；原 clear 子技同优先级随后执行，会把新标记当场抹掉（E-03）。
@@ -167,7 +167,7 @@ export const simpleTranslate = {
     bts_sk_qiongguan_info: '准备阶段可弃杀标记其他角色，其于你的下个回合开始前受伤害时由你承伤',
 };
 
-export const pinyins = { bts_ch_fuxuan: 'fuxuan' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。

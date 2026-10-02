@@ -18,9 +18,9 @@ import {
 export const sort = 'xingqionglieche';
 export const title = '物理·毁灭·穹'; // 属性·命途
 export const intro =
-    `${B('开拓者')}是星核宿主：${get.poptip('bts_glossary_bisha_faq')}${B('星尘')}花${get.poptip('bts_glossary_nuqi_faq')}进入${B(get.poptip('bts_glossary_xingqi_faq'))}并可选单体爆发或AOE，` +
-    `${B('斗志')}在自己回合清空别人手牌就攒${get.poptip('bts_glossary_hudun_faq')}，${B('安息')}以杀换伤。` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}后洞天/星尘类${get.poptip('bts_glossary_xingqi_faq')}技收益更高，注意${get.poptip('bts_glossary_nuqi_faq')}管理`;
+    `${B('开拓者')}是星核宿主：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_xingchen'))}花${get.poptip('bts_glossary_nuqi_faq')}进入${B(get.poptip('bts_glossary_xingqi_faq'))}并可选单体爆发或AOE，` +
+    `${B(get.poptip('bts_sk_douzhi'))}在自己回合清空别人手牌就攒${get.poptip('bts_glossary_hudun_faq')}，${B(get.poptip('bts_sk_anxi'))}以杀换伤。` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}后${get.poptip('bts_sk_dongtian')}/${get.poptip('bts_sk_xingchen')}类${get.poptip('bts_glossary_xingqi_faq')}技收益更高，注意${get.poptip('bts_glossary_nuqi_faq')}管理`;
 
 // 形态变形示例：穹↔星。星为替代形态，不单独进入选将池；
 // lib.bts.api.changeHero() 基于 Noname player.reinit 实现实际的头像/性别/技能/血量切换。
@@ -102,7 +102,8 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_xingchen');
             lib.bts.api.loseAngry(player, 4); // 源 L1642
-            lib.bts.api.addBless(player, 'god'); // 星启祝福（源 L1643）
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            lib.bts.api.addBless(player, 'god', 2, player); // 星启祝福（源 L1643）
             // 选择一项：1.星落（对一名角色造成1点伤害） 2.安息强化（无需弃牌且无目标上限）
             // 修复：控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案改走 set('prompt')
             const choice = await player
@@ -236,7 +237,7 @@ export const translate = {
     // bts_sk_huanxing_info:
     //     '出牌阶段限一次，你可以在开拓者·穹与开拓者·星之间切换形态。',
     bts_sk_xingchen: '星尘',
-    bts_sk_xingchen_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}，附加1层${get.poptip('bts_glossary_bless_god_faq')}，然后你于此回合内的出牌阶段限一次，可以选择一项：1.对一名角色造成1点伤害；2.发动“安息”无需弃牌且无目标上限。选项结算完毕时，若有目标角色死亡，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
+    bts_sk_xingchen_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}，附加2层${get.poptip('bts_glossary_bless_god_faq')}，然后你于此回合内的出牌阶段限一次，可以选择一项：1.对一名角色造成1点伤害；2.发动“${get.poptip('bts_sk_anxi')}”无需弃牌且无目标上限。选项结算完毕时，若有目标角色死亡，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
 
     bts_sk_douzhi: '斗志',
     bts_sk_douzhi_info: `锁定技，当一名角色于你的回合内失去所有手牌后，你附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
@@ -258,9 +259,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xingchen_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}附加${get.poptip('bts_glossary_xingqi_faq')}，出牌阶段限一次选择一项：1.对1名角色造成1点伤害；2.发动安息（无需弃牌且无目标上限）；选项结算完毕时若有目标死亡，回复1点${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_xingchen_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}附加2层${get.poptip('bts_glossary_xingqi_faq')}，出牌阶段限一次选择一项：1.对1名角色造成1点伤害；2.发动${get.poptip('bts_sk_anxi')}（无需弃牌且无目标上限）；选项结算完毕时若有目标死亡，回复1点${get.poptip('bts_glossary_nuqi_faq')}`,
     bts_sk_douzhi_info: `锁；你的回合内，一名角色失去所有手牌后，你+1层${get.poptip('bts_glossary_hudun_faq')}`,
     bts_sk_anxi_info: '出牌阶段限一次，弃1张【杀】对1名角色造成1点伤害',
 };
 
-export const pinyins = { bts_ch_kaituozhe: 'kaituozhe' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

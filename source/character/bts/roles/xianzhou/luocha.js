@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '虚数·丰饶·金人巷商会会长'; // 属性·命途
 export const intro =
-    `${B('罗刹')}用归葬拆掉目标的${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}换${get.poptip('bts_glossary_baihua_faq')}；白花攒到两枚，就能反复把受伤的人奶回来。`;
+    `${B('罗刹')}用${get.poptip('bts_sk_guizang')}拆掉目标的${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}换${get.poptip('bts_glossary_baihua_faq')}；${get.poptip('bts_glossary_baihua_faq')}攒到两枚，就能反复把受伤的人奶回来。`;
 
 export const character = {
     bts_ch_luocha: {
@@ -212,7 +212,7 @@ export const translate = {
     '$bts_sk_baihua2': "领受天赐！",
     '~bts_ch_luocha': "没能…实现啊……",
     bts_mk_baihua: '白花',
-    bts_mk_baihua_info: '来源：归葬、白花赋予；轮转：满2治疗并清空',
+    bts_mk_baihua_info: `来源：${get.poptip('bts_sk_guizang')}、${get.poptip('bts_glossary_baihua_faq')}赋予；${get.poptip('bts_sk_lunzhuan')}：满2治疗并清空`,
     'bts_mk_baihua-start': '白花失效',
 };
 
@@ -222,7 +222,7 @@ export const simpleTranslate = {
     bts_sk_baihua_info: `别人受伤后可奶回并+1${get.poptip('bts_glossary_baihua_faq')}，不弃杀就暂时失效`,
 };
 
-export const pinyins = { bts_ch_luocha: 'luocha' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -230,6 +230,6 @@ export const glossary = [
     {
         id: 'bts_glossary_baihua_faq',
         name: '|白花|',
-        info: `罗刹专属：${get.poptip('bts_sk_guizang')}必杀+1；有2枚以上时${get.poptip('bts_sk_lunzhuan')}令受伤者回复1，准备阶段清除。`,
+        info: `罗刹专属：${get.poptip('bts_sk_guizang')}${get.poptip('bts_glossary_bisha_faq')}+1；有2枚以上时${get.poptip('bts_sk_lunzhuan')}令受伤者回复1，准备阶段清除。`,
     },
 ];

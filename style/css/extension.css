@@ -102,6 +102,10 @@ noname-poptip.bts-title-icon {
     user-select: none !important;
 }
 
+/* ── 词条（noname-poptip）样式 ──────────────────────────────────────────
+ * 2026-09-29 决定：不覆盖引擎词条样式，与无名杀本体保持一致（layout.css
+ * 的「实线下划线 + 加粗」）；技能描述里词条的点击查看行为不变。 */
+
 /* ── 扩展设置菜单按钮（在线更新 / 应用推荐设置）──────────────────────────
  * 与叁岛 lit-config-button 同风格，但不依赖主题 CSS 变量。 */
 .bts-config-button {

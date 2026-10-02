@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xinghelieshou';
 export const title = '火·毁灭·萨姆'; // 属性·命途
 export const intro =
-    `${B('流萤')}是爆发核心：${get.poptip('bts_glossary_bisha_faq')}${B('火萤')}牺牲出牌阶段换来${get.poptip('bts_glossary_bless_fullburn_faq')}与额外回合，${B('中枢')}在残血时减伤，${B('天火')}在有满燃时打出炎伤连锁、否则自损回怒。` +
+    `${B('流萤')}是爆发核心：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_huoying'))}牺牲出牌阶段换来${get.poptip('bts_glossary_bless_fullburn_faq')}与额外回合，${B(get.poptip('bts_sk_zhongshu'))}在残血时减伤，${B(get.poptip('bts_sk_tianhuo'))}在有满燃时打出炎伤连锁、否则自损回怒。` +
     `<li>${get.poptip('bts_glossary_bless_fullburn_faq')}：对无手牌角色造成炎伤后其失去1体力`;
 
 export const character = {
@@ -113,7 +113,7 @@ export const skill = {
                         1,
                         true,
                     );
-                    for (const p of game.players) {
+                    for (const p of lib.bts.api.seatOrder(game.players)) {
                         if (
                             p.isAlive() &&
                             (lib.bts.api.getAbnor(p, 'burn') ||
@@ -195,7 +195,7 @@ export const translate = {
     bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，你可以失去3+X点${get.poptip('bts_glossary_nuqi_faq')}（X为你发动此技能结算完毕的次数且至多为2），结束此阶段，若如此做，此回合结束时，你附加2层${get.poptip('bts_glossary_bless_fullburn_faq')}，执行一个额外的回合。`,
 
     bts_sk_zhongshu: '中枢',
-    bts_sk_zhongshu_info: `锁定技，当你受到不为必杀技的伤害时，若你的体力值不大于1，伤害值-1；锁定技，你的手牌上限为${get.poptip('bts_glossary_bless_maxhp_faq')}。`,
+    bts_sk_zhongshu_info: `锁定技，当你受到不为${get.poptip('bts_glossary_bisha_faq')}的伤害时，若你的体力值不大于1，伤害值-1；锁定技，你的手牌上限为${get.poptip('bts_glossary_bless_maxhp_faq')}。`,
 
     bts_sk_tianhuo: '天火',
     bts_sk_tianhuo_info: `出牌阶段开始时，你可以弃置一张【杀】，然后若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，失去2点体力，回复3点${get.poptip('bts_glossary_nuqi_faq')}，否则，你回复1点体力并选择一名角色，令其附加${get.poptip('bts_glossary_nature_flame_faq')}，弃置其一张手牌，然后弃置所有处于${get.poptip('bts_glossary_abnormal_burn_faq')}的角色和${get.poptip('bts_glossary_nature_flame_faq')}角色各一张手牌，对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害。`,
@@ -208,16 +208,16 @@ export const translate = {
     '$bts_sk_zhongshu2': "我会为自己夺得胜利",
     '~bts_ch_liuying': "任务……终止……",
     bts_bless_fullburn: '完全燃烧祝福',
-    bts_bless_fullburn_info: '来源：火萤赋予；无牌角色火伤后失去体力；回合结束自然减少1层',
+    bts_bless_fullburn_info: `来源：${get.poptip('bts_sk_huoying')}赋予；无牌角色火伤后失去体力；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
     bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，若无满燃，失3+X${get.poptip('bts_glossary_nuqi_faq')}结束出牌阶段，回合结束+2满燃并执行额外回合`,
-    bts_sk_zhongshu_info: `锁；受不为必杀技的伤害时若体力≤1伤害-1；手牌上限=${get.poptip('bts_glossary_bless_maxhp_faq')}`,
+    bts_sk_zhongshu_info: `锁；受不为${get.poptip('bts_glossary_bisha_faq')}的伤害时若体力≤1伤害-1；手牌上限=${get.poptip('bts_glossary_bless_maxhp_faq')}`,
     bts_sk_tianhuo_info: `出牌阶段开始时，弃1张【杀】；无满燃则失2体力回3${get.poptip('bts_glossary_nuqi_faq')}，有满燃则回1体力令1名角色+炎并炎伤，且弃${get.poptip('bts_glossary_abnormal_burn_faq')}/炎角色各1手牌`,
 };
 
-export const pinyins = { bts_ch_liuying: 'liuying' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_fullburn: {
@@ -247,6 +247,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_fullburn_faq',
         name: '完全燃烧祝福',
-        info: '当你对没有手牌的角色造成炎属性伤害后，其失去1点体力。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你对没有手牌的角色造成炎属性伤害后，其失去1点体力。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

@@ -158,4 +158,4 @@ export const simpleTranslate = {
     bts_sk_yangyi_info: `锁；角色受${get.poptip('bts_glossary_abnormal_burn_faq')}伤害后+1诅咒`,
 };
 
-export const pinyins = { bts_ch_guinaifen: 'guinaifen' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

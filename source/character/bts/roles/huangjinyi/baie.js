@@ -599,13 +599,20 @@ export const skill = {
     // ── 锁定技·身炬（源 st_shenju = TriggerSkill Compulsory CardsMoveOneTime/Damaged/HpRecover，L8322-8352）──
     // 其他角色令你回复体力、回复怒气、附加祝福或护盾、获得牌后，你受到伤害后，或你弃置【杀】后，
     // 若火种少于15枚，你获得1枚火种。
-    // （怒气/祝福/护盾三触发源代码未实现，按用户定夺补：在 lib.bts.api.addAngry/addBless/addShield
-    //   以 from !== player 挂钩，见 rules/utils.js，与寸强 cunqiang 同款模式。）
+    // （怒气/祝福/护盾三触发源代码未实现，按用户定夺补；2026-10-02 自注册重构：
+    //   由 lib.bts.api.addAngry/addBless/addShield 广播 bts_resource_add，本技能监听结算。）
     bts_sk_shenju: {
-        // 四件事以你为当事人（event.player === 你）：用 player:，引擎只在 event.player===你 时触发
-        // filter 第 3 参 triggername 是带 Before/After 后缀的完整触发名（event.name/filter 的 event 为基名）。
+        // 均以你为当事人（event.player === 你）：用 player:，引擎只在 event.player===你 时触发
+        //（bts_resource_add 为自注册重构新增：他人令你获得怒气/附加祝福/护盾）。
+        // filter 第 3 参 triggername 是完整触发名（event.name/filter 的 event 为基名）。
         trigger: {
-            player: ['gainAfter', 'recoverEnd', 'damageEnd', 'loseAfter'],
+            player: [
+                'gainAfter',
+                'recoverEnd',
+                'damageEnd',
+                'loseAfter',
+                'bts_resource_add',
+            ],
         },
         forced: true,
         filter(event, player, triggername) {
@@ -613,6 +620,8 @@ export const skill = {
             if (player.countMark('bts_mk_huozhong') >= 15) return false;
             // 源 L8341-8344：你受到伤害
             if (triggername === 'damageEnd') return event.num > 0;
+            // 2026-10-02 自注册重构：他人令你获得怒气/附加祝福/护盾 → bts_resource_add
+            if (triggername === 'bts_resource_add') return event.from !== player;
             // 源 L8340：其他角色令你回复体力（self 回血不计）
             if (triggername === 'recoverEnd')
                 return event.num > 0 && event.source && event.source !== player;
@@ -871,9 +880,12 @@ export const skill = {
                 lib.bts.api.addAbnormal(target, 'lieyang', 1, player);
             }
             // 源 L8464-8469：所有烈阳角色弃1手牌并移除1层烈阳
-            for (const target of game.filterPlayer(
-                (target) =>
-                    lib.bts.api.getAbnor(target, 'lieyang') && target.countCards('h'),
+            for (const target of lib.bts.api.seatOrder(
+                game.filterPlayer(
+                    (target) =>
+                        lib.bts.api.getAbnor(target, 'lieyang') &&
+                        target.countCards('h'),
+                ),
             )) {
                 await target.chooseToDiscard(
                     '天裁：弃置一张手牌',
@@ -949,17 +961,19 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_lieyang_faq',
         name: '|烈阳|',
-        info: `异常状态：由技能效果赋予；每满2层移除2层并对持有者造成1点无来源伤害。`,
+        // 2026-09-28：补「致命」——源文本参照本 L14421「受到1点致命伤害」；实现走致命 reason
+        //（utils.js addAbnormal 分支 bts_gamerule_bts_reason_fatal）。
+        info: `异常状态：由技能效果赋予；每满2层移除2层并对持有者造成1点${get.poptip('bts_glossary_bless_fatal_faq')}伤害。`,
     },
     {
         id: 'bts_glossary_huozhong_faq',
         name: '|火种|',
-        info: `白厄专属：${get.poptip('bts_sk_shenju')}获牌/治疗、${get.poptip('bts_sk_pidi')}受伤弃杀各+1枚；满6/12由${get.poptip('bts_sk_fanshi')}变身燔世。`,
+        info: `白厄专属：${get.poptip('bts_sk_shenju')}获牌/治疗、${get.poptip('bts_sk_pidi')}受伤弃杀各+1枚；满6/12由${get.poptip('bts_sk_fanshi')}变身${get.poptip('bts_sk_fanshi')}。`,
     },
     {
         id: 'bts_glossary_fanshi_active_faq',
         name: '|燔世状态|',
-        info: `白厄变身状态：发动${get.poptip('bts_sk_fanshi')}（耗火种）后变身卡厄斯兰那；场上其余角色依次各执行一个额外回合，每当这些回合之一结束你执行一个额外出牌阶段（弑魂等技能授予的回合不触发）；濒死时回复至1点并中断波次。`,
+        info: `白厄变身状态：发动${get.poptip('bts_sk_fanshi')}（耗${get.poptip('bts_glossary_huozhong_faq')}）后变身${get.poptip('bts_ch_kaesilanna')}；场上其余角色依次各执行一个额外回合，每当这些回合之一结束你执行一个额外出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）；濒死时回复至1点并中断波次。`,
     },
 ];
 
@@ -982,9 +996,9 @@ export const translate = {
     bts_ch_kaesilanna: '卡厄斯兰那',
     bts_sk_fanshi: '燔世',
     bts_sk_fanshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，弃12枚${get.poptip('bts_glossary_huozhong_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}且首次发动则改为6枚），`
-        + `变身为${get.poptip('bts_ch_kaesilanna')}。变身期间你不能正常使用牌，只能使用转化/虚拟牌或响应他人的牌。选择至少1名其他角色作为敌人保留在场，其余角色被除名（移出游戏），你的体力上限增至除名数的倍数，体力回复至上限；场上其余角色依次各执行一个额外回合，每当这些回合之一结束，你执行一个额外的出牌阶段（弑魂等技能授予的回合不触发）。变身期间进入濒死状态时，你回复至1点体力并中断波次。`
-        + `波次结束后，你获得未除名者各一张牌，然后退出变身；退出时被除名者回归，你扣回此前增加的体力上限，体力取体力上限与你当前生命值的较小者，并获得一个额外的出牌阶段。`
-        + `<li>若你拥有${get.poptip('bts_sk_aishi')}，波次结束时若流程内未进入过濒死状态，你可选择：①弃置所有手牌重复燔世流程，②获得6枚${get.poptip('bts_glossary_huozhong_faq')}`,
+        + `变身为${get.poptip('bts_ch_kaesilanna')}。变身期间你不能正常使用牌，只能使用转化/虚拟牌或响应他人的牌。选择至少1名其他角色作为敌人保留在场，其余角色被除名（移出游戏），你的${get.poptip('bts_glossary_bless_maxhp_faq')}增至除名数的倍数，体力回复至上限；场上其余角色依次各执行一个额外回合，每当这些回合之一结束，你执行一个额外的出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）。变身期间进入濒死状态时，你回复至1点体力并中断波次。`
+        + `波次结束后，你获得未除名者各一张牌，然后退出变身；退出时被除名者回归，你扣回此前增加的${get.poptip('bts_glossary_bless_maxhp_faq')}，体力取${get.poptip('bts_glossary_bless_maxhp_faq')}与你当前生命值的较小者，并获得一个额外的出牌阶段。`
+        + `<li>若你拥有${get.poptip('bts_sk_aishi')}，波次结束时若流程内未进入过濒死状态，你可选择：①弃置所有手牌重复${get.poptip('bts_sk_fanshi')}流程，②获得6枚${get.poptip('bts_glossary_huozhong_faq')}`,
 
     bts_sk_fanshi_chuwai: '燔世·除名',
     bts_sk_fanshi_wave: '燔世·续',
@@ -992,11 +1006,11 @@ export const translate = {
     bts_sk_fanshi_drive_skip: '燔世·续',
     bts_sk_shihun_tail: '弑魂·斩',
     bts_sk_shenju: '身炬',
-    bts_sk_shenju_info: `锁定技，其他角色令你回复体力、回复${get.poptip('bts_glossary_nuqi_faq')}、附加祝福或${get.poptip('bts_glossary_hudun_faq')}、获得牌后，你受到伤害后，或你弃置【杀】后，若${get.poptip('bts_glossary_huozhong_faq')}少于15枚，你获得1枚${get.poptip('bts_glossary_huozhong_faq')}。`,
+    bts_sk_shenju_info: `锁定技，其他角色令你回复体力、回复${get.poptip('bts_glossary_nuqi_faq')}、附加${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}、获得牌后，你受到伤害后，或你弃置【杀】后，若${get.poptip('bts_glossary_huozhong_faq')}少于15枚，你获得1枚${get.poptip('bts_glossary_huozhong_faq')}。`,
     bts_sk_pidi: '辟地',
     bts_sk_pidi_info: `当你造成伤害后，你可以弃置一张【杀】获得1枚${get.poptip('bts_glossary_huozhong_faq')}。`,
     bts_sk_fanshi_huanyuan: '燔世·还原',
-    bts_sk_fanshi_huanyuan_info: '锁定技，每当一个因“燔世”获得的回合结束，你执行一个额外的出牌阶段（弑魂等技能授予的回合不触发）；变身期间你进入濒死状态时，回复至1点体力（不会死亡）并中断波次，波次随后结束时你获得未除名者各一张牌；若你拥有爱诗且流程内未进入过濒死状态，波次结束时你可以弃置所有手牌重复燔世流程，或获得6枚火种并退出；退出变身时，被除名者回归，你扣回此前增加的体力上限（体力取体力上限与当前生命值的较小者）并获得一个额外的出牌阶段（不是回合）。你死亡时，仅令被除名者回归。',
+    bts_sk_fanshi_huanyuan_info: `锁定技，每当一个因“${get.poptip('bts_sk_fanshi')}”获得的回合结束，你执行一个额外的出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）；变身期间你进入濒死状态时，回复至1点体力（不会死亡）并中断波次，波次随后结束时你获得未除名者各一张牌；若你拥有${get.poptip('bts_sk_aishi')}且流程内未进入过濒死状态，波次结束时你可以弃置所有手牌重复${get.poptip('bts_sk_fanshi')}流程，或获得6枚${get.poptip('bts_glossary_huozhong_faq')}并退出；退出变身时，被除名者回归，你扣回此前增加的${get.poptip('bts_glossary_bless_maxhp_faq')}（体力取${get.poptip('bts_glossary_bless_maxhp_faq')}与当前生命值的较小者）并获得一个额外的出牌阶段（不是回合）。你死亡时，仅令被除名者回归。`,
     bts_sk_xueji: '血棘',
     bts_sk_xueji_info: '出牌阶段，你可以弃置两张手牌，视为使用【决斗】，然后结束出牌阶段。',
     bts_sk_shihun: '弑魂',
@@ -1035,7 +1049,7 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_shenju_info: `锁；别人奶你/给你牌、你受伤或弃杀后+1${get.poptip('bts_glossary_huozhong_faq')}（封顶15）`,
     bts_sk_pidi_info: `造成伤害后，可弃杀+1${get.poptip('bts_glossary_huozhong_faq')}`,
-    bts_sk_fanshi_huanyuan_info: '锁；每个燔世回合结束你执行额外出牌阶段（弑魂回合不触发），每名未除名者各1回合；濒死回1并中断；波次后夺未除名者各1牌，爱诗未濒死可弃手牌重复或+6火种；退出取小还原并+1额外出牌阶段',
+    bts_sk_fanshi_huanyuan_info: `锁；每个${get.poptip('bts_sk_fanshi')}回合结束你执行额外出牌阶段（${get.poptip('bts_sk_shihun')}回合不触发），每名未除名者各1回合；濒死回1并中断；波次后夺未除名者各1牌，${get.poptip('bts_sk_aishi')}未濒死可弃手牌重复或+6${get.poptip('bts_glossary_huozhong_faq')}；退出取小还原并+1额外出牌阶段`,
     bts_sk_xueji_info: '弃2手牌当决斗用完就收手',
     bts_sk_shihun_info: '按场上剩余的其他角色数弃手牌，等他们额外回合走完再一人一发虚拟杀',
     bts_sk_tiancai_info: `摸到7张（至多4），随机给人挂${get.poptip('bts_glossary_abnormal_lieyang_faq')}，带${get.poptip('bts_glossary_abnormal_lieyang_faq')}的角色挨个弃牌；非${get.poptip('bts_glossary_xingqi_faq')}或摸不足4结束出牌阶段`,
@@ -1044,9 +1058,9 @@ export const dynamicTranslate = {
     bts_sk_fanshi(player) {
         const xingqiStr = (lib.bts.api.god(player) && !player.getStorage('bts_mk_fanshi_used', 0)) ? `-6` : `-12`;
         return `${get.poptip('bts_glossary_bisha_faq')}，${xingqiStr}枚${get.poptip('bts_glossary_huozhong_faq')}，变身为${get.poptip('bts_ch_kaesilanna')}，`
-            + `变身后只能用转化/虚拟牌，或响应他人的牌。选至少1名敌人留场，其余除名；血量与上限增至除名数的倍数。场上其余角色依次各执行一个额外回合，每个这类回合结束你执行额外出牌阶段（弑魂回合不触发）。濒死时回至1血并中断波次。`
+            + `变身后只能用转化/虚拟牌，或响应他人的牌。选至少1名敌人留场，其余除名；血量与上限增至除名数的倍数。场上其余角色依次各执行一个额外回合，每个这类回合结束你执行额外出牌阶段（${get.poptip('bts_sk_shihun')}回合不触发）。濒死时回至1血并中断波次。`
             + `波次后夺未除名者各1牌，还原变身（体力取较小者），+1额外出牌阶段`
-            + `<li>若你拥有${get.poptip('bts_sk_aishi')}，波次结束未濒死可弃所有手牌重复燔世，否则+6${get.poptip('bts_glossary_huozhong_faq')}`;
+            + `<li>若你拥有${get.poptip('bts_sk_aishi')}，波次结束未濒死可弃所有手牌重复${get.poptip('bts_sk_fanshi')}，否则+6${get.poptip('bts_glossary_huozhong_faq')}`;
     },
 };
 // 重要修改，需同步全项目的对应条目

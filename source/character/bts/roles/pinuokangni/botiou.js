@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'pinuokangni';
 export const title = '物理·巡猎·巡海游侠'; // 属性·命途
 export const intro =
-    `${B('波提欧')}用日落翻面目标再与其决斗，靠${get.poptip('bts_glossary_koudai_faq')}让后续决斗更疼。`;
+    `${B('波提欧')}用${get.poptip('bts_sk_riluo')}翻面目标再与其决斗，靠${get.poptip('bts_glossary_koudai_faq')}让后续决斗更疼。`;
 
 export const character = {
     bts_ch_botiou: {
@@ -217,16 +217,16 @@ export const translate = {
     '$bts_sk_zhuangtian2': "最后这发赏给你！",
     '~bts_ch_botiou': "哈哈，好枪法……",
     bts_mk_koudai: '口袋',
-    bts_mk_koudai_info: '来源：炽烁赋予；装填：决斗伤弃敌牌',
+    bts_mk_koudai_info: `来源：${get.poptip('bts_sk_chishuo')}赋予；${get.poptip('bts_sk_zhuangtian')}：决斗伤弃敌牌`,
 };
 
 export const simpleTranslate = {
     bts_sk_riluo_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}弃1牌，令目标${get.poptip('bts_glossary_nature_earth_faq')}翻面并与其决斗`,
-    bts_sk_chishuo_info: `出牌阶段可弃杀获得${get.poptip('bts_glossary_koudai_faq')}并指定契约目标，缔约期间杀当决斗、只能对契约目标用牌`,
-    bts_sk_zhuangtian_info: '锁；决斗伤害时目标弃至多3手牌（不超过口袋数）',
+    bts_sk_chishuo_info: `出牌阶段可弃杀获得${get.poptip('bts_glossary_koudai_faq')}并指定${get.poptip('bts_glossary_bless_yingzi_faq')}目标，缔约期间杀当决斗、只能对${get.poptip('bts_glossary_bless_yingzi_faq')}目标用牌`,
+    bts_sk_zhuangtian_info: `锁；决斗伤害时目标弃至多3手牌（不超过${get.poptip('bts_glossary_koudai_faq')}数）`,
 };
 
-export const pinyins = { bts_ch_botiou: 'botiou' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。

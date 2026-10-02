@@ -4,11 +4,10 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '火·欢愉·狂欢企划'; // 称号
 export const intro =
-    `${B('火花')}点燃狂欢，用${get.poptip('bts_glossary_funnypoint_faq')}与${get.poptip('bts_glossary_bless_funny_faq')}赌一场大起大落。`;
+    `${B('火花')}点燃${get.poptip('bts_sk_kuanghuan')}，用${get.poptip('bts_glossary_funnypoint_faq')}与${get.poptip('bts_glossary_bless_funny_faq')}赌一场大起大落。`;
 
 export const character = {
     bts_ch_huohua: {
-        isUnseen: true, // 欢愉体系
         sex: 'female',
         group: 'erxiangleyuan',
         hp: 4,
@@ -56,19 +55,68 @@ export const skill = {
         usable: 2, // 源 enabled_at_play（L11306）：usedTimes("#st_lianxian_funny") < 2
         async content(event, trigger, player) {
             // 源 L11293-11300：FunnyAct(player)，成功且手牌<5 时补至5张（发动记录由引擎自动）。
-            // afterFunnyAct（花手：+1笑点、弃牌堆底5张）由 funnyAct 内部统一出口调用
-            //（见 utils.funnyAct 连线分支），此处不再显式调用，避免与 funnyTime（funny≠1）路径双触发。
-            const done = await lib.bts.api.funnyAct(player);
+            // funnyAct 按各技能的 bts_funny 注册表逐条执行（本技能效果即下表连线项）；
+            // afterFunnyAct（花手）由 funnyAct 收束步统一触发，此处不再显式调用，
+            // 避免与 funnyTime（funny≠1）路径双触发（端口既定语义，连线项勿设 after=false）。
+            // initiator=event.name：本技能自动日志已由引擎记录，行动时不再重复 logSkill。
+            const done = await lib.bts.api.funnyAct(
+                player,
+                null,
+                null,
+                event.name,
+            );
             if (done && player.countCards('h') < 5)
                 await player.draw(player, 5 - player.countCards('h'));
+        },
+        // 欢愉行动注册（自注册重构）：funnyAct 泛化派发时执行——弃1【杀】/欢愉时刻弃牌；
+        // 取消选牌时 ctx.aborted（对应旧 if 链的 return false 语义）。
+        bts_funny: {
+            order: 30,
+            async act(ctx) {
+                if (ctx.funny == null) ctx.funny = 1;
+                if (
+                    lib.bts.api.getBless(ctx.player, 'funny') ||
+                    ctx.player.storage.bts_funny_time
+                ) {
+                    await ctx.target.chooseToDiscard(
+                        '欢愉（连线）：弃置牌',
+                        'he',
+                        ctx.funny,
+                        ctx.funny,
+                        true,
+                    );
+                } else {
+                    const card = await ctx.target
+                        .chooseCard(
+                            '欢愉（连线）：弃置一张【杀】',
+                            'he',
+                            (card) => get.name(card) === 'sha',
+                        )
+                        .forResult();
+                    if (!card) {
+                        ctx.aborted = true;
+                        return;
+                    }
+                    await ctx.target.discard(card);
+                }
+                ctx.done = true;
+            },
         },
         ai: { order: 4, result: { player: 1 } },
     },
 
     // ── 触发技·花手（源 st_huashou = TriggerSkill Damaged 空触发，L11317-11323）──
-    // 半成品空技能；实际结算在 utils.js afterFunnyAct（欢愉行动后弃牌堆底5张）。
+    // 锁定技，当你执行欢愉行动后，弃置牌堆底五张牌。触发点：utils.afterFunnyAct 在
+    // +1 笑点后派发 bts_funny_act_after（规则层只广播，效果在本技能自注册；
+    // 自动日志 + 音频即由此接通，原手动 logSkill 已删）。
     bts_sk_huashou: {
-        silent: true,
+        trigger: { player: 'bts_funny_act_after' },
+        forced: true,
+        async content(event, trigger, player) {
+            const cards = get.bottomCards(5);
+            if (cards.length) game.cardsDiscard(cards);
+        },
+        ai: { noe: true },
     },
 };
 
@@ -80,13 +128,22 @@ export const translate = {
     bts_sk_lianxian_funny_info: `出牌阶段限两次，你可以执行欢愉行动，若手牌不足5张补至5张。欢愉行动：你弃置一张【杀】（若处于欢愉时刻则改为弃置牌）。`,
     bts_sk_huashou: '花手',
     bts_sk_huashou_info: '锁定技，当你执行欢愉行动后，弃置牌堆底五张牌。',
-    '~bts_ch_huohua': '哼，不演了……',
+    '~bts_ch_huohua': "诶~不演了……",
+
+    '$bts_sk_kuanghuan1': "亲爱的粉丝们，久等啦~",
+    '$bts_sk_kuanghuan2': "和火花一起，狂欢到世界尽头吧！",
+    '$bts_sk_lianxian_funny1': "PK一下？",
+    '$bts_sk_lianxian_funny2': "正片开始！",
+    '$bts_sk_lianxian_funny3': "惩罚时间！",
+    '$bts_sk_lianxian_funny4': "全体起立！",
+    '$bts_sk_huashou1': "来了来了！要被泼天的富贵——砸、中、咯！",
+    '$bts_sk_huashou2': "不要走开！下一位幸运儿——就、是、你！",
 };
 
 export const simpleTranslate = {
-    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标各14.4%+倍祝福失4体力`,
+    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标各14.4%+倍${get.poptip('bts_glossary_bless_faq')}失4体力`,
     bts_sk_lianxian_funny_info: `限两次执行欢愉行动（弃杀），手牌补至5`,
     bts_sk_huashou_info: '欢愉行动后弃牌堆底5张',
 };
 
-export const pinyins = { bts_ch_huohua: 'huohua' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

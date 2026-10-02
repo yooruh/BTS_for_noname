@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '物理·同谐·十王司判官'; // 属性·命途
 export const intro =
-    `${B('寒鸦')}以遵行为手牌不足的同伴补牌，并用系缚传递【杀】。`;
+    `${B('寒鸦')}以${get.poptip('bts_sk_zunxing')}为手牌不足的同伴补牌，并用${get.poptip('bts_sk_xifu')}传递【杀】。`;
 
 export const character = {
     bts_ch_hanya: {
@@ -113,19 +113,22 @@ export const translate = {
     bts_sk_xifu: '系缚',
     bts_sk_xifu_info: '准备阶段开始时，你可以将一张【杀】交给一名其他角色。',
     bts_sk_fae: '罚恶',
-    bts_sk_fae_info: `锁定技，当你发动${get.poptip('bts_glossary_bisha_faq')}或系缚后，摸一张牌。`,
+    bts_sk_fae_info: `锁定技，当你发动${get.poptip('bts_glossary_bisha_faq')}或${get.poptip('bts_sk_xifu')}后，摸一张牌。`,
 
     '$bts_sk_zunxing1': "幽府判罚，命尔臂助……",
     '$bts_sk_zunxing2': "十王敕令，在此成书",
     '$bts_sk_xifu1': "我代十王判罚",
     '$bts_sk_xifu2': "细思你的罪业",
     '~bts_ch_hanya': "姐姐，我……",
+
+    '$bts_sk_fae1': "束手就缚罢",
+    '$bts_sk_fae2': "群邪避让",
 };
 
 export const simpleTranslate = {
     bts_sk_zunxing_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色补牌至与你手牌相同`,
     bts_sk_xifu_info: '准备阶段可将1杀交给1名其他角色',
-    bts_sk_fae_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}或系缚后摸1`,
+    bts_sk_fae_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}或${get.poptip('bts_sk_xifu')}后摸1`,
 };
 
-export const pinyins = { bts_ch_hanya: 'hanya' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

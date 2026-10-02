@@ -127,4 +127,4 @@ export const simpleTranslate = {
     bts_sk_heyun_info: `他人受伤后可弃杀令其+3${get.poptip('bts_glossary_bless_cifu_faq')}`,
 };
 
-export const pinyins = { bts_ch_tingyun: 'tingyun' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

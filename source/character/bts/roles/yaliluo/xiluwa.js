@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '雷·智识·贯通天穹的一曲'; // 属性·命途
 export const intro =
-    `${B('希露瓦')}是${get.poptip('bts_glossary_mabi_faq')}控制：${get.poptip('bts_glossary_bisha_faq')}${B('热潮')}令目标${get.poptip('bts_glossary_mabi_faq')}，${B('和弦')}空手时回复${get.poptip('bts_glossary_nuqi_faq')}，${B('电光')}摸牌阶段弃【杀】点${get.poptip('bts_glossary_mabi_faq')}。` +
+    `${B('希露瓦')}是${get.poptip('bts_glossary_mabi_faq')}控制：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_rechao'))}令目标${get.poptip('bts_glossary_mabi_faq')}，${B(get.poptip('bts_sk_hexian'))}空手时回复${get.poptip('bts_glossary_nuqi_faq')}，${B(get.poptip('bts_sk_dianguang'))}摸牌阶段弃【杀】点${get.poptip('bts_glossary_mabi_faq')}。` +
     `<li>${get.poptip('bts_glossary_mabi_faq')}会令目标少摸牌并受额外伤害`;
 
 export const character = {
@@ -161,4 +161,4 @@ export const simpleTranslate = {
     bts_sk_dianguang_info: `摸牌阶段，放弃摸牌并弃1张【杀】令1名角色+2${get.poptip('bts_glossary_mabi_faq')}`,
 };
 
-export const pinyins = { bts_ch_xiluwa: 'xiluwa' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '火·智识·逐星领航'; // 属性·命途
 export const intro =
-    `${B('姬子·启行')}逐星多带一个出牌阶段，弃杀攒${get.poptip('bts_glossary_bless_qiyu_faq')}给${get.poptip('bts_glossary_nature_flame_faq')}远征铺路；变「拓星者」后光束拆牌，拆到第六下炸开。`;
+    `${B('姬子·启行')}${get.poptip('bts_sk_zhuxing')}多带一个出牌阶段，弃杀攒${get.poptip('bts_glossary_bless_qiyu_faq')}给${get.poptip('bts_glossary_nature_flame_faq')}${get.poptip('bts_sk_yuanzheng')}铺路；变「${get.poptip('bts_ch_tuoxingzhe')}」后${get.poptip('bts_sk_guangshu')}拆牌，拆到第六下炸开。`;
 
 export const character = {
     bts_ch_jizi_qixing: {
@@ -163,10 +163,12 @@ export const skill = {
                     // 源 L10239-10247：for 遍历 findPlayersBySkillName("st_yuanzheng") 逐姬子征询，
                     // 每个同意的姬子各记已用并各结算一次（定夺 2026-09-12（B-07）由 findPlayer 取第一个
                     // 改为逐姬子征询）
-                    for (const jizi of game.filterPlayer(
-                        (p) =>
-                            p.hasSkill('bts_sk_yuanzheng') &&
-                            !p.getStorage('bts_mk_yuanzheng_used', false),
+                    for (const jizi of lib.bts.api.seatOrder(
+                        game.filterPlayer(
+                            (p) =>
+                                p.hasSkill('bts_sk_yuanzheng') &&
+                                !p.getStorage('bts_mk_yuanzheng_used', false),
+                        ),
                     )) {
                         // 源 L10242：askForSkillInvoke(p=姬子, "st_yuanzheng", player)——姬子须同意
                         const consent = await jizi
@@ -297,14 +299,14 @@ export const translate = {
     bts_ch_jizi_qixing: '姬子·启行',
     bts_ch_tuoxingzhe: '拓星者',
     bts_sk_zhuxing: '逐星',
-    bts_sk_zhuxing_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，变形为拓星者并进入一个额外的出牌阶段（拥有「光束」技能）：出牌阶段结束后变回姬子·启行。`,
+    bts_sk_zhuxing_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，变形为${get.poptip('bts_ch_tuoxingzhe')}并进入一个额外的出牌阶段（拥有「${get.poptip('bts_sk_guangshu')}」技能）：出牌阶段结束后变回姬子·启行。`,
     bts_sk_zhuxing_xu: '逐星·续',
     bts_sk_linghang: '领航',
     bts_sk_linghang_info: `出牌阶段开始时，你可以弃置一张【杀】，若你没有${get.poptip('bts_glossary_bless_qiyu_faq')}，附加3层${get.poptip('bts_glossary_bless_qiyu_faq')}。`,
     bts_sk_yuanzheng: '远征',
     bts_sk_yuanzheng_info: `限定技，出牌阶段，你可以结束此阶段并对一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害。`,
     bts_sk_yuanzheng_friend: '远征',
-    bts_sk_yuanzheng_friend_info: `星穹列车势力角色获得：出牌阶段，若存在未发动「远征」的姬子·启行，你可以结束此阶段，经其同意后代其发动「远征」对一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害，然后你回复1点怒气。`,
+    bts_sk_yuanzheng_friend_info: `星穹列车势力角色获得：出牌阶段，若存在未发动「${get.poptip('bts_sk_yuanzheng')}」的姬子·启行，你可以结束此阶段，经其同意后代其发动「${get.poptip('bts_sk_yuanzheng')}」对一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害，然后你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_guangshu: '光束',
     bts_sk_guangshu_info: `出牌阶段限六次，你可以弃置一名其他角色一张牌，其摸一张牌；第六次发动时，对以此法选择过的随机一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害并结束此阶段。`,
     bts_bless_qiyu: '旗语祝福',
@@ -330,22 +332,19 @@ export const translate = {
     '$bts_sk_guangshu2': "拓星者启动。航路障碍，开始清除",
     '~bts_ch_jizi_qixing': "就…交给你们了……",
     '~bts_ch_tuoxingzhe': "就…交给你们了……",
-    bts_bless_qiyu_info: '来源：领航赋予；清除远征标记；回合结束自然减少1层',
+    bts_bless_qiyu_info: `来源：${get.poptip('bts_sk_linghang')}赋予；清除${get.poptip('bts_sk_yuanzheng')}标记；回合结束自然减少1层`,
     bts_mk_yuanzheng_used: '远征已用',
 };
 
 export const simpleTranslate = {
-    bts_sk_zhuxing_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}，变拓星者+额外出牌阶段后切回`,
+    bts_sk_zhuxing_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}，变${get.poptip('bts_ch_tuoxingzhe')}+额外出牌阶段后切回`,
     bts_sk_linghang_info: `出牌开始可弃杀+3${get.poptip('bts_glossary_bless_qiyu_faq')}`,
     bts_sk_yuanzheng_info: `限定；对1名角色炎${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害并结束出牌`,
     bts_sk_guangshu_info:
         '出牌限六次；弃一名其他角色一牌其摸一牌，第六次炸随机目标并结束阶段',
 };
 
-export const pinyins = {
-    bts_ch_jizi_qixing: 'jiziqixing',
-    bts_ch_tuoxingzhe: 'tuoxingzhe',
-};
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_qiyu: {
@@ -369,6 +368,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_qiyu_faq',
         name: '旗语祝福',
-        info: '准备阶段开始时，你令「远征」视为未发动过。你的结束阶段开始时，此祝福减少1层。',
+        info: `准备阶段开始时，你令「${get.poptip('bts_sk_yuanzheng')}」视为未发动过。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '风·巡猎·天击将军'; // 属性·命途
 export const intro =
-    `${B('飞霄')}攒${get.poptip('bts_glossary_feihuang_faq')}砸凿荒连斩，钺贯把锦囊当风【杀】劈。`;
+    `${B('飞霄')}攒${get.poptip('bts_glossary_feihuang_faq')}砸${get.poptip('bts_sk_zaohuang')}连斩，${get.poptip('bts_sk_yueguan')}把锦囊当风【杀】劈。`;
 
 export const character = {
     bts_ch_feixiao: {
@@ -292,7 +292,7 @@ export const marks = {
 export const translate = {
     bts_ch_feixiao: '飞霄',
     bts_sk_zaohuang: '凿荒',
-    bts_sk_zaohuang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃6枚${get.poptip('bts_glossary_feihuang_faq')}标记，令你的攻击范围于此技能结算完毕前+6，然后视为使用两张致命【杀】（目标相同且有距离限制）；以此法使用【杀】时选择一项：1.此【杀】视为风【杀】，若目标拥有属性，伤害值+1；2.弃置目标角色一张手牌，没有属性的目标角色弃置的牌数+1。若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法造成的伤害视为${get.poptip('bts_glossary_guantong_faq')}伤害且弃置的牌数+1。`,
+    bts_sk_zaohuang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃6枚${get.poptip('bts_glossary_feihuang_faq')}标记，令你的攻击范围于此技能结算完毕前+6，然后视为使用两张${get.poptip('bts_glossary_bless_fatal_faq')}【杀】（目标相同且有距离限制）；以此法使用【杀】时选择一项：1.此【杀】视为风【杀】，若目标拥有属性，伤害值+1；2.弃置目标角色一张手牌，没有属性的目标角色弃置的牌数+1。若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法造成的伤害视为${get.poptip('bts_glossary_guantong_faq')}伤害且弃置的牌数+1。`,
     bts_sk_leishou: '雷狩',
     bts_sk_leishou_info: `其他角色使用【杀】结算完毕后，你可以视为对其中目标使用【杀】，获得1枚${get.poptip('bts_glossary_feihuang_faq')}标记。`,
     bts_sk_yueguan: '钺贯',
@@ -307,16 +307,16 @@ export const translate = {
     '$bts_sk_yueguan2': "无惧，无畏！",
     '~bts_ch_feixiao': "各位…拜托了……",
     bts_mk_feihuang: '飞黄',
-    bts_mk_feihuang_info: '来源：雷狩、钺贯赋予；凿荒：满6发动',
+    bts_mk_feihuang_info: `来源：${get.poptip('bts_sk_leishou')}、${get.poptip('bts_sk_yueguan')}赋予；${get.poptip('bts_sk_zaohuang')}：满6发动`,
 };
 
 export const simpleTranslate = {
-    bts_sk_zaohuang_info: `${get.poptip('bts_glossary_bisha_faq')}；弃6${get.poptip('bts_glossary_feihuang_faq')}，结算前范围+6，用两张致命杀（目标相同、有距离限制），每张选风杀（目标有属性伤害+1）或弃1牌（无属性+1/${get.poptip('bts_glossary_xingqi_faq')}+1）；${get.poptip('bts_glossary_xingqi_faq')}时伤害贯通且弃牌+1`,
+    bts_sk_zaohuang_info: `${get.poptip('bts_glossary_bisha_faq')}；弃6${get.poptip('bts_glossary_feihuang_faq')}，结算前范围+6，用两张${get.poptip('bts_glossary_bless_fatal_faq')}杀（目标相同、有距离限制），每张选风杀（目标有属性伤害+1）或弃1牌（无属性+1/${get.poptip('bts_glossary_xingqi_faq')}+1）；${get.poptip('bts_glossary_xingqi_faq')}时伤害${get.poptip('bts_glossary_guantong_faq')}且弃牌+1`,
     bts_sk_leishou_info: `他人杀结算后可追击其目标并+1${get.poptip('bts_glossary_feihuang_faq')}`,
     bts_sk_yueguan_info: `准备阶段可弃杀+1${get.poptip('bts_glossary_feihuang_faq')}，本回合锦囊当风杀（不能被响应且无距离限制）`,
 };
 
-export const pinyins = { bts_ch_feixiao: 'feixiao' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。

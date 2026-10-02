@@ -45,8 +45,8 @@ export const skill = {
                 card.storage.bts_sk_qianyi = true;
             }
             // 源：所有存活角色获得过滤技能 #st_qianyi。
-            for (const target of game.filterPlayer((target) =>
-                target.isAlive(),
+            for (const target of lib.bts.api.seatOrder(
+                game.filterPlayer((target) => target.isAlive()),
             )) {
                 if (!target.hasSkill('bts_sk_qianyi_slash', true))
                     // 引擎签名 addAdditionalSkill(分组键, 技能)：第一参为分组键、第二参为实际技能；
@@ -150,4 +150,4 @@ export const simpleTranslate = {
     bts_sk_guiji_info: '锁；手牌上限+2',
     bts_sk_youyu_info: `回合结束可弃2杀翻面，令1名其他角色+1${get.poptip('bts_glossary_bless_fatal_faq')}并额外回合`,
 };
-export const pinyins = { bts_ch_huahuo: 'huahuo' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

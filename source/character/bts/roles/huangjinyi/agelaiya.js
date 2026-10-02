@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'huangjinyi';
 export const title = '雷·记忆·黄金裔的织者'; // 属性·命途
 export const intro =
-    `${B('阿格莱雅')}召唤衣匠进入组合形态，拿${get.poptip('bts_glossary_nature_light_faq')}与决斗撕开战线。`;
+    `${B('阿格莱雅')}召唤${get.poptip('bts_ch_yijiang')}进入组合形态，拿${get.poptip('bts_glossary_nature_light_faq')}与决斗撕开战线。`;
 
 export const character = {
     bts_ch_agelaiya: {
@@ -72,7 +72,7 @@ export const skill = {
                 if (lost) await player.recover(player, lost);
             } else {
                 // 源 L7360：AddPet(player, "yijiang") —— 召唤衣匠
-                lib.bts.api.addPet(player, 'yijiang');
+                await lib.bts.api.addPet(player, 'yijiang');
             }
             // 源 L7362：addPlayerMark(player, "extra_turn") —— 额外回合
             lib.bts.api.extraTurn(player, 'bts_extra_turn');
@@ -148,25 +148,24 @@ export const skill = {
                 await player.recover(player);
             } else {
                 // 源 L7402-7403：召唤衣匠并执行额外回合
-                lib.bts.api.addPet(player, 'yijiang');
+                await lib.bts.api.addPet(player, 'yijiang');
                 lib.bts.api.extraTurn(player, 'bts_extra_turn');
             }
         },
         ai: { result: { player: 1 } },
     },
 
-    // ── 锁定技·匠躯（源 st_jiangqu = TriggerSkill Compulsory Damaged，L7410-7421）──
-    // 你受到伤害后，弃置一张手牌。
+    // ── 锁定技·匠躯（源 st_jiangqu = TriggerSkill Compulsory Damaged）──
+    // 你受到伤害后，弃置所有手牌（源已更新为 throwAllHandCards；2026-10-02 跟改）。
     bts_sk_jiangqu: {
         trigger: { player: 'damageEnd' },
         forced: true,
         filter(event, player) {
-            // 源 L7415：可弃手牌
             return player.countCards('h') > 0;
         },
         async content(event, trigger, player) {
-            // 源 L7417：askForDiscard(player, 1, 1)
-            await player.chooseToDiscard('匠躯：弃置一张手牌', 'h', 1, true);
+            // 源（现行）throwAllHandCards = 弃置所有手牌
+            await player.discard(player.getCards('h'));
         },
         ai: { noe: true },
     },
@@ -224,14 +223,14 @@ export const translate = {
     bts_ch_agelaiya_and_yijiang: '阿格莱雅&衣匠',
     bts_pet_yijiang: '衣匠',
     bts_sk_gongwu: '共舞',
-    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加3层至高之姿${get.poptip('bts_glossary_bless_faq')}并召唤衣匠；若衣匠已存在，改为回复体力。然后执行一个额外回合。`,
+    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加3层至高之姿${get.poptip('bts_glossary_bless_faq')}并召唤${get.poptip('bts_ch_yijiang')}；若${get.poptip('bts_ch_yijiang')}已存在，改为回复体力。然后执行一个额外回合。`,
     bts_sk_jinmeiag: '金玫',
     bts_sk_jinmeiag_info: `锁定技，当你对${get.poptip('bts_glossary_nature_light_faq')}或处于${get.poptip('bts_glossary_mabi_faq')}的角色造成伤害后，若其有手牌，其弃置一张手牌。`,
     bts_sk_minghui: '名讳',
     bts_sk_minghui_info:
-        '回合结束后，你可以弃置一张【杀】：若衣匠已存在，你回复1点体力；否则召唤衣匠并执行一个额外回合。',
+        `回合结束后，你可以弃置一张【杀】：若${get.poptip('bts_ch_yijiang')}已存在，你回复1点体力；否则召唤${get.poptip('bts_ch_yijiang')}并执行一个额外回合。`,
     bts_sk_jiangqu: '匠躯',
-    bts_sk_jiangqu_info: '锁定技，受到伤害后，弃置一张手牌。',
+    bts_sk_jiangqu_info: '锁定技，受到伤害后，弃置所有手牌。',
     bts_sk_feichi: '飞驰',
     bts_sk_feichi_info: `锁定技，出牌阶段结束时，若你造成过伤害，令最近伤害关联角色获得${get.poptip('bts_glossary_nature_light_faq')}。`,
     bts_sk_ciwen: '刺纹',
@@ -252,20 +251,16 @@ export const translate = {
     '~bts_ch_agelaiya': "作茧…自缚……",
     '~bts_ch_yijiang': "作茧…自缚……",
     bts_bless_zhigaozhizi: '至高之姿祝福',
-    bts_bless_zhigaozhizi_info: '来源：共舞赋予；杀当决斗、光伤后+层；回合结束自然减少1层',
+    bts_bless_zhigaozhizi_info: `来源：${get.poptip('bts_glossary_bless_gongwu_faq')}赋予；杀当决斗、光伤后+层；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
-    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3至高之姿，召唤衣匠（已存在则回复），额外回合`,
+    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3至高之姿，召唤${get.poptip('bts_ch_yijiang')}（已存在则回复），额外回合`,
     bts_sk_jinmeiag_info: `锁；对${get.poptip('bts_glossary_nature_light_faq')}或${get.poptip('bts_glossary_mabi_faq')}角色造成伤害后其弃1手牌`,
-    bts_sk_minghui_info: '回合结束可弃杀：有衣匠则回复，否则召唤并额外回合',
+    bts_sk_minghui_info: `回合结束可弃杀：有${get.poptip('bts_ch_yijiang')}则回复，否则召唤并额外回合`,
 };
 
-export const pinyins = {
-    bts_ch_agelaiya: 'agelaiya',
-    bts_ch_yijiang: 'yijiang',
-    bts_ch_agelaiya_and_yijiang: 'agelaiyayijiang',
-};
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const marks = {
     bts_pet_yijiang: {
@@ -320,6 +315,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_zhigaozhizi_faq',
         name: '至高之姿祝福',
-        info: '你的【杀】视为【决斗】；当你造成光属性伤害后，附加1层此祝福。你的结束阶段开始时，此祝福减少1层。',
+        info: `你的【杀】视为【决斗】；当你造成光属性伤害后，附加1层此${get.poptip('bts_glossary_bless_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

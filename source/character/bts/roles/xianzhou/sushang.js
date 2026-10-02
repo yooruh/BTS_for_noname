@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '物理·巡猎·云骑骁卫'; // 属性·命途
 export const intro =
-    `${B('素裳')}用烛夜多打一轮，对手空城、只剩一张牌时都能摸牌占便宜。`;
+    `${B('素裳')}用${get.poptip('bts_sk_zhuye')}多打一轮，对手空城、只剩一张牌时都能摸牌占便宜。`;
 
 export const character = {
     bts_ch_sushang: {
@@ -143,7 +143,7 @@ export const translate = {
         '锁定技，当攻击范围内的角色失去最后一张手牌后，或当你使用【杀】指定一个无手牌的目标后，你摸一张牌。',
     bts_sk_shanqing: '山倾',
     bts_sk_shanqing_info:
-        '出牌阶段结束时，你可以弃置一张【杀】并选择攻击范围内一名其他角色，判定后其弃置一张类别不同的牌，否则受到1点伤害（若你本回合发动过必杀技，则改为判定三次）。',
+        `出牌阶段结束时，你可以弃置一张【杀】并选择攻击范围内一名其他角色，判定后其弃置一张类别不同的牌，否则受到1点伤害（若你本回合发动过${get.poptip('bts_glossary_bisha_faq')}，则改为判定三次）。`,
 
     '$bts_sk_zhuye1': "吃我一招，太虚形蕴！",
     '$bts_sk_zhuye2': "凤凰，显形！",
@@ -157,7 +157,7 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_zhuye_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对范围内角色造成1伤害并额外回合`,
     bts_sk_ruoshui_info: '锁；范围内角色失去最后一张手牌或杀指定无手牌目标后摸1',
-    bts_sk_shanqing_info: '出牌阶段结束可弃杀判定，目标弃异类牌或受1伤（本回合发过必杀则判定×3）',
+    bts_sk_shanqing_info: `出牌阶段结束可弃杀判定，目标弃异类牌或受1伤（本回合发过${get.poptip('bts_glossary_bisha_faq')}则判定×3）`,
 };
 
-export const pinyins = { bts_ch_sushang: 'sushang' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

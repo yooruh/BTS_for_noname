@@ -19,6 +19,7 @@ export const PATHS = {
     directoryJson: resolve(root, 'Directory.json'),
     releaseManifest: resolve(root, 'release', 'releases.json'),
     contentJs: resolve(root, 'source', 'content.js'),
+    updateHtml: resolve(root, 'style', 'html', 'update.html'),
 };
 
 export function readText(filePath) {
@@ -51,6 +52,16 @@ export function replaceInFile(filePath, pattern, replacement) {
 
 export function isValidVersion(version) {
     return /^v?\d+\.\d+\.\d+(?:\.\d+)?$/.test(String(version));
+}
+
+/** 最小 HTML 转义（用于把更新日志文本渲染进生成的 HTML 页面）。 */
+export function htmlEscape(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 export function stripV(version) {

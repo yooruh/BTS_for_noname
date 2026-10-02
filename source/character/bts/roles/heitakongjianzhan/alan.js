@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '雷·毁灭·以身作引'; // 属性·命途
 export const intro =
-    `${B('阿兰')}是续航反击：${get.poptip('bts_glossary_bisha_faq')}${B('狂裁')}花${get.poptip('bts_glossary_nuqi_faq')}拿走多人手牌，${B('至痛')}免疫异常伤害但会触发仪式，${B('解禁')}受伤后叠${get.poptip('bts_glossary_bless_busi_faq')}并反伤。` +
-    '<li>至痛触发仪式后失去技能，注意时机';
+    `${B('阿兰')}是续航反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_kuangcai'))}花${get.poptip('bts_glossary_nuqi_faq')}拿走多人手牌，${B(get.poptip('bts_sk_zhitong'))}免疫异常伤害但会触发仪式，${B(get.poptip('bts_sk_jiejin'))}受伤后叠${get.poptip('bts_glossary_bless_busi_faq')}并反伤。` +
+    `<li>${get.poptip('bts_sk_zhitong')}触发仪式后失去技能，注意时机`;
 
 export const character = {
     bts_ch_alan: {
@@ -145,4 +145,4 @@ export const simpleTranslate = {
     bts_sk_jiejin_info: `受到伤害后，若体力≥1可+1${get.poptip('bts_glossary_bless_busi_faq')}并对来源造成1点伤害`,
 };
 
-export const pinyins = { bts_ch_alan: 'alan' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

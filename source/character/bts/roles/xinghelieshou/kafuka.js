@@ -36,7 +36,7 @@ export async function kafuka(target, from, num) {
 export const sort = 'xinghelieshou';
 export const title = '雷·虚无·夜将不眠'; // 属性·命途
 export const intro =
-    `${B('卡芙卡')}是异常爆破手：${get.poptip('bts_glossary_bisha_faq')}${B('颤音')}令多名角色${get.poptip('bts_glossary_mabi_faq')}并引爆全部${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}，${B('摩挲')}弃【杀】点引爆单名角色，${B('残酷')}在他人的【杀】指定目标后反击。` +
+    `${B('卡芙卡')}是异常爆破手：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_chanyin'))}令多名角色${get.poptip('bts_glossary_mabi_faq')}并引爆全部${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}，${B(get.poptip('bts_sk_mosuo'))}弃【杀】点引爆单名角色，${B(get.poptip('bts_sk_canku'))}在他人的【杀】指定目标后反击。` +
     `<li>${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}引爆为无来源伤害，${get.poptip('bts_glossary_zhongdu_faq')}引爆为失去体力`;
 
 export const character = {
@@ -240,4 +240,4 @@ export const simpleTranslate = {
     bts_sk_mosuo_info: `出牌阶段，弃1张【杀】令1名${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}角色各引爆并移除1层`,
 };
 
-export const pinyins = { bts_ch_kafuka: 'kafuka' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

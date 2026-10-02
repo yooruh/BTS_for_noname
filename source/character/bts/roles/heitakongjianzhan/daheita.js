@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '冰·智识·视界来信'; // 属性·命途
 export const intro =
-    `${B('大黑塔')}是${get.poptip('bts_glossary_midi_faq')}积攒BOSS：${get.poptip('bts_glossary_bisha_faq')}${B('魔法')}对体力最高目标造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}通常伤害并积攒${get.poptip('bts_glossary_linggan_faq')}与额外回合，${B('视界')}持续累积${get.poptip('bts_glossary_midi_faq')}，${B('格局')}结束阶段弃【杀】追击。` +
-    `<li>${get.poptip('bts_glossary_midi_faq')}≥99时魔法无视体力限制；格局在${get.poptip('bts_glossary_midi_faq')}≥41时有概率追加霜伤`;
+    `${B('大黑塔')}是${get.poptip('bts_glossary_midi_faq')}积攒BOSS：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_mofa'))}对体力最高目标造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}通常伤害并积攒${get.poptip('bts_glossary_linggan_faq')}与额外回合，${B(get.poptip('bts_sk_shijie'))}持续累积${get.poptip('bts_glossary_midi_faq')}，${B(get.poptip('bts_sk_geju'))}结束阶段弃【杀】追击。` +
+    `<li>${get.poptip('bts_glossary_midi_faq')}≥99时${get.poptip('bts_sk_mofa')}无视体力限制；${get.poptip('bts_sk_geju')}在${get.poptip('bts_glossary_midi_faq')}≥41时有概率追加霜伤`;
 
 export const character = {
     bts_ch_daheita: {
@@ -48,10 +48,37 @@ export const skill = {
         },
         ai: {
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_mofa') ? -1 : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_mofa')) return -1;
+                // 存在敌方目标时才有出手价值（目标估值见 result.target）。
+                if (
+                    !game.hasPlayer(
+                        (t) => t !== player && get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1;
+                return 6;
             },
             threaten: 2.5,
-            result: { player: 1 },
+            // AI 选目标优化（2026-10-01）：原配置只给了 result.player，无 result.target ——
+            // 各候选最终收益相同且恒正，AI 会把全部角色都选进来（含友军被误伤）。
+            // 技能只对「选中集内体力值最大者」造成伤害，故只纳入敌方中体力最高组；
+            // 其余（低体力敌方/友方）以最终值≤0 排除。get.effect 逐目标
+            // final = result.player×态度施动 + result.target×态度目标（敌方态度为负）。
+            result: {
+                player: 1,
+                target(player, target) {
+                    if (target === player) return -1;
+                    if (get.attitude(player, target) >= 0) return -2;
+                    const topEnemyHp = Math.max(
+                        ...game
+                            .filterPlayer(
+                                (t) => t !== player && get.attitude(player, t) < 0,
+                            )
+                            .map((t) => t.hp),
+                    );
+                    return target.hp >= topEnemyHp ? -1 : 1;
+                },
+            },
         },
     },
 
@@ -90,8 +117,19 @@ export const skill = {
             return player.countCards('h') > 0;
         },
         async cost(event, trigger, player) {
+            // AI 决策优化（2026-10-01）：有【杀】且存在敌方才发动（否则无伤害收益）。
+            // 注意 chooseBool 默认 choice=true——不配 ai 时 AI 无条件接手，配合默认目标估值
+            // 容易白弃【杀】/对友军砸伤害。
+            const hasValue =
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer(
+                    (t) => t !== player && get.attitude(player, t) < 0,
+                );
             const r = await player
-                .chooseBool('格局：是否弃置一张【杀】并选择一名其他角色？')
+                .chooseBool(
+                    '格局：是否弃置一张【杀】并选择一名其他角色？',
+                    () => hasValue,
+                )
                 .forResult();
             if (!r.bool) {
                 event.result = { bool: false };
@@ -113,6 +151,13 @@ export const skill = {
                     '格局：选择一名其他角色',
                     [1, 1],
                     (c, p, t) => t !== p,
+                    // 目标估值：优先敌方（态度为负），其中优先低体力（击杀压力）；友方排斥。
+                    (c, p, t) => {
+                        if (t === p) return 0;
+                        const attitude = get.attitude(p, t);
+                        if (attitude >= 0) return -1;
+                        return -attitude * 10 - t.hp * 2;
+                    },
                 )
                 .forResult();
             if (!target.bool) {
@@ -142,11 +187,13 @@ export const skill = {
                         .getHistory('sourceDamage', (evt) => evt.num > 0 && !!evt.player)
                         .map((evt) => evt.player.playerid),
                 );
-                for (const p of game.filterPlayer(
-                    (p) =>
-                        p.isAlive() &&
-                        damagedThisTurn.has(p.playerid) &&
-                        p.countCards('h') > 0,
+                for (const p of lib.bts.api.seatOrder(
+                    game.filterPlayer(
+                        (p) =>
+                            p.isAlive() &&
+                            damagedThisTurn.has(p.playerid) &&
+                            p.countCards('h') > 0,
+                    ),
                 )) {
                     await p.chooseToDiscard(
                         '格局：弃置一张手牌',
@@ -198,9 +245,9 @@ export const translate = {
     '$bts_sk_geju2': "筑就空域的壁垒，就此塌落吧",
     '~bts_ch_daheita': "我还会回来……",
     bts_mk_midi: '谜底',
-    bts_mk_midi_info: '来源：视界赋予；魔法、格局：必杀更强',
+    bts_mk_midi_info: `来源：${get.poptip('bts_sk_shijie')}赋予；${get.poptip('bts_sk_mofa')}、${get.poptip('bts_sk_geju')}：${get.poptip('bts_glossary_bisha_faq')}更强`,
     bts_mk_linggan: '灵感',
-    bts_mk_linggan_info: '来源：魔法赋予；格局：弃1令受伤者弃牌',
+    bts_mk_linggan_info: `来源：${get.poptip('bts_sk_mofa')}赋予；${get.poptip('bts_sk_geju')}：弃1令受伤者弃牌`,
 };
 
 export const simpleTranslate = {
@@ -209,7 +256,7 @@ export const simpleTranslate = {
     bts_sk_geju_info: `结束阶段，弃1杀对1名其他角色造成1点霜伤；有${get.poptip('bts_glossary_linggan_faq')}则弃1${get.poptip('bts_glossary_linggan_faq')}弃本回合由你伤过的受伤者各1手牌；${get.poptip('bts_glossary_midi_faq')}≥41时有X%弃41${get.poptip('bts_glossary_midi_faq')}再霜伤`,
 };
 
-export const pinyins = { bts_ch_daheita: 'daheita' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -222,6 +269,6 @@ export const glossary = [
     {
         id: 'bts_glossary_linggan_faq',
         name: '|灵感|',
-        info: `大黑塔专属：${get.poptip('bts_sk_mofa')}必杀获得；${get.poptip('bts_sk_geju')}弃1枚令受伤者各弃一张手牌。`,
+        info: `大黑塔专属：${get.poptip('bts_sk_mofa')}${get.poptip('bts_glossary_bisha_faq')}获得；${get.poptip('bts_sk_geju')}弃1枚令受伤者各弃一张手牌。`,
     },
 ];

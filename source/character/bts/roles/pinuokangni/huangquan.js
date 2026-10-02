@@ -13,7 +13,7 @@ export function canmengActive() {
 
 export const sort = 'pinuokangni';
 export const title = '雷·虚无·自称「巡海游侠」的旅人'; // 属性·命途
-export const intro = `${B('黄泉')}靠异常与诅咒被移除攒${get.poptip('bts_glossary_canmeng_faq')}，攒满9枚开残梦终结全场。`;
+export const intro = `${B('黄泉')}靠异常与诅咒被移除攒${get.poptip('bts_glossary_canmeng_faq')}，攒满9枚开${get.poptip('bts_glossary_canmeng_faq')}终结全场。`;
 export const character = {
     bts_ch_huangquan: {
         sex: 'female',
@@ -62,10 +62,13 @@ export const skill = {
             }
             lib.bts.aiGuard.record(player, 'bts_sk_canmeng');
             player.removeMark('bts_mk_canmeng', 9);
-            // 源 L4766-4778：全场技能/祝福无效（护盾源版未禁用，保持一致）、不能使用/打出手牌；
+            // 源 L4766-4778：全场技能/祝福/护盾无效（护盾：源 GetShield 含 max_canmeng 检查，
+            // 2026-10-02 于 getShield 补门）、不能使用/打出手牌；
             // 封锁器白名单放行残梦本体与「蚀」子技（bts_sk_canmeng_dis）。
             player.addMark('bts_mk_canmeng_active', 1);
-            const alive = game.filterPlayer((target) => target.isAlive());
+            const alive = lib.bts.api.seatOrder(
+                game.filterPlayer((target) => target.isAlive()),
+            );
             for (const target of alive)
                 target.addSkillBlocker('bts_sk_canmeng_blocker');
             player.removeMark('bts_mk_canmeng_dis_used', player.countMark('bts_mk_canmeng_dis_used'));
@@ -115,15 +118,21 @@ export const skill = {
                 },
                 async content(event, trigger, player) {
                     if (event.triggername === 'phaseAfter') {
-                        for (const target of game.filterPlayer(
-                            (t) => t.isAlive() && t.countMark('bts_mk_canmeng_damage'),
+                        for (const target of lib.bts.api.seatOrder(
+                            game.filterPlayer(
+                                (t) =>
+                                    t.isAlive() &&
+                                    t.countMark('bts_mk_canmeng_damage'),
+                            ),
                         )) {
                             target.removeMark('bts_mk_canmeng_damage', target.countMark('bts_mk_canmeng_damage'));
                             await target.damage(player, 1, 'nocard');
                         }
                     }
                     // 解除封锁与标记（死亡兜底同样释放）
-                    for (const target of game.filterPlayer((t) => t.isAlive()))
+                    for (const target of lib.bts.api.seatOrder(
+                        game.filterPlayer((t) => t.isAlive()),
+                    ))
                         target.removeSkillBlocker('bts_sk_canmeng_blocker');
                     player.removeMark('bts_mk_canmeng_active', player.countMark('bts_mk_canmeng_active'));
                     player.removeMark('bts_mk_canmeng_dis_used', player.countMark('bts_mk_canmeng_dis_used'));
@@ -147,11 +156,11 @@ export const skill = {
         },
     },
     bts_sk_chigui: {
-        // 源 st_chigui（animal.lua L4846-4864）监听 MarkChanged 且 mark.gain<0。
-        // room.cpp setPlayerMark L2205：gain = 新值-旧值，故 gain<0 = 标记被移除——
-        // 仅在其他角色「移除」异常/诅咒标记时触发（源翻译「附加后」与代码不符，以代码为准）。
-        // bts_mark_remove 事件（改装自无名杀 removeMark，见 content.js）的标记名在 event.markName。
-        trigger: { global: 'bts_mark_remove' },
+        // 源 st_chigui（animal.lua L4846-4864）监听 MarkChanged；源代码作 mark.gain<0，翻译写
+        // 「当其他角色附加异常或诅咒后」——同族 7 处（赤鬼/揭露/凯撒/生德/顺风/生息/升格）均为
+        // gain 方向与描述相反的系统性笔误，2026-10-02 用户定夺统一按描述方向实现。
+        // 本技=「其他角色附加异常/诅咒后」触发（bts_mark_add 事件，标记名在 event.markName）。
+        trigger: { global: 'bts_mark_add' },
         forced: true,
         filter(event, player) {
             return (
@@ -220,9 +229,9 @@ export const translate = {
     'bts_ch_huangquan_skin9': '皮肤9',
     bts_ch_huangquan: '黄泉',
     bts_sk_canmeng: '残梦',
-    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃9枚${get.poptip('bts_glossary_canmeng_faq')}标记，令所有角色于此技能结算完毕前所有技能、${get.poptip('bts_glossary_bless_faq')}无效且不能使用或打出手牌；然后限三次，你可以弃置一名角色一张牌；结算完毕后，对这些角色各造成1点伤害。`,
+    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃9枚${get.poptip('bts_glossary_canmeng_faq')}标记，令所有角色于此技能结算完毕前所有技能、${get.poptip('bts_glossary_bless_faq')}、${get.poptip('bts_glossary_hudun_faq')}无效且不能使用或打出手牌；然后限三次，你可以弃置一名角色一张牌；结算完毕后，对这些角色各造成1点伤害。`,
     bts_sk_chigui: '赤鬼',
-    bts_sk_chigui_info: `锁定技，当其他角色的异常或诅咒标记被移除后，若你的${get.poptip('bts_glossary_canmeng_faq')}少于9枚，你获得1枚${get.poptip('bts_glossary_canmeng_faq')}。（源翻译写「附加后」，与源码不符，以代码为准）`,
+    bts_sk_chigui_info: `锁定技，当其他角色附加异常或诅咒后，若你的${get.poptip('bts_glossary_canmeng_faq')}少于9枚，你获得1枚${get.poptip('bts_glossary_canmeng_faq')}。`,
     bts_sk_feidu: '飞渡',
     bts_sk_feidu_info: `准备阶段开始时，你可以弃置一张【杀】，获得1枚${get.poptip('bts_glossary_canmeng_faq')}。`,
 
@@ -234,14 +243,14 @@ export const translate = {
     '$bts_sk_feidu2': "忘川无波澜，引渡徘徊",
     '~bts_ch_huangquan': "尘埃…终归大地……",
     bts_mk_canmeng: '残梦',
-    bts_mk_canmeng_info: '来源：赤鬼、飞渡赋予；残梦：满9发动',
+    bts_mk_canmeng_info: `来源：${get.poptip('bts_sk_chigui')}、${get.poptip('bts_sk_feidu')}赋予；${get.poptip('bts_glossary_canmeng_faq')}：满9发动`,
 };
 export const simpleTranslate = {
-    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}；弃9${get.poptip('bts_glossary_canmeng_faq')}，全场技能/${get.poptip('bts_glossary_bless_faq')}无效且禁出牌，可三次弃目标牌，结束各造成1伤害`,
-    bts_sk_chigui_info: `锁；他人异常/诅咒被移除后，${get.poptip('bts_glossary_canmeng_faq')}<9则+1`,
+    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}；弃9${get.poptip('bts_glossary_canmeng_faq')}，全场技能/${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}无效且禁出牌，可三次弃目标牌，结束各造成1伤害`,
+    bts_sk_chigui_info: `锁；他人附加异常/诅咒后，${get.poptip('bts_glossary_canmeng_faq')}<9则+1`,
     bts_sk_feidu_info: `准备阶段可弃杀+1${get.poptip('bts_glossary_canmeng_faq')}`,
 };
-export const pinyins = { bts_ch_huangquan: 'huangquan' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -249,6 +258,6 @@ export const glossary = [
     {
         id: 'bts_glossary_canmeng_faq',
         name: '|残梦|',
-        info: `黄泉专属：${get.poptip('bts_sk_chigui')}去除异常、${get.poptip('bts_sk_feidu')}弃杀各+1枚；满9由${get.poptip('bts_sk_canmeng')}发动，全场技能与祝福无效。`,
+        info: `黄泉专属：${get.poptip('bts_sk_chigui')}随他人附加异常/诅咒、${get.poptip('bts_sk_feidu')}弃杀各+1枚；满9由${get.poptip('bts_sk_canmeng')}发动，全场技能、${get.poptip('bts_glossary_bless_faq')}与${get.poptip('bts_glossary_hudun_faq')}无效。`,
     },
 ];

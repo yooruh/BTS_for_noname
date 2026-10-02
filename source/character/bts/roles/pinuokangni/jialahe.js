@@ -141,11 +141,11 @@ export const translate = {
     bts_abnormal_mingding: '酩酊',
 };
 export const simpleTranslate = {
-    bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+1${get.poptip('bts_glossary_abnormal_mingding_faq')}（星启+2），下次杀视为决斗并令所有目标+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
+    bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+1${get.poptip('bts_glossary_abnormal_mingding_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+2），下次杀视为决斗并令所有目标+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
     bts_sk_aohan_info: '锁；你的回合内非出牌阶段回复量+1',
     bts_sk_tetiao_info: '准备阶段可弃1杀令1名其他受伤角色回复1点体力',
 };
-export const pinyins = { bts_ch_jialahe: 'jialahe' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_mingding: {

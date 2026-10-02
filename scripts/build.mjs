@@ -11,6 +11,7 @@ import {
     readReleaseManifest,
     syncVersionFiles,
     writeUpdateContent,
+    writeUpdateHtml,
     writeVersionJson,
 } from './lib/release.mjs';
 import { log } from './lib/shared.mjs';
@@ -60,6 +61,7 @@ async function buildAndZip(zip = false, dryRun = false) {
         ...syncVersionFiles(getCurrentReleaseVersion(manifest), dryRun),
         writeVersionJson(manifest, dryRun),
         writeUpdateContent(manifest, dryRun),
+        writeUpdateHtml(manifest, dryRun),
         ...(await rebuildProject({ checkOnly: dryRun, silent: true })),
         generated,
     ];

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>崩铁杀 - 更新日志</title>
+    <style>
+        /* ── 主题变量（浅色默认；深色由 dialogManager 注入的 data-lit-theme 切换）── */
+        :root {
+            --primary: #2e4a6b;
+            --accent: #b08d4f;
+            --text: #333a42;
+            --text-sub: #6b7681;
+            --bg: #f2f4f7;
+            --surface: #ffffff;
+            --border: #dde2e8;
+            --shadow: 0 4px 18px rgba(20, 30, 45, 0.08);
+        }
+
+        html[data-lit-theme="dark"] {
+            --primary: #8fb3d9;
+            --accent: #d4b577;
+            --text: #d7dbe0;
+            --text-sub: #9aa4af;
+            --bg: #1d2126;
+            --surface: #262b31;
+            --border: #3a4149;
+            --shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            min-width: 0;
+            overflow-x: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 28px 30px 60px;
+        }
+
+        h1 {
+            font-size: 26px;
+            color: var(--primary);
+            text-align: center;
+            margin: 0 0 6px;
+            letter-spacing: 1px;
+        }
+
+        .notice-text p {
+            color: var(--text-sub);
+            font-size: 13px;
+            text-align: center;
+            margin: 0 0 30px;
+            line-height: 1.5;
+        }
+
+        .update-block {
+            min-width: 0;
+            margin-bottom: 26px;
+            padding: 16px 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 6px;
+            box-shadow: var(--shadow);
+        }
+
+        .update-block h3 {
+            color: var(--primary);
+            margin: 0 0 10px;
+            font-size: 17px;
+        }
+
+        .update-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .update-list li {
+            margin-bottom: 9px;
+            padding-left: 2em;
+            text-indent: -2em;
+            color: var(--text);
+        }
+
+        .update-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .update-list li::before {
+            content: "・";
+            color: var(--accent);
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>崩铁杀更新日志</h1>
+        <div class="notice-text">
+            <p>游玩过程中如有 Bug 或结算异常，欢迎反馈；未完成的角色、资源与机制将持续补充。</p>
+        </div>
+
+        <div class="update-block">
+            <h3>{{version}}更新（当前版本）</h3>
+            <ul class="update-list">
+                <li>① 首个公开测试版本，非正式移植版，欢迎上报问题（部分与太阳神不一致的地方是故意为之）。</li>
+                <li>② 自太阳神三国杀 V2 Lua 扩展移植崩铁杀，覆盖太阳神中已完成的所有角色。</li>
+                <li>③ 建立可复现构建与发布工具链，自带在线更新功能。</li>
+                <li>④ 完整自定义规则系统：标记、属性反应、异常、祝福、护盾、忆灵/组合角色与形态变换、主公 BGM 跟随。</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

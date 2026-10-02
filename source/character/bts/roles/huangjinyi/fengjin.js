@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'huangjinyi';
 export const title = '风·记忆·天空的医师'; // 属性·命途
-export const intro = `${B('风堇')}用${get.poptip('bts_glossary_bless_yuguotianqing_faq')}召小伊卡，边奶队友边用${get.poptip('bts_glossary_nature_wind_faq')}追着收残。`;
+export const intro = `${B('风堇')}用${get.poptip('bts_glossary_bless_yuguotianqing_faq')}召${get.poptip('bts_ch_xiaoyika')}，边奶队友边用${get.poptip('bts_glossary_nature_wind_faq')}追着收残。`;
 export const character = {
     bts_ch_fengjin: {
         sex: 'female',
@@ -64,7 +64,7 @@ export const skill = {
             lib.bts.api.loseAngry(player, 5); // 源 L7967：LoseAngry(player, 5)
             // 源 L7968-7969：AddBless(@bless_yuguotianqing, 3) + AddPet("xiaoyika")
             await lib.bts.api.addBless(player, 'yuguotianqing', 3, player);
-            lib.bts.api.addPet(player, 'xiaoyika');
+            await lib.bts.api.addPet(player, 'xiaoyika');
             // 源 L7970-7975：星启时自己与目标各+2体力上限祝福
             if (lib.bts.api.god(player)) {
                 await lib.bts.api.addBless(player, 'maxhp', 2, player);
@@ -150,7 +150,7 @@ export const skill = {
             // cost 所选弃牌/目标在技能事件 event.cards/event.targets（标准约定）
             // 源 L8022-8025：AddPet("xiaoyika") + 目标各回复1点
             if (event.cards) await player.discard(event.cards); // 源：弃【杀】移入 content 结算
-            lib.bts.api.addPet(player, 'xiaoyika');
+            await lib.bts.api.addPet(player, 'xiaoyika');
             for (const target of event.targets.filter((target) =>
                 target.isAlive(),
             ))
@@ -223,16 +223,24 @@ export const skill = {
         ai: { noe: true },
     },
 
-    // ── 占位技·展落（源 st_zhanluo，L8104 起）──
-    // 源实现为空技能，无名杀以永不触发的过滤占位。
+    // ── 锁定技·展落（源 st_zhanluo，L8104 起）──
+    // 源技能壳为空、效果硬编码在 AddPet/RemovePet；2026-10-02 自注册重构：改为监听
+    // bts_pet_add（登场/重复召唤→+1 怒气，源 L819-822）与 bts_pet_remove（离场→摸1）。
     bts_sk_zhanluo: {
         charlotte: true,
+        trigger: { player: ['bts_pet_add', 'bts_pet_remove'] },
         forced: true,
-        trigger: { player: 'damageEnd' },
-        filter() {
-            return false;
+        filter(event, player, triggername) {
+            return (
+                event.pet === 'xiaoyika' &&
+                (triggername === 'bts_pet_add' || player.isAlive())
+            );
         },
-        async content() {},
+        async content(event, trigger, player) {
+            if (event.triggername === 'bts_pet_add')
+                lib.bts.api.addAngry(player); // 小伊卡登场/重复召唤：+1 怒气（源 L819-822）
+            else await player.draw(player, 1); // 小伊卡离场：摸1（源 RemovePet）
+        },
         ai: { noe: true },
     },
 };
@@ -251,19 +259,19 @@ export const translate = {
     bts_ch_xiaoyika: '小伊卡',
     bts_ch_fengjin_and_xiaoyika: '风堇&小伊卡',
     bts_sk_chenhun: '晨昏',
-    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你附加3层${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤小伊卡。若你为${get.poptip('bts_glossary_xingqi_faq')}，你与这些角色各附加2层${get.poptip('bts_glossary_bless_maxhp_faq')}。然后你与这些角色各回复1点体力。`,
+    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你附加3层${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}。若你为${get.poptip('bts_glossary_xingqi_faq')}，你与这些角色各附加2层${get.poptip('bts_glossary_bless_maxhp_faq')}。然后你与这些角色各回复1点体力。`,
     bts_sk_yushi: '愈世',
     bts_sk_yushi_info: `锁定技，当你回复体力前，你附加1层${get.poptip('bts_glossary_bless_maxhp_faq')}；若你不处于${get.poptip('bts_glossary_abnormal_scary_faq')}，附加1层${get.poptip('bts_glossary_abnormal_scary_faq')}。`,
     bts_sk_hongguang: '虹光',
     bts_sk_hongguang_info:
-        '准备阶段开始时，你可以弃置一张【杀】并选择一名受伤的其他角色，召唤小伊卡并令其回复1点体力；若你的体力值为场上最低，你可以选择任意名角色。',
+        `准备阶段开始时，你可以弃置一张【杀】并选择一名受伤的其他角色，召唤${get.poptip('bts_ch_xiaoyika')}并令其回复1点体力；若你的体力值为场上最低，你可以选择任意名角色。`,
     bts_sk_qingkong: '晴空',
     bts_sk_qingkong_info:
         '当其他角色扣减体力后，若你的诅咒层数少于忆灵当前体力，你可以获得1层诅咒并令其回复1点体力。',
     bts_sk_zoukai: '走开',
     bts_sk_zoukai_info: `锁定技，结束阶段开始时，若你拥有${get.poptip('bts_glossary_bless_yuguotianqing_faq')}，对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害。`,
     bts_sk_zhanluo: '展落',
-    bts_sk_zhanluo_info: '锁定技。',
+    bts_sk_zhanluo_info: `锁定技，当${get.poptip('bts_ch_xiaoyika')}被召唤时，你获得1点${get.poptip('bts_glossary_nuqi_faq')}；当${get.poptip('bts_ch_xiaoyika')}离场时，你摸一张牌。`,
     bts_bless_yuguotianqing: '雨过天晴祝福',
     bts_pet_xiaoyika: '小伊卡',
 
@@ -279,22 +287,18 @@ export const translate = {
     '$bts_sk_zoukai2': "请冷静下来",
     '~bts_ch_fengjin': "先祖，我还没……",
     '~bts_ch_xiaoyika': "先祖，我还没……",
-    bts_bless_yuguotianqing_info: '来源：晨昏赋予；体力上限祝福翻倍；回合结束自然减少1层',
+    bts_bless_yuguotianqing_info: `来源：${get.poptip('bts_sk_chenhun')}赋予；${get.poptip('bts_glossary_bless_maxhp_faq')}翻倍；回合结束自然减少1层`,
 };
 export const simpleTranslate = {
-    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤小伊卡，${get.poptip('bts_glossary_xingqi_faq')}时加${get.poptip('bts_glossary_bless_maxhp_faq')}，治疗自己和目标`,
+    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}，${get.poptip('bts_glossary_xingqi_faq')}时加${get.poptip('bts_glossary_bless_maxhp_faq')}，治疗自己和目标`,
     bts_sk_yushi_info: `锁；回复前+${get.poptip('bts_glossary_bless_maxhp_faq')}，未${get.poptip('bts_glossary_abnormal_scary_faq')}则+${get.poptip('bts_glossary_abnormal_scary_faq')}`,
     bts_sk_hongguang_info:
-        '准备阶段可弃杀召唤小伊卡并治疗受伤其他角色，最低体力时可多选',
+        `准备阶段可弃杀召唤${get.poptip('bts_ch_xiaoyika')}并治疗受伤其他角色，最低体力时可多选`,
     bts_sk_qingkong_info: `他人扣血且诅咒<忆灵体力时可+1诅咒并令其回复1`,
     bts_sk_zoukai_info: `锁；有${get.poptip('bts_glossary_bless_yuguotianqing_faq')}时结束阶段对上个伤你的角色造成1风伤`,
-    bts_sk_zhanluo_info: '锁；无额外效果',
+    bts_sk_zhanluo_info: `锁；${get.poptip('bts_ch_xiaoyika')}登场+1${get.poptip('bts_glossary_nuqi_faq')}、离场摸1`
 };
-export const pinyins = {
-    bts_ch_fengjin: 'fengjin',
-    bts_ch_xiaoyika: 'xiaoyika',
-    bts_ch_fengjin_and_xiaoyika: 'fengjinxiaoyika',
-};
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const marks = {
     bts_pet_xiaoyika: {
@@ -316,6 +320,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_yuguotianqing_faq',
         name: '雨过天晴祝福',
-        info: '体力上限祝福的效果翻倍。你的结束阶段开始时，此祝福减少1层。',
+        info: `${get.poptip('bts_glossary_bless_maxhp_faq')}的效果翻倍。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

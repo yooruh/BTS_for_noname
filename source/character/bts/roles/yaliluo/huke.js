@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '火·毁灭·漆黑的虎克大人'; // 属性·命途
 export const intro =
-    `${B('虎克')}是火焰输出：${get.poptip('bts_glossary_bisha_faq')}${B('飞火')}火伤积攒标记，${B('浇油')}对${get.poptip('bts_glossary_abnormal_burn_faq')}目标${get.poptip('bts_glossary_bless_critical_faq')}，${B('玩火')}弃【杀】群体${get.poptip('bts_glossary_abnormal_burn_faq')}。` +
-    `<li>飞火标记越多，玩火能${get.poptip('bts_glossary_abnormal_burn_faq')}的目标越多`;
+    `${B('虎克')}是火焰输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_feihuo'))}火伤积攒标记，${B(get.poptip('bts_sk_jiaoyou'))}对${get.poptip('bts_glossary_abnormal_burn_faq')}目标${get.poptip('bts_glossary_bless_critical_faq')}，${B(get.poptip('bts_sk_wanhuo'))}弃【杀】群体${get.poptip('bts_glossary_abnormal_burn_faq')}。` +
+    `<li>${get.poptip('bts_sk_feihuo')}标记越多，${get.poptip('bts_sk_wanhuo')}能${get.poptip('bts_glossary_abnormal_burn_faq')}的目标越多`;
 
 export const character = {
     bts_ch_huke: {
@@ -128,13 +128,13 @@ export const skill = {
 export const translate = {
     bts_ch_huke: '虎克',
     bts_sk_feihuo: '飞火',
-    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害，你获得1枚飞火标记。`,
+    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害，你获得1枚${get.poptip('bts_sk_feihuo')}标记。`,
 
     bts_sk_jiaoyou: '浇油',
     bts_sk_jiaoyou_info: `锁定技，当你使用【杀】对处于${get.poptip('bts_glossary_abnormal_burn_faq')}的角色造成伤害时，此伤害视为${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
 
     bts_sk_wanhuo: '玩火',
-    bts_sk_wanhuo_info: `准备阶段开始时，你可以弃置一张【杀】，令攻击范围内至多X名其他角色各附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}（X为你拥有的飞火标记数），然后移除全部飞火标记。`,
+    bts_sk_wanhuo_info: `准备阶段开始时，你可以弃置一张【杀】，令攻击范围内至多X名其他角色各附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}（X为你拥有的${get.poptip('bts_sk_feihuo')}标记数），然后移除全部${get.poptip('bts_sk_feihuo')}标记。`,
 
     '$bts_sk_feihuo1': "跟着我，有肉吃！",
     '$bts_sk_feihuo2': "漆黑的虎克大人驾到，让开让开让开…呜呼~",
@@ -146,9 +146,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点炎伤，+1飞火标记`,
+    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点炎伤，+1${get.poptip('bts_sk_feihuo')}标记`,
     bts_sk_jiaoyou_info: `锁；用杀对${get.poptip('bts_glossary_abnormal_burn_faq')}角色造成伤害时视为${get.poptip('bts_glossary_bless_critical_faq')}`,
-    bts_sk_wanhuo_info: `准备阶段，弃1杀令攻击范围内至多X名其他角色各+1${get.poptip('bts_glossary_abnormal_burn_faq')}（X=飞火标记数），移除全部飞火`,
+    bts_sk_wanhuo_info: `准备阶段，弃1杀令攻击范围内至多X名其他角色各+1${get.poptip('bts_glossary_abnormal_burn_faq')}（X=${get.poptip('bts_sk_feihuo')}标记数），移除全部${get.poptip('bts_sk_feihuo')}`,
 };
 
-export const pinyins = { bts_ch_huke: 'huke' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

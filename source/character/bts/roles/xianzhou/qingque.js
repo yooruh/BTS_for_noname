@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '量子·智识·太卜司卜者'; // 属性·命途
 export const intro =
-    `${B('青雀')}在${get.poptip('bts_glossary_abnormal_confuse_faq')}里抓同花色牌，凑够四张用捞月当【杀】打出去。`;
+    `${B('青雀')}在${get.poptip('bts_glossary_abnormal_confuse_faq')}里抓同花色牌，凑够四张用${get.poptip('bts_sk_laoyue')}当【杀】打出去。`;
 
 export const character = {
     bts_ch_qingque: {
@@ -144,4 +144,4 @@ export const simpleTranslate = {
     bts_sk_laoyue_info: `出牌阶段可弃杀摸2，或四同花视为杀并移1层${get.poptip('bts_glossary_abnormal_confuse_faq')}、结束出牌`,
 };
 
-export const pinyins = { bts_ch_qingque: 'qingque' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

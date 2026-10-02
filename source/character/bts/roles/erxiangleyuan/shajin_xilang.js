@@ -123,7 +123,7 @@ export const skill = {
             );
             if (trigger.source && !targets.includes(trigger.source))
                 targets.push(trigger.source);
-            for (const target of targets)
+            for (const target of lib.bts.api.seatOrder(targets))
                 await lib.bts.api.addNature(target, 'dark');
             await lib.bts.api.addBless(player, 'reyi', 4, player);
         },
@@ -146,8 +146,23 @@ export const skill = {
         async content(event, trigger, player) {
             // 源 L10671：记录已发动（@st_paozhu_funny 标记）
             player.setStorage('bts_mk_paozhu_funny_used', true, true);
-            // 源 L10672：FunnyAct(player)——执行欢愉行动（抛注：手牌补至5张，见 utils.funnyAct）
-            await lib.bts.api.funnyAct(player);
+            // 源 L10672：FunnyAct(player)——执行欢愉行动（抛注效果见本技能 bts_funny 注册项）。
+            // initiator=event.name：本技能自动日志已由引擎记录，行动时不再重复 logSkill。
+            await lib.bts.api.funnyAct(player, null, null, event.name);
+        },
+        // 欢愉行动注册（自注册重构）：funnyAct 泛化派发时执行——手牌补至5张
+        //（不设 ctx.done，跟随旧 if 链行为）。
+        bts_funny: {
+            order: 40,
+            async act(ctx) {
+                if (ctx.funny == null || ctx.funny === 5) ctx.after = false;
+                if (ctx.funny == null) ctx.funny = 5;
+                if (ctx.target.countCards('h') < ctx.funny)
+                    await ctx.target.draw(
+                        ctx.player,
+                        ctx.funny - ctx.target.countCards('h'),
+                    );
+            },
         },
         ai: { noe: true },
     },
@@ -171,8 +186,15 @@ export const translate = {
 
 
 
-    bts_bless_reyi_info: '来源：胜局、热砂赋予；非暗/睡眠造伤时全体+层；回合结束自然减少1层',
+    bts_bless_reyi_info: `来源：${get.poptip('bts_sk_shengju')}、${get.poptip('bts_sk_resha')}赋予；非暗/${get.poptip('bts_glossary_abnormal_sleep_faq')}造伤时全体+层；回合结束自然减少1层`,
     bts_mk_paozhu_funny_used: '抛注已用',
+
+    '$bts_sk_shengju1': "准备好迎接大洗牌了么？",
+    '$bts_sk_shengju2': "比浪潮先行一步，就能赢家通吃",
+    '$bts_sk_resha1': "小心砸盘！",
+    '$bts_sk_resha2': "硬着陆！",
+    '$bts_sk_paozhu_funny1': "尽情享用，都算我的",
+    '$bts_sk_paozhu_funny2': "这一杯，敬你们",
 };
 
 export const simpleTranslate = {
@@ -181,7 +203,7 @@ export const simpleTranslate = {
     bts_sk_paozhu_funny_info: `锁；${get.poptip('bts_glossary_bless_reyi_faq')}≥10执行欢愉行动，仪式换${get.poptip('bts_glossary_bless_funny_faq')}`,
 };
 
-export const pinyins = { bts_ch_shajin_xilang: 'shajinxilang' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_reyi: {
@@ -210,6 +232,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_reyi_faq',
         name: '热意祝福',
-        info: '当不为暗属性且不处于睡眠的角色造成伤害后，所有热意祝福持有者各附加1层。你的结束阶段开始时，此祝福减少1层。',
+        info: `当不为暗属性且不处于${get.poptip('bts_glossary_abnormal_sleep_faq')}的角色造成伤害后，所有${get.poptip('bts_glossary_bless_reyi_faq')}持有者各附加1层。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

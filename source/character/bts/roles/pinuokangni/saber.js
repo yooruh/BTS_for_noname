@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'pinuokangni';
 export const title = '风·毁灭·亚瑟王'; // 属性·命途
 export const intro =
-    `${B('Saber')}用圣剑把【杀】当【决斗】用，靠风王攒炉心。`;
+    `${B('Saber')}用${get.poptip('bts_sk_shengjian')}把【杀】当【决斗】用，靠${get.poptip('bts_sk_fengwang')}攒${get.poptip('bts_sk_luxin')}。`;
 
 export const character = {
     bts_ch_saber: {
@@ -37,7 +37,8 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_shengjian');
             lib.bts.api.loseAngry(player, 5); // 源 L9270：LoseAngry(player, 5)
             // 源 L9271-9273：星启时附加贯通祝福
-            if (lib.bts.api.god(player)) await lib.bts.api.addBless(player, 'through');
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            if (lib.bts.api.god(player)) await lib.bts.api.addBless(player, 'through', 2);
             for (const target of event.targets) {
                 // 源 L9275：reason 含 "_wind_common"（风属性 + 通常伤害）
                 const damage = target.damage(player, 1, 'nocard');
@@ -186,7 +187,7 @@ export const skill = {
         forced: true,
         filter(event, player) {
             // 源 L9368：使用 SkillCard 且技能名含 "max_"（必杀技）；
-            // 无名杀以 bts_bisha 标签判定（勿用 includes('st_')，命中所有 bts_st_* 技能）；
+            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）；
             // 源遍历所有炉心持有者、各得自己的标记 → 触发角色 ≠ 自己
             return (
                 event.player !== player &&
@@ -223,11 +224,11 @@ export const translate = {
     'bts_ch_saber_skin1': '皮肤1',
     bts_ch_saber: 'Saber',
     bts_sk_shengjian: '圣剑',
-    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对至少一名其他角色各造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，令你的【杀】于下次使用【决斗】前视为【决斗】（无目标数限制），然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你附加1层${get.poptip('bts_glossary_bless_through_faq')}，获得1枚${get.poptip('bts_glossary_fate_faq')}标记，然后若标记数为：1，你回复4点${get.poptip('bts_glossary_nuqi_faq')}；3，你弃全部${get.poptip('bts_glossary_fate_faq')}标记。`,
+    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对至少一名其他角色各造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，令你的【杀】于下次使用【决斗】前视为【决斗】（无目标数限制），然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你附加2层${get.poptip('bts_glossary_bless_through_faq')}，获得1枚${get.poptip('bts_glossary_fate_faq')}标记，然后若标记数为：1，你回复4点${get.poptip('bts_glossary_nuqi_faq')}；3，你弃全部${get.poptip('bts_glossary_fate_faq')}标记。`,
     bts_sk_fengwang: '风王',
-    bts_sk_fengwang_info: `出牌阶段，你可以弃置一张【杀】，对攻击范围内一名其他角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，累积炉心。`,
+    bts_sk_fengwang_info: `出牌阶段，你可以弃置一张【杀】，对攻击范围内一名其他角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，累积${get.poptip('bts_sk_luxin')}。`,
     bts_sk_luxin: '炉心',
-    bts_sk_luxin_info: `锁定技，当一名角色发动${get.poptip('bts_glossary_bisha_faq')}后，你获得1枚炉心标记。`,
+    bts_sk_luxin_info: `锁定技，当一名角色发动${get.poptip('bts_glossary_bisha_faq')}后，你获得1枚${get.poptip('bts_sk_luxin')}标记。`,
 
     '$bts_sk_shengjian1': "以星辰之光点亮大地",
     '$bts_sk_shengjian2': "Excalibur！",
@@ -237,16 +238,19 @@ export const translate = {
     '$bts_sk_luxin2': "飞舞吧，风暴！",
     '~bts_ch_saber': "抱歉…御主，我有负所托……",
     bts_mk_fate: '命运',
-    bts_mk_fate_info: '来源：圣剑必杀（星启）获得；标记数1回复4怒气，3弃全部重新积累',
+    bts_mk_fate_info: `来源：${get.poptip('bts_sk_shengjian')}${get.poptip('bts_glossary_bisha_faq')}（${get.poptip('bts_glossary_xingqi_faq')}）获得；标记数1回复4${get.poptip('bts_glossary_nuqi_faq')}，3弃全部重新积累`,
 };
 
 export const simpleTranslate = {
-    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，你的杀下次当决斗（无目标数限制）；${get.poptip('bts_glossary_xingqi_faq')}则+1层${get.poptip('bts_glossary_bless_through_faq')}并+1${get.poptip('bts_glossary_fate_faq')}（1回4${get.poptip('bts_glossary_nuqi_faq')}/3弃全部）`,
-    bts_sk_fengwang_info: '出牌阶段弃杀对范围内角色造成风伤并攒炉心',
-    bts_sk_luxin_info: `锁；任角色发动${get.poptip('bts_glossary_bisha_faq')}后+1炉心`,
+    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，你的杀下次当决斗（无目标数限制）；${get.poptip('bts_glossary_xingqi_faq')}则+2层${get.poptip('bts_glossary_bless_through_faq')}并+1${get.poptip('bts_glossary_fate_faq')}（1回4${get.poptip('bts_glossary_nuqi_faq')}/3弃全部）`,
+    bts_sk_fengwang_info: `出牌阶段弃杀对范围内角色造成风伤并攒${get.poptip('bts_sk_luxin')}`,
+    bts_sk_luxin_info: `锁；任角色发动${get.poptip('bts_glossary_bisha_faq')}后+1${get.poptip('bts_sk_luxin')}`,
 };
 
-export const pinyins = { bts_ch_saber: 'saber' };
+// 默认读音把拉丁名逐字符拆开（S a b e r）：按叁岛式以整词覆盖。
+export const pinyins = {
+    'Saber': ['Saber'],
+};
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -254,6 +258,6 @@ export const glossary = [
     {
         id: 'bts_glossary_fate_faq',
         name: '|命运|',
-        info: `Saber 专属：${get.poptip('bts_sk_shengjian')}必杀（星启）获得；标记数1时回复4点怒气，3时弃全部标记重新积累。`,
+        info: `Saber 专属：${get.poptip('bts_sk_shengjian')}${get.poptip('bts_glossary_bisha_faq')}（${get.poptip('bts_glossary_xingqi_faq')}）获得；标记数1时回复4点${get.poptip('bts_glossary_nuqi_faq')}，3时弃全部标记重新积累。`,
     },
 ];

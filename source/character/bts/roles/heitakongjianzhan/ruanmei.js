@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '冰·同谐·疏影三迭'; // 属性·命途
 export const intro =
-    `${B('阮梅')}是${get.poptip('bts_glossary_bless_faq')}辅助：${get.poptip('bts_glossary_bisha_faq')}${B('摇缎')}给自己和队友叠${get.poptip('bts_glossary_bless_canmei_faq')}与${get.poptip('bts_glossary_guantong_faq')}，${B('分型')}令失去手牌的角色${get.poptip('bts_glossary_abnormal_zhanfang_faq')}（跳过摸牌），${B('慢捻')}在准备阶段弃【杀】叠加${get.poptip('bts_glossary_bless_xianwaiyin_faq')}。` +
+    `${B('阮梅')}是${get.poptip('bts_glossary_bless_faq')}辅助：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yaoduan'))}给自己和队友叠${get.poptip('bts_glossary_bless_canmei_faq')}与${get.poptip('bts_glossary_guantong_faq')}，${B(get.poptip('bts_sk_fenxing'))}令失去手牌的角色${get.poptip('bts_glossary_abnormal_zhanfang_faq')}（跳过摸牌），${B(get.poptip('bts_sk_mannian'))}在准备阶段弃【杀】叠加${get.poptip('bts_glossary_bless_xianwaiyin_faq')}。` +
     `<li>${get.poptip('bts_glossary_bless_canmei_faq')}让拥有${get.poptip('bts_glossary_guantong_faq')}的角色摸牌+1，${get.poptip('bts_glossary_abnormal_zhanfang_faq')}跳过摸牌阶段`;
 
 export const character = {
@@ -146,9 +146,9 @@ export const translate = {
     '$bts_sk_mannian2': "万物本质如一",
     '~bts_ch_ruanmei': "还没有…答案……",
     bts_bless_canmei: '残梅祝福',
-    bts_bless_canmei_info: '来源：摇缎赋予；有贯通祝福的角色（除你外）摸牌+1；回合结束自然减少1层',
+    bts_bless_canmei_info: `来源：${get.poptip('bts_sk_yaoduan')}赋予；有${get.poptip('bts_glossary_bless_through_faq')}的角色（除你外）摸牌+1；回合结束自然减少1层`,
     bts_bless_xianwaiyin: '弦外音祝福',
-    bts_bless_xianwaiyin_info: '来源：慢捻赋予；弃他人剩1张时追击弃牌；回合结束自然减少1层',
+    bts_bless_xianwaiyin_info: `来源：${get.poptip('bts_sk_mannian')}赋予；弃他人剩1张时追击弃牌；回合结束自然减少1层`,
     bts_abnormal_zhanfang: '绽放',
 };
 
@@ -158,7 +158,7 @@ export const simpleTranslate = {
     bts_sk_mannian_info: `准备阶段，弃1张【杀】令至少1名其他角色与你各+3${get.poptip('bts_glossary_bless_xianwaiyin_faq')}`,
 };
 
-export const pinyins = { bts_ch_ruanmei: 'ruanmei' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_canmei: {
@@ -238,12 +238,12 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_canmei_faq',
         name: '残梅祝福',
-        info: '拥有贯通祝福的其他角色额定摸牌数+1。你的结束阶段开始时，此祝福减少1层。',
+        info: `拥有${get.poptip('bts_glossary_bless_through_faq')}的其他角色额定摸牌数+1。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_xianwaiyin_faq',
         name: '弦外音祝福',
-        info: '当你弃置其他角色的手牌后，若其手牌数为1，其须弃置一张手牌。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你弃置其他角色的手牌后，若其手牌数为1，其须弃置一张手牌。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_abnormal_zhanfang_faq',

@@ -44,9 +44,10 @@ export const skill = {
             lib.bts.api.setDamageNature(damage, 'frost');
             await damage;
             // 源 L6731-6734：星启时 +1映月 + 1层致命祝福
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
             if (lib.bts.api.god(player)) {
                 player.addMark('bts_mk_yingyue', 1);
-                await lib.bts.api.addBless(player, 'fatal', 1, player);
+                await lib.bts.api.addBless(player, 'fatal', 2, player);
             }
         },
         ai: {
@@ -164,12 +165,14 @@ export const skill = {
             const target = result.targets[0];
             // 源 L6793-6798：其他角色可各失去1点体力令伤害+1
             let bonus = player.countMark('bts_mk_yingyue');
-            for (const other of game.filterPlayer(
-                (candidate) =>
-                    candidate !== player &&
-                    candidate !== target &&
-                    candidate.hp > 1 &&
-                    candidate.countMark(`bts_damage_link_${player.playerid}`) === 0,
+            for (const other of lib.bts.api.seatOrder(
+                game.filterPlayer(
+                    (candidate) =>
+                        candidate !== player &&
+                        candidate !== target &&
+                        candidate.hp > 1 &&
+                        candidate.countMark(`bts_damage_link_${player.playerid}`) === 0,
+                ),
             )) {
                 const choice = await other
                     .chooseBool('映月：是否失去1点体力以令伤害+1？')
@@ -208,7 +211,7 @@ export const translate = {
     bts_mk_yingyue_active: '映月状态',
     bts_ch_jingliu: '镜流',
     bts_sk_tianhe: '天河',
-    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内一名其他角色，获得1枚${get.poptip('bts_glossary_shuowang_faq')}并对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，额外获得1枚${get.poptip('bts_glossary_bless_yingyue_faq')}并附加1层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
+    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内一名其他角色，获得1枚${get.poptip('bts_glossary_shuowang_faq')}并对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，额外获得1枚${get.poptip('bts_glossary_bless_yingyue_faq')}并附加2层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_sk_wuxia: '无罅',
     bts_sk_wuxia_info: `扣减体力后，你可以弃置一张【杀】，获得1枚${get.poptip('bts_glossary_shuowang_faq')}。`,
     bts_sk_zhuanpo: '转魄',
@@ -216,7 +219,7 @@ export const translate = {
     bts_sk_yingyue: '映月',
     // 源描述 L12847 含「锁定技，你造成的伤害视为暴击伤害」；源代码 L1137 持有 st_yingyue → AddNew("_critical")。
     // 无名杀代码已实现（resolver.js L79-80），原描述漏句，补齐。
-    bts_sk_yingyue_info: `锁定技，${get.poptip('bts_glossary_bless_yingyue_faq')}状态的出牌阶段开始时，你移除1枚${get.poptip('bts_glossary_shuowang_faq')}并选择一名其他角色，对其造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；其以外的未对你造成过伤害且体力值大于1的其他角色可选择失去1点体力令伤害+1，结算后你附加${get.poptip('bts_glossary_abnormal_sleep_faq')}；${get.poptip('bts_glossary_shuowang_faq')}耗尽时退出${get.poptip('bts_glossary_bless_yingyue_faq')}；锁定技，你造成的伤害视为暴击伤害。`,
+    bts_sk_yingyue_info: `锁定技，${get.poptip('bts_glossary_bless_yingyue_faq')}状态的出牌阶段开始时，你移除1枚${get.poptip('bts_glossary_shuowang_faq')}并选择一名其他角色，对其造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；其以外的未对你造成过伤害且体力值大于1的其他角色可选择失去1点体力令伤害+1，结算后你附加${get.poptip('bts_glossary_abnormal_sleep_faq')}；${get.poptip('bts_glossary_shuowang_faq')}耗尽时退出${get.poptip('bts_glossary_bless_yingyue_faq')}；锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
 
     '$bts_sk_tianhe1': "就让这一轮月华…",
     '$bts_sk_tianhe2': "照彻万川！",
@@ -228,19 +231,19 @@ export const translate = {
     '$bts_sk_yingyue2': "准备受死…",
     '~bts_ch_jingliu': "终于，解脱了…",
     bts_mk_shuowang: '朔望',
-    bts_mk_shuowang_info: '来源：天河、无罅赋予；映月：满2进入',
+    bts_mk_shuowang_info: `来源：${get.poptip('bts_sk_tianhe')}、${get.poptip('bts_sk_wuxia')}赋予；${get.poptip('bts_glossary_bless_yingyue_faq')}：满2进入`,
     bts_mk_yingyue: '映月',
-    bts_mk_yingyue_info: '来源：天河（星启）赋予；映月：下次发动时伤害值基数+1',
+    bts_mk_yingyue_info: `来源：${get.poptip('bts_sk_tianhe')}（${get.poptip('bts_glossary_xingqi_faq')}）赋予；${get.poptip('bts_glossary_bless_yingyue_faq')}：下次发动时伤害值基数+1`,
 };
 
 export const simpleTranslate = {
-    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+1${get.poptip('bts_glossary_shuowang_faq')}，对范围内目标霜伤；${get.poptip('bts_glossary_xingqi_faq')}额外+1${get.poptip('bts_glossary_bless_yingyue_faq')}和${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+1${get.poptip('bts_glossary_shuowang_faq')}，对范围内目标霜伤；${get.poptip('bts_glossary_xingqi_faq')}额外+1${get.poptip('bts_glossary_bless_yingyue_faq')}、+2${get.poptip('bts_glossary_bless_fatal_faq')}`,
     bts_sk_wuxia_info: `扣减体力后可弃杀+1${get.poptip('bts_glossary_shuowang_faq')}`,
     bts_sk_zhuanpo_info: `锁；任意角色回合结束${get.poptip('bts_glossary_shuowang_faq')}≥2时进入${get.poptip('bts_glossary_bless_yingyue_faq')}并额外回合`,
-    bts_sk_yingyue_info: `锁；${get.poptip('bts_glossary_bless_yingyue_faq')}出牌开始消耗${get.poptip('bts_glossary_shuowang_faq')}造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}（目标外未伤过你且体>1者可失体+1）并使自身${get.poptip('bts_glossary_abnormal_sleep_faq')}；你的伤害视为暴击`,
+    bts_sk_yingyue_info: `锁；${get.poptip('bts_glossary_bless_yingyue_faq')}出牌开始消耗${get.poptip('bts_glossary_shuowang_faq')}造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}（目标外未伤过你且体>1者可失体+1）并使自身${get.poptip('bts_glossary_abnormal_sleep_faq')}；你的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}`,
 };
 
-export const pinyins = { bts_ch_jingliu: 'jingliu' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -248,11 +251,11 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_yingyue_faq',
         name: '|映月|',
-        info: `镜流专属：满2朔望由${get.poptip('bts_sk_zhuanpo')}进入映月并获${get.poptip('bts_sk_yingyue')}；状态内出牌阶段消耗朔望造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害，结算后附睡眠，朔望耗尽退出。`,
+        info: `镜流专属：满2${get.poptip('bts_glossary_shuowang_faq')}由${get.poptip('bts_sk_zhuanpo')}进入${get.poptip('bts_glossary_bless_yingyue_faq')}并获${get.poptip('bts_sk_yingyue')}；状态内出牌阶段消耗${get.poptip('bts_glossary_shuowang_faq')}造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害，结算后附${get.poptip('bts_glossary_abnormal_sleep_faq')}，${get.poptip('bts_glossary_shuowang_faq')}耗尽退出。`,
     },
     {
         id: 'bts_glossary_shuowang_faq',
         name: '|朔望|',
-        info: `镜流专属：${get.poptip('bts_sk_tianhe')}必杀、${get.poptip('bts_sk_wuxia')}扣血各+1枚；满2由${get.poptip('bts_sk_zhuanpo')}进入映月，出牌阶段消耗朔望发动${get.poptip('bts_sk_yingyue')}。`,
+        info: `镜流专属：${get.poptip('bts_sk_tianhe')}${get.poptip('bts_glossary_bisha_faq')}、${get.poptip('bts_sk_wuxia')}扣血各+1枚；满2由${get.poptip('bts_sk_zhuanpo')}进入${get.poptip('bts_glossary_bless_yingyue_faq')}，出牌阶段消耗${get.poptip('bts_glossary_shuowang_faq')}发动${get.poptip('bts_sk_yingyue')}。`,
     },
 ];

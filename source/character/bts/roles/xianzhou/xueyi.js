@@ -1,5 +1,5 @@
 // 雪衣（源 animal.lua L5996-6086）—— 天罚、业报和诸恶。
-// 技能：天罚（必杀技·有元素则增伤+移除元素）、业报（他人弃手牌/得元素积累，9枚时暗杀）、诸恶（量子角色受伤弃杀补暗伤）。
+// 技能：天罚（必杀技·有元素则增伤+移除元素）、业报（他人弃手牌/得元素积累，10枚时暗杀）、诸恶（量子角色受伤弃杀补暗伤）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'xianzhou';
 export const title = '量子·毁灭·十王司判官'; // 属性·命途
@@ -60,7 +60,7 @@ export const skill = {
         // 无名杀映射：全局 discard 事件（仅真正的「弃置」，对应源 DISCARD reason）+ addMark。
         // 修复①：原 filter 误写 e.markname（应为 e.markName），获得元素分支永不触发；
         // 修复②：原实现用 loseAfter + countCards('h')===0（空城才触发，注释误读源），已按原版改回任意弃手牌。
-        // 触发阈值以源码为准（>=9 弃10；源翻译写「至少10枚」与代码不符）。
+        // 触发阈值：2026-10-02 用户定夺按源描述「达到至少10枚」（源代码口径 ≥9）。
         trigger: { global: ['discard', 'bts_mark_add'] },
         forced: true,
         filter(event, player, triggername) {
@@ -75,9 +75,9 @@ export const skill = {
             // 源 L6051：p:gainMark("@ebao")
             player.addMark('bts_mk_ebao', 1);
             const target = trigger.player;
-            // 源 L6052-6058：业报≥9 且曾伤害该角色 → 弃10并视为使用暗【杀】
+            // 源 L6052-6058：业报≥10（按描述定夺）且曾伤害该角色 → 弃10并视为使用暗【杀】
             if (
-                player.countMark('bts_mk_ebao') >= 9 &&
+                player.countMark('bts_mk_ebao') >= 10 &&
                 target?.isAlive() &&
                 player.countMark(`bts_damage_link_${target.playerid}`)
             ) {
@@ -148,7 +148,7 @@ export const translate = {
     bts_sk_tianfa: '天罚',
     bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对攻击范围内一名其他角色造成1点伤害；若其拥有元素，改为造成3点伤害并移除其元素。`,
     bts_sk_yebao: '业报',
-    bts_sk_yebao_info: `锁定技，其他角色弃置手牌或获得元素后，你获得1枚${get.poptip('bts_glossary_ebao_faq')}；达到9枚且你曾伤害该角色时，弃10枚并视为对其使用暗【杀】。（源翻译写「至少10枚」与代码不符，以代码为准）`,
+    bts_sk_yebao_info: `锁定技，其他角色弃置手牌或获得元素后，你获得1枚${get.poptip('bts_glossary_ebao_faq')}；达到10枚且你曾伤害该角色时，弃10枚并视为对其使用暗【杀】。`,
     bts_sk_zhue: '诸恶',
     bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受到伤害后，你可以弃置一张【杀】，对其造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害。`,
 
@@ -160,16 +160,16 @@ export const translate = {
     '$bts_sk_zhue2': "邪煞退散",
     '~bts_ch_xueyi': "对不起，姐姐不能……",
     bts_mk_ebao: '恶报',
-    bts_mk_ebao_info: '来源：业报赋予；业报：满9暗杀',
+    bts_mk_ebao_info: `来源：${get.poptip('bts_sk_yebao')}赋予；${get.poptip('bts_sk_yebao')}：满9暗杀`,
 };
 
 export const simpleTranslate = {
     bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对范围内角色造成伤害，有元素则造成3伤并移除元素`,
-    bts_sk_yebao_info: `锁；他人弃手牌或得元素后+1${get.poptip('bts_glossary_ebao_faq')}，9枚时暗杀伤害关联目标`,
+    bts_sk_yebao_info: `锁；他人弃手牌或得元素后+1${get.poptip('bts_glossary_ebao_faq')}，10枚时暗杀伤害关联目标`,
     bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受伤后可弃杀对其造成暗伤`,
 };
 
-export const pinyins = { bts_ch_xueyi: 'xueyi' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -177,6 +177,6 @@ export const glossary = [
     {
         id: 'bts_glossary_ebao_faq',
         name: '|恶报|',
-        info: `雪衣专属：${get.poptip('bts_sk_yebao')}获得；满9弃10枚，对最近伤害者使用暗【杀】。`,
+        info: `雪衣专属：${get.poptip('bts_sk_yebao')}获得；满10弃10枚，对最近伤害者使用暗【杀】。`,
     },
 ];

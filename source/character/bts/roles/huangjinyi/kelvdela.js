@@ -51,45 +51,44 @@ export const skill = {
     },
 
     // ── 锁定技·凯撒（源 st_kaisa = TriggerSkill Compulsory MarkChanged，L8732-8766）──
-    // 当你失去升变标记后，若有其他角色拥有军功，转移你的其余升变；
-    // 若没有，则与军功角色交换一张牌（源为可选交互，无名杀以固定交换近似）。
+    // 源描述：「当其他角色获得升变标记后，你获得其一张牌，然后交给其一张牌；
+    // 当你获得升变标记后，若有其他角色拥有『军功』，你将全部升变标记转移给其。」
+    // 源代码作失去方向（gain<0）——同族 7 处 gain 方向与描述相反的系统性笔误，
+    // 2026-10-02 用户定夺按描述方向实现（bts_mark_add，两分支结算对象随描述重构）。
     bts_sk_kaisa: {
-        trigger: { global: 'bts_mark_remove' },
+        trigger: { global: 'bts_mark_add' },
         forced: true,
         filter(event) {
-            // 源 L8738：任意角色失去 @st_shengbian（mark.gain<0），且场上有军功持有者
-            return (
-                event.markName === 'bts_mk_shengbian' &&
-                event.num > 0 &&
-                !!game.filterPlayer((target) => target.hasSkill('bts_sk_jungong')).at(0)
-            );
+            return event.markName === 'bts_mk_shengbian' && event.num > 0;
         },
         async content(event, trigger, player) {
-            // trigger=removeMark 事件；trigger.player=失去升变者（源分支依"失去者是否刻律德菈"区分）
-            const owner = game
-                .filterPlayer((target) => target.hasSkill('bts_sk_jungong'))
-                .at(0);
-            if (!owner) return;
-            if (trigger.player === player) {
-                // 源 L8739-8746：刻律德菈失去升变 → 剩余升变全部转移给军功持有者（无剩余则不结算）
-                if (owner === player) return;
+            // trigger=addMark 事件；trigger.player=获得升变者
+            const gainer = trigger.player;
+            if (!gainer || gainer === player) {
+                // 分支 B（源描述）：你获得升变后，若有其他角色拥有军功，将全部升变转移给其
+                const owner = game
+                    .filterPlayer(
+                        (target) =>
+                            target !== player &&
+                            target.hasSkill('bts_sk_jungong'),
+                    )
+                    .at(0);
+                if (!owner) return;
                 const count = player.countMark('bts_mk_shengbian');
                 if (count) {
-                    player.removeMark('bts_mk_shengbian', count); // 源 L8745：loseAllMarks
-                    owner.addMark('bts_mk_shengbian', count); // 源 L8746：p:gainMark(@st_shengbian, x)
+                    player.removeMark('bts_mk_shengbian', count);
+                    owner.addMark('bts_mk_shengbian', count);
                 }
                 return;
             }
-            // 源 L8747-8757：其他角色（军功持有者经军功失去升变）→ 刻律德菈获其一张牌并回赠一张手牌（交换）。
-            // 源描述写"当其他角色获得升变标记后"为虚标（代码实为失去时触发），以代码为准。
-            if (owner.countCards('he')) {
-                // 引擎无 player.isNude；以「he 区有牌」判可否获牌（countCards）
-                await player.gainPlayerCard(owner, 'he', true); // 源 L8752：obtainCard
+            // 分支 A（源描述）：其他角色获得升变后，你获得其一张牌并交给其一张牌（交换）
+            if (gainer.countCards('he')) {
+                await player.gainPlayerCard(gainer, 'he', true);
                 if (player.countCards('h')) {
                     const give = await player
-                        .chooseCard('h', '凯撒：交给军功角色一张手牌')
+                        .chooseCard('h', '凯撒：交给获得升变者一张手牌')
                         .forResult();
-                    if (give.bool) await player.give(give.cards, owner); // 源 L8755：moveCardTo 交给 p
+                    if (give.bool) await player.give(give.cards, gainer);
                 }
             }
         },
@@ -266,9 +265,9 @@ export const translate = {
     bts_sk_shiqi: '世棋',
     bts_sk_shiqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，获得2枚${get.poptip('bts_glossary_shengbian_faq')}标记；若你为${get.poptip('bts_glossary_xingqi_faq')}，将手牌补至五张。`,
     bts_sk_kaisa: '凯撒',
-    bts_sk_kaisa_info: `锁定技，当任意角色失去${get.poptip('bts_glossary_shengbian_faq')}标记后：若为你失去，若有其他角色拥有军功，将你的其余${get.poptip('bts_glossary_shengbian_faq')}全部转移给其；若为军功持有者失去（经"军功"花费），你与其交换一张牌。（源描述写"获得标记后"，与代码"失去时"不符，以代码为准）`,
+    bts_sk_kaisa_info: `锁定技，当其他角色获得${get.poptip('bts_glossary_shengbian_faq')}标记后，你获得其一张牌，然后交给其一张牌；当你获得${get.poptip('bts_glossary_shengbian_faq')}标记后，若有其他角色拥有「${get.poptip('bts_sk_jungong')}」，你将全部${get.poptip('bts_glossary_shengbian_faq')}转移给其。`,
     bts_sk_shengbian: '升变',
-    bts_sk_shengbian_info: `结束阶段开始时，你可以弃置一张【杀】获得1枚${get.poptip('bts_glossary_shengbian_faq')}；若没有角色拥有军功，你选择一名角色获得军功。`,
+    bts_sk_shengbian_info: `结束阶段开始时，你可以弃置一张【杀】获得1枚${get.poptip('bts_glossary_shengbian_faq')}；若没有角色拥有${get.poptip('bts_sk_jungong')}，你选择一名角色获得${get.poptip('bts_sk_jungong')}。`,
     bts_sk_jungong: '军功',
     bts_sk_jungong_info: `锁定技，使用【杀】或【决斗】、弃置【杀】后获得${get.poptip('bts_glossary_shengbian_faq')}；出牌阶段结束时，${get.poptip('bts_glossary_shengbian_faq')}不少于6枚则弃6枚，对本阶段受到过你伤害的角色造成分摊伤害；防止你${get.poptip('bts_glossary_bisha_faq')}造成的伤害。（源描述与代码一致）`,
     bts_mk_shengbian: '升变',
@@ -285,12 +284,12 @@ export const translate = {
 
 export const simpleTranslate = {
     bts_sk_shiqi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_shengbian_faq')}，${get.poptip('bts_glossary_xingqi_faq')}补满5张手牌`,
-    bts_sk_kaisa_info: `锁；升变一掉就把零头转给军功角色；军功角色花升变时你跟他换一张牌`,
-    bts_sk_shengbian_info: `出牌结束可弃杀+1${get.poptip('bts_glossary_shengbian_faq')}；没人拿军功时你得军功`,
+    bts_sk_kaisa_info: `锁；他人获得${get.poptip('bts_glossary_shengbian_faq')}时你与其换一张牌；你获得${get.poptip('bts_glossary_shengbian_faq')}时全转给${get.poptip('bts_sk_jungong')}角色`,
+    bts_sk_shengbian_info: `出牌结束可弃杀+1${get.poptip('bts_glossary_shengbian_faq')}；没人拿${get.poptip('bts_sk_jungong')}时你得${get.poptip('bts_sk_jungong')}`,
     bts_sk_jungong_info: `锁；用/弃杀攒${get.poptip('bts_glossary_shengbian_faq')}，攒到6层就把伤害摊出去；自己${get.poptip('bts_glossary_bisha_faq')}伤害被防止`,
 };
 
-export const pinyins = { bts_ch_kelvdela: 'kelvdela' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -298,6 +297,6 @@ export const glossary = [
     {
         id: 'bts_glossary_shengbian_faq',
         name: '|升变|',
-        info: `刻律德菈专属：${get.poptip('bts_sk_shiqi')}必杀、${get.poptip('bts_sk_shengbian')}结束弃杀、${get.poptip('bts_sk_jungong')}用/失杀各+1枚；出牌阶段结束时满6消费6枚，对最近伤害者造成伤害。`,
+        info: `刻律德菈专属：${get.poptip('bts_sk_shiqi')}${get.poptip('bts_glossary_bisha_faq')}、${get.poptip('bts_sk_shengbian')}结束弃杀、${get.poptip('bts_sk_jungong')}用/失杀各+1枚；出牌阶段结束时满6消费6枚，对最近伤害者造成伤害。`,
     },
 ];

@@ -88,7 +88,7 @@ export const skill = {
         async content(event, trigger, player) {
             if (player.hasSkill('bts_sk_chonggao'))
                 await lib.bts.api.addBless(player, 'shengge', game.countPlayer());
-            for (const target of game.filterPlayer())
+            for (const target of lib.bts.api.seatOrder(game.filterPlayer()))
                 if (target.countCards('h'))
                     await player.discardPlayerCard(target, 'h', true);
         },
@@ -117,9 +117,9 @@ export const translate = {
     bts_sk_jinmei: '尽美',
     bts_sk_jinmei_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去2点${get.poptip('bts_glossary_nuqi_faq')}并弃置至少一名其他角色一张牌；或失去4点${get.poptip('bts_glossary_nuqi_faq')}，对这些角色各造成1点通常伤害。`,
     bts_sk_gongzheng: '公正',
-    bts_sk_gongzheng_info: `锁定技，当你使用锦囊牌结算后，弃置每名角色一张手牌；若你拥有崇高，获得等同于存活角色数的${get.poptip('bts_glossary_bless_shengge_faq')}。`,
+    bts_sk_gongzheng_info: `锁定技，当你使用锦囊牌结算后，弃置每名角色一张手牌；若你拥有${get.poptip('bts_sk_chonggao')}，获得等同于存活角色数的${get.poptip('bts_glossary_bless_shengge_faq')}。`,
     bts_sk_chonggao: '崇高',
-    bts_sk_chonggao_info: `锁定技，当你使用【杀】或以尽美造成伤害指定目标后，获得等同于目标数的${get.poptip('bts_glossary_bless_shengge_faq')}。`,
+    bts_sk_chonggao_info: `锁定技，当你使用【杀】或以${get.poptip('bts_sk_jinmei')}造成伤害指定目标后，获得等同于目标数的${get.poptip('bts_glossary_bless_shengge_faq')}。`,
 
     '$bts_sk_jinmei1': "再次见到那道光芒之前……",
     '$bts_sk_jinmei2': "银河中的一切美丽，我将捍卫至最后一刻",
@@ -130,20 +130,23 @@ export const translate = {
     '$bts_sk_chonggao2': "就此向善吧",
     '~bts_ch_yinzhi': "没找到…「祂」……",
     bts_bless_shengge: '升格祝福',
-    bts_bless_shengge_info: '来源：公正、崇高赋予；被移除后仍≥10层移除10层回怒气；回合结束自然减少1层',
+    bts_bless_shengge_info: `来源：${get.poptip('bts_sk_gongzheng')}、${get.poptip('bts_sk_chonggao')}赋予；达到≥10层时移除10层回${get.poptip('bts_glossary_nuqi_faq')}；回合结束自然减少1层`,
 };
 export const simpleTranslate = {
     bts_sk_jinmei_info: `${get.poptip('bts_glossary_bisha_faq')}；失2${get.poptip('bts_glossary_nuqi_faq')}弃目标牌，或失4${get.poptip('bts_glossary_nuqi_faq')}对目标造成通常伤害`,
     bts_sk_gongzheng_info: `锁；锦囊后全场各弃1手牌，并可能获得${get.poptip('bts_glossary_bless_shengge_faq')}`,
-    bts_sk_chonggao_info: `锁；杀或尽美指定目标后获得${get.poptip('bts_glossary_bless_shengge_faq')}`,
+    bts_sk_chonggao_info: `锁；杀或${get.poptip('bts_sk_jinmei')}指定目标后获得${get.poptip('bts_glossary_bless_shengge_faq')}`,
 };
-export const pinyins = { bts_ch_yinzhi: 'yinzhi' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_shengge: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_shengge_faq',
-        trigger: { global: 'bts_mark_remove' },
+        // 达到至少10层时（源描述；源代码作被移除时——同族 7 处 gain 方向与描述相反
+        // 的系统性笔误，2026-10-02 用户定夺按描述方向实现：监听 bts_mark_add，
+        // 计数含本次增量；减少不再触发）。
+        trigger: { global: 'bts_mark_add' },
         forced: true,
         silent: true,
         filter(event, player) {
@@ -166,6 +169,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_shengge_faq',
         name: '升格祝福',
-        info: '此祝福被移除时，若仍拥有至少10层，移除10层此祝福并回复1点怒气。你的结束阶段开始时，此祝福自然减少1层，减少后仍达10层同样触发。',
+        info: `达到至少10层时，移除10层此${get.poptip('bts_glossary_bless_faq')}并回复1点${get.poptip('bts_glossary_nuqi_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}自然减少1层（减少不再触发）。`,
     },
 ];

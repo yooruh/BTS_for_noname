@@ -31,6 +31,7 @@ export const connectBanned = [];
 // scripts/rebuild.mjs 自动递归扫描 roles/<阵营>/*.js 并更新本数组。
 // 每一项是不含 .js 的、相对于本目录的模块路径。
 const ROLE_FILES = [
+    'roles/erxiangleyuan/aha',
     'roles/erxiangleyuan/busitu',
     'roles/erxiangleyuan/gilgamesh',
     'roles/erxiangleyuan/huohua',
@@ -167,9 +168,11 @@ const GLOSSARY_TRANSLATE = Object.fromEntries(
 );
 
 // ── 技能 → 词条 derivation 自动挂载规则（自 glossary.js 迁入，全文照搬）──────
-// test(id, src)：src 为技能 id + 各函数/字符串字段的源码文本。
+// test(id, src, info)：src 为技能 id + 各函数/字符串字段的源码文本；第三参 info 为技能对象。
 const DERIVATION_RULES = [
-    { id: 'bts_glossary_bisha_faq', test: (id) => id.startsWith('bts_st_') },
+    // 2026-09-28 修复：原查 id.startsWith('bts_st_') 恒 false（旧前缀）——必杀技统一以
+    // bts_bisha 标签判定（同 zaixian/军功等 bts_bisha 判定范式）。
+    { id: 'bts_glossary_bisha_faq', test: (id, src, info) => info?.bts_bisha === true },
     {
         id: 'bts_glossary_nuqi_faq',
         test: (id, src) =>
@@ -269,7 +272,7 @@ function attachGlossaryDerivations(skillMap) {
         );
         const src = collectSkillSource(id, info);
         for (const rule of DERIVATION_RULES) {
-            if (rule.test(id, src)) deps.add(rule.id);
+            if (rule.test(id, src, info)) deps.add(rule.id);
         }
         if (deps.size) {
             info.derivation = deps.size === 1 ? [...deps][0] : [...deps];

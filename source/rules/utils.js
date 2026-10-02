@@ -27,6 +27,42 @@ function allMarks(player, prefix) {
 // 本对象只保留通用规则 API（怒气/祝福/护盾/诅咒/异常/元素/回合/变形等）。
 export const bts = {
     /**
+     * 派发崩铁杀自定义事件（2026-10-02 技能效果自注册重构的基建）。
+     * 范式与 bts_mark_add/bts_mark_remove 一致：构造 content='emptyEvent' 的子事件
+     *（emptyEvent → event.trigger(event.name) 裸名派发），技能侧以
+     * `trigger: { player/global: '<事件名>' }` 监听；事件名须在安装期登记
+     * lib.hookmap（rules/index.js installCustomEventHooks），否则引擎门禁直接吞掉。
+     * 时序：不 await 时监听者在「下一泵点」（当前同步段结束后）执行；需要
+     *「监听者先于调用点后续代码完成」时 await 返回的事件（await 子事件会泵父
+     * 事件队列——引擎 gameEvent.js then()/waitNext()，无死锁）。
+     * @param {string} name 事件名（bts_ 前缀）
+     * @param {object} fields 事件字段（如 { player, pet, repeated }）
+     * @returns {object} 事件本体（可 await；forceDie/includeOut 保证死者/离场者照发）
+     */
+    emit(name, fields = {}) {
+        const next = game.createEvent(name, false, get.event());
+        Object.assign(next, fields);
+        next.forceDie = true;
+        next.includeOut = true;
+        next.setContent('emptyEvent');
+        return next;
+    },
+
+    /**
+     * 全场结算遍历顺序（2026-09-29 用户定夺统一）：从当前回合角色（_status.currentPhase）
+     * 起按座次展开，参照「属性杀触发铁索连环的结算顺序」。
+     * 依据：源版 getAllPlayers() 从当前回合角色开始逐座次取全体；无名杀引擎同款实现——
+     * `_lianhuan`（铁索连环传导）`lib.tempSortSeat = _status.currentPhase || player`、
+     * useCard 目标排序 `targets.sortBySeat(_status.currentPhase || player)`。
+     * 本扩展所有「对全体/多名角色的依次结算遍历」一律经本函数排序，不再从固定 1 号位开始。
+     * @param {Player[]} list 待排序玩家集合（不修改原数组）
+     * @returns {Player[]} 从当前回合角色起按座次展开的新数组
+     */
+    seatOrder(list) {
+        return Array.from(list).sortBySeat(_status.currentPhase);
+    },
+
+    /**
      * 额外回合（额外出牌机会）工具集
      *
      * 无名杀的回合模型：一个回合 = 一个 name === "phase" 的 GameEvent，
@@ -199,24 +235,16 @@ export const bts = {
     addAngry(player, amount = 1, from = player) {
         if (!this.hasAngryBisha(player)) return 0;
         player.addMark(MARKS.ANGRY, amount);
-        // 身炬（源 st_shenju 描述"其他角色令你回复怒气后"）：他人令你获得怒气 → +1 火种
-        // （源代码未实现此触发，按用户定夺补；与下方 addBless/addShield 同款挂钩）
-        if (
-            from !== player &&
-            player.hasSkill('bts_sk_shenju') &&
-            player.countMark('bts_mk_huozhong') < 15
-        ) {
-            player.logSkill('bts_sk_shenju');
-            player.addMark('bts_mk_huozhong', 1);
-        }
-        if (
-            from !== player &&
-            player.hasSkill('bts_sk_cunqiang') &&
-            !this.getBless(player, 'through')
-        ) {
-            player.logSkill('bts_sk_cunqiang');
-            this.addBless(player, 'through', 1, player);
-        }
+        // 2026-10-02 自注册重构：他人令你获得怒气/祝福/护盾（源身炬/寸强描述含此法；
+        // 源代码未实现，按用户定夺补）统一广播 bts_resource_add，由身炬/寸强等技能
+        // 监听自注册结算（原按 hasSkill 内联代执行的挂钩已删除）。
+        this.emit('bts_resource_add', {
+            player,
+            from,
+            kind: 'angry',
+            markName: MARKS.ANGRY,
+            num: amount,
+        });
         return amount;
     },
     loseAngry(player, amount = 1) {
@@ -298,15 +326,15 @@ export const bts = {
         // 快照须在标记变更前取（源 AddBless：先算 st_qingkong 再 addPlayerMark）
         const qingkong = this.yuguotianqingActive();
         player.addMark(mark, amount);
-        // 身炬（源 st_shenju 描述"其他角色令你附加祝福后"）：他人令你附加祝福 → +1 火种
-        if (
-            from !== player &&
-            player.hasSkill('bts_sk_shenju') &&
-            player.countMark('bts_mk_huozhong') < 15
-        ) {
-            player.logSkill('bts_sk_shenju');
-            player.addMark('bts_mk_huozhong', 1);
-        }
+        // 2026-10-02 自注册重构：他人令你附加祝福（源身炬描述含此法）广播 bts_resource_add，
+        // 由身炬等技能监听自注册结算（原按 hasSkill 内联代执行的挂钩已删除）。
+        this.emit('bts_resource_add', {
+            player,
+            from,
+            kind: 'bless',
+            markName: mark,
+            num: amount,
+        });
         if (mark === MARKS.bless('maxhp')) {
             // 源 AddBless L427-430：全场存在雨过天晴 → 翻倍
             await this.gainMaxHp(player, amount * (qingkong ? 2 : 1));
@@ -318,9 +346,12 @@ export const bts = {
                 !qingkong &&
                 this.getBless(player, 'yuguotianqing', -1) === amount
             ) {
-                for (const holder of game.filterPlayer(
-                    (target) =>
-                        target.isAlive() && this.getBless(target, 'maxhp'),
+                for (const holder of this.seatOrder(
+                    game.filterPlayer(
+                        (target) =>
+                            target.isAlive() &&
+                            this.getBless(target, 'maxhp'),
+                    ),
                 )) {
                     await this.gainMaxHp(
                         holder,
@@ -388,9 +419,12 @@ export const bts = {
                 true,
             );
             if (!others.length) {
-                for (const holder of game.filterPlayer(
-                    (target) =>
-                        target.isAlive() && this.getBless(target, 'maxhp'),
+                for (const holder of this.seatOrder(
+                    game.filterPlayer(
+                        (target) =>
+                            target.isAlive() &&
+                            this.getBless(target, 'maxhp'),
+                    ),
                 )) {
                     await this.gainMaxHp(
                         holder,
@@ -415,35 +449,51 @@ export const bts = {
 
     // 护盾：崩铁杀特殊护盾（与无名杀本体护甲不同），以 shield 标记层数实现，
     // 抵扣逻辑在 resolver.damageBegin2（贯通伤害不抵扣）。
+    // 残梦期间护盾无效（源 GetShield L725-733 含 max_canmeng 检查；2026-10-02 补齐）。
     getShield(player, amount) {
+        if (lib.skill['bts_sk_canmeng']?.util?.canmengActive?.()) {
+            return amount == null ? 0 : false;
+        }
         const value = player.countMark(MARKS.SHIELD);
         return amount == null ? value : value >= amount;
     },
     addShield(player, amount = 1, from = player) {
         player.addMark(MARKS.SHIELD, amount);
-        // 身炬（源 st_shenju 描述"其他角色令你附加护盾后"）：他人令你附加护盾 → +1 火种
-        if (
-            from !== player &&
-            player.hasSkill('bts_sk_shenju') &&
-            player.countMark('bts_mk_huozhong') < 15
-        ) {
-            player.logSkill('bts_sk_shenju');
-            player.addMark('bts_mk_huozhong', 1);
-        }
-        if (
-            from !== player &&
-            player.hasSkill('bts_sk_cunqiang') &&
-            !this.getBless(player, 'through')
-        ) {
-            player.logSkill('bts_sk_cunqiang');
-            this.addBless(player, 'through', 1, player);
-        }
+        // 2026-10-02 自注册重构：他人令你附加护盾（源身炬/寸强描述含此法）广播
+        // bts_resource_add，由身炬/寸强等技能监听自注册结算
+        //（原按 hasSkill 内联代执行的挂钩已删除）。
+        this.emit('bts_resource_add', {
+            player,
+            from,
+            kind: 'shield',
+            markName: MARKS.SHIELD,
+            num: amount,
+        });
         return amount;
     },
     removeShield(player, amount = 1) {
         const removed = Math.min(amount, player.countMark(MARKS.SHIELD));
         player.removeMark(MARKS.SHIELD, removed);
         return removed;
+    },
+
+    // 「不可被其他角色指定为目标」状态判定（2026-10-01；貊泽·掠袭·潜行，源 alive=false 语义）。
+    // 三处封锁共用本判据（rules/index.js installUntargetableGuard）：
+    //   ① 卡牌选目标：moze.js 的 targetEnabled mod（引擎 canUse/chooseToUse 默认过滤器）；
+    //   ② 技能选目标：候选守卫（Check.processSelection，UI 与 AI 名单同源）；
+    //   ③ 自动「视为使用」：useCard 内容首步（技能固定目标直发，如黑塔·效率）。
+    untargetable(target) {
+        return Boolean(
+            target?.hasSkill?.('bts_sk_lvexi') &&
+                target.countMark('bts_mk_moze_stealth'),
+        );
+    },
+
+    // 存活角色数（掠袭退出条件「全场仅剩2人」判据，2026-10-02 用户定夺恢复源版条件。
+    // 源为 room:getAllPlayers(true):length()==2；计数口径同视界等既有实现：
+    // game.players 中 isAlive() 者）。
+    alivePlayerCount() {
+        return game.players.filter((p) => p.isAlive()).length;
     },
 
     getCurse(player, amount) {
@@ -577,7 +627,7 @@ export const bts = {
     // `_bts_reason_<tag>`（_common/_fatal/_critical/_through/_nature），避免与
     // 无名杀本体/其他扩展的 reason 字符串（如 _critical）经 includes 误撞。
     // API 仍收短标签（'_fatal' 等），内部映射；元素名后缀（_frost 等）为技能基名
-    // 一部分（bts_st_* 已命名空间化）不在此列。
+    // 一部分（bts_sk_* 已命名空间化）不在此列。
     markDamage(damage, suffix) {
         if (!damage) return damage;
         const tag = `_bts_reason_${suffix.replace(/^_/, '')}`;
@@ -799,14 +849,23 @@ export const bts = {
     getPet(player, pet) {
         return player.countMark(MARKS.pet(pet)) > 0;
     },
-    addPet(player, pet, { base, combined, petHp, removeRecover = 0 } = {}) {
+    // 2026-10-02 用户定夺：登场/重复召唤结算按源代码全量对齐（animal.lua AddPet/RemovePet）——
+    //   首次召唤：小伊卡 +1怒气、乐手 +1怒气；重复召唤（已在场再召）：长夜 +1体力、
+    //   乐手 +6气氛、小伊卡 +1怒气（源尾块对每次召唤都结算）；重复召唤退回 false 不重复变形。
+    // 2026-10-02 自注册重构：本函数只广播 bts_pet_add（字段 player/pet/repeated），上述效果由
+    //   各忆灵形态技能（漆黑/心跳/展落）监听自注册结算；await 保证监听者先于调用点后续代码完成。
+    async addPet(player, pet, { base, combined, petHp } = {}) {
         if (!player) throw new Error(`无法召唤忆灵 ${pet}`);
         // 2026-09-28 修复（咒礼召唤链·死者 hp=1 非法态）：召唤走 changePetForm 重算体力
         // （newHp = hp + petHp），若调用方先失体致死（咒礼 loseHp）后代码继续执行，会把
-        // 尸体重算成 hp=1。死人不获得忆灵——语义门（同 removePet 的 removeRecover isAlive 门）。
+        // 尸体重算成 hp=1。死人不获得忆灵——语义门（离场侧忆灵技能 filter 亦有 isAlive 门）。
         // 实机 4 局：09-27 15:44 j2hlar / 17:55 co0tzs / 19:24 454yak / 23:06 2ggxef。
         if (!player.isAlive()) return false;
-        if (this.getPet(player, pet)) return false;
+        // 重复召唤（源 AddPet else 分支 + 尾块）：忆灵已在场时不变形，广播 bts_pet_add 由各技能结算
+        if (this.getPet(player, pet)) {
+            await this.emit('bts_pet_add', { player, pet, repeated: true });
+            return false;
+        }
         base ??= player.name1 || player.name;
         combined ??= `bts_ch_${base.replace(/^bts_ch_/, '')}_and_${pet}`;
         if (!lib.character[combined])
@@ -819,7 +878,6 @@ export const bts = {
         player.storage.btsPets[pet] = {
             base,
             combined,
-            removeRecover,
             petHp,
             petMaxHp: petInfo?.[2] ?? petHp,
         };
@@ -833,15 +891,9 @@ export const bts = {
         const petLordBonus =
             player.isLord?.() || player.isZhu === true ? 1 : 0;
         player.setMark(MARKS.pet(pet), petHp + petLordBonus);
-        // 源 登场结算（源描述 st_xintiao L14204）：晴空乐手登场时，
-        // 若此前已召唤过乐手（二次登场，和声移除后重召）则获得6枚气氛标记，否则回复1点怒气。
-        // 源未实现（半成品空技能），按描述补实现（用户定夺 2026-09-02；"已存在"按"此前召唤过"理解）。
-        if (pet === 'qingkongyueshou') {
-            const first = !player.storage.bts_qingkong_ever;
-            player.storage.bts_qingkong_ever = true;
-            if (first) lib.bts.api.addAngry(player);
-            else player.addMark('bts_mk_qifen', 6);
-        }
+        // 首次登场结算（源 AddPet 首起分支 + 尾块）：乐手/小伊卡 +1怒气——由忆灵形态技能
+        // 监听 bts_pet_add 自注册结算。原「此前召唤过→+6」近似口径已废弃。
+        await this.emit('bts_pet_add', { player, pet, repeated: false });
         return true;
     },
     async removePet(player, pet, { base } = {}) {
@@ -850,6 +902,10 @@ export const bts = {
         base ??= record?.base;
         if (!base || !lib.character[base])
             throw new Error(`忆灵 ${pet} 缺少可还原的基础角色`);
+        // 2026-10-02 自注册重构：先广播 bts_pet_remove（此刻忆灵形态技能仍挂载、忆灵标记仍在场），
+        // 各忆灵技能（晚风/展落/晦翼）据此自注册结算离场效果；再变形还原 + 清标记。
+        //（原内联效果在还原之后结算、不经技能；重构后必须前置到还原之前，触发器才能命中。）
+        await this.emit('bts_pet_remove', { player, pet });
         const from = player.name1 || player.name;
         this.changePetForm(player, base, {
             from,
@@ -858,15 +914,8 @@ export const bts = {
         });
         player.setMark(MARKS.pet(pet), 0);
         if (player.storage.btsPets) delete player.storage.btsPets[pet];
-        if (record?.removeRecover && player.isAlive())
-            await player.recover(player, record.removeRecover);
-        // 源 RemovePet（L814-878）按忆灵各自结算离场效果（用户定夺 2026-09-02 统一生命池）
-        if (player.isAlive()) {
-            if (pet === 'yijiang') lib.bts.api.addAngry(player); // 衣匠：回怒气（源 AddAngry）
-            else if (pet === 'xiaoyika') await player.draw(player, 1); // 小伊卡：摸1（源 st_zhanluo）
-            else if (pet === 'qingkongyueshou')
-                lib.bts.api.extraTurn(player, 'bts_extra_turn'); // 乐手：额外回合（源 st_wanfeng）
-        }
+        // 衣匠：回怒气（源 RemovePet AddAngry；该忆灵无对应角色技能壳，保留为忆灵系统机制）
+        if (pet === 'yijiang' && player.isAlive()) lib.bts.api.addAngry(player);
         return true;
     },
     // 忆灵生命池（源全局 HpChanged L1354-1396，用户定夺 2026-09-02 统一实现）：
@@ -908,16 +957,22 @@ export const bts = {
     },
 
     // ── 欢愉子系统（源 animal.lua L11072-11205）──────────────────────────────
-    // 欢愉行动（FunnyAct）按持有者拥有的 *_funny 技能逐一结算；欢愉时刻（FunnyTime）令全场各
-    // 执行一次欢愉行动；笑点（bts_mk_funnypoint）与欢愉祝福（bts_bless_funny）决定层数/概率。
+    // 欢愉行动（FunnyAct）：按持有者技能对象上的 bts_funny 注册表泛化派发（2026-10-02 自注册
+    // 重构，原按技能 id 硬编码 if 链）；欢愉时刻（FunnyTime）令全场各执行一次欢愉行动；
+    // 笑点（bts_mk_funnypoint）与欢愉祝福（bts_bless_funny）决定层数/概率。
 
-    /** 是否拥有欢愉技能（源 FunnyPlayer L11072-11074） */
+    /** 是否拥有欢愉技能（源 FunnyPlayer L11072-11074；2026-09-29 阿哈（原创）亦计入） */
     funnyPlayer(player) {
+        // 2026-09-28 修复：原查 `bts_st_${name}_funny` 恒 false（实际技能命名 bts_sk_*_funny，
+        // 见 huohua/shajin_xilang/yinlang_lv999）→ 欢愉时刻授予祝福、afterFunnyAct 笑点链路从未触发。
+        // 2026-09-29：阿哈（原创角色）拥有欢愉行动（使用/视为使用【无中生有】或【欢愉万相】），
+        // 计入源术语「拥有欢愉行动的角色」（伤害约束、欢愉升格、“鉴映”类计数同此判定）。
         return (
             player &&
-            ['paozhu', 'lianxian', 'qianguang', 'buzhui', 'baoshe', 'langzun'].some(
-                (name) => player.hasSkill(`bts_st_${name}_funny`),
-            )
+            (player.hasSkill('bts_sk_aha') ||
+                ['paozhu', 'lianxian', 'qianguang', 'buzhui', 'baoshe', 'langzun'].some(
+                    (name) => player.hasSkill(`bts_sk_${name}_funny`),
+                ))
         );
     },
 
@@ -942,41 +997,57 @@ export const bts = {
                         .map((e) => e.source?.playerid)
                         .filter(Boolean),
                 );
-                for (const p of game.filterPlayer((p) => ids.has(p.playerid)))
+                for (const p of this.seatOrder(
+                    game.filterPlayer((p) => ids.has(p.playerid)),
+                ))
                     await p.loseHp();
             }
         }
     },
 
-    /** 欢愉行动后置（源 AfterFunnyAct L11137-11192）：+1 笑点，花手弃牌堆底5张 */
+    /** 欢愉行动后置（源 AfterFunnyAct L11137-11192）：+1 笑点；花手弃牌由其技能监听
+     * bts_funny_act_after 自注册结算（本函数只广播，不再按 hasSkill 代执行）。 */
     afterFunnyAct(player) {
         player.addMark('bts_mk_funnypoint', 1);
-        if (player.hasSkill('bts_sk_huashou')) {
-            player.logSkill('bts_sk_huashou');
-            const cards = get.bottomCards(5);
-            if (cards.length) game.cardsDiscard(cards);
-        }
+        this.emit('bts_funny_act_after', { player });
     },
 
-    /** 欢愉时刻（源 FunnyTime L11193-11205）：全场各执行一次欢愉行动 */
-    async funnyTime(room, funny, num) {
+    /** 欢愉时刻（源 FunnyTime L11193-11205）：全场各执行一次欢愉行动。
+     * @param {number|null} funny 传 -1/空=按笑点换算；其余按 funny/10
+     * @param {*} num 'max_changyao' 时附带 0.0116 概率连发 9 次
+     * @param {string} [initiator] 发起技能 id（透传给 funnyAct 做日志去重） */
+    async funnyTime(room, funny, num, initiator) {
         if (funny == null) funny = -1;
         else funny = funny / 10;
-        for (const p of game.filterPlayer((p) => p.isAlive())) {
+        for (const p of this.seatOrder(game.filterPlayer((p) => p.isAlive()))) {
             p.storage.bts_funny_time = true;
-            await this.funnyAct(p, funny);
+            await this.funnyAct(p, funny, null, initiator);
             if (num === 'max_changyao' && this.funnyNumber(p, 0.0116))
-                for (let i = 0; i < 9; i++) await this.funnyAct(p, funny);
+                for (let i = 0; i < 9; i++)
+                    await this.funnyAct(p, funny, null, initiator);
             delete p.storage.bts_funny_time;
         }
     },
 
-    /** 欢愉行动（源 FunnyAct L11079-11136）：funny 为层数/类型，target 为行动对象（默认自身） */
-    async funnyAct(player, funny, target) {
+    /**
+     * 欢愉行动（源 FunnyAct L11079-11136）：funny 为层数/类型，target 为行动对象（默认自身）。
+     * 2026-10-02 自注册重构：不再按技能 id 硬编码 if 链——各欢愉技能在技能对象上声明
+     * `bts_funny: { order, act(ctx), late? }`，本函数泛化收集（getSkills 过滤，尊重封锁）并执行：
+     *   act 阶段（late 非真，按 order 升序）→ 欢愉祝福步（funnytime）→ late 阶段（爆射）
+     *   → 收束（ctx.after → afterFunnyAct 广播 bts_funny_act_after）。
+     * ctx = { player, target, funny, funnytime, after, done, aborted }；执行顺序与旧 if 链
+     * 1:1（阿哈→连线→抛注→…→祝福→爆射→收束），各 act 内对 ctx.funny/after 的改写语义不变。
+     * 日志：行动技能 ≠ initiator（发起技能，其日志由引擎自动记录）时补 logSkill
+     *（2026-10-02 用户定夺：欢愉时刻等非技能驱动路径的日志/音频归因完整）。
+     * @param {object} player 执行欢愉行动的角色
+     * @param {number|null} funny 层数/类型（null=自发行动）
+     * @param {object} [target] 行动对象（默认 player 自身）
+     * @param {string} [initiator] 发起技能 id（重复日志豁免；缺省=无发起技能，全部执行者记日志）
+     * @returns {boolean} done（旧 if 链返回值语义）
+     */
+    async funnyAct(player, funny, target, initiator) {
         if (target == null) target = player;
-        let done = false;
         let funnytime = false;
-        let after = true;
         if (funny != null) {
             funnytime = true;
             if (funny === -1) {
@@ -990,55 +1061,49 @@ export const bts = {
                 player.setMark('bts_mk_funnypoint', 0);
             }
         }
-        if (player.hasSkill('bts_sk_qianguang_funny')) {
-            if (funny == null || funny === 2) after = false;
-            if (funny == null) funny = 2;
-            await target.draw(player, funny);
-            done = true;
-        }
-        if (player.hasSkill('bts_sk_lianxian_funny')) {
-            // 连线由本函数末尾 afterFunnyAct 统一出口触发（勿设 after=false：连线主动技 content
-            // 已不再显式调用，否则 funnyTime（funny≠1）路径会与 content 显式调用双触发）。
-            if (funny == null) funny = 1;
-            if (this.getBless(player, 'funny') || player.storage.bts_funny_time) {
-                await target.chooseToDiscard(
-                    '欢愉（连线）：弃置牌',
-                    'he',
-                    funny,
-                    funny,
-                    true,
-                );
-            } else {
-                const card = await target
-                    .chooseCard('欢愉（连线）：弃置一张【杀】', 'he', (card) =>
-                        get.name(card) === 'sha',
-                    )
-                    .forResult();
-                if (!card) return false;
-                await target.discard(card);
-            }
-            done = true;
-        }
-        if (player.hasSkill('bts_sk_paozhu_funny')) {
-            if (funny == null || funny === 5) after = false;
-            if (funny == null) funny = 5;
-            if (target.countCards('h') < funny)
-                await target.draw(player, funny - target.countCards('h'));
-        }
-        if (player.hasSkill('bts_sk_buzhui_funny')) {
-            if (funny == null || funny === 1) after = false;
-            if (funny == null) funny = 1;
-            await target.recover(player);
-        }
-        if (funnytime && this.funnyPlayer(player))
-            await this.addBless(player, 'funny', funny);
-        if (player.hasSkill('bts_sk_baoshe_funny')) {
-            player.addMark('bts_mk_fenshu', 15);
-            done = true;
-        }
-        if (after && this.funnyPlayer(player))
-            this.afterFunnyAct(player);
-        return done;
+        const ctx = {
+            player,
+            target,
+            funny,
+            funnytime,
+            after: true,
+            done: false,
+            aborted: false,
+        };
+        // 收集已注册的欢愉行动（须已挂载且未被封锁——getSkills 已滤 skillBlocker）。
+        const skills = player.getSkills(null, false).slice();
+        game.expandSkills(skills);
+        const handlers = skills
+            .filter(
+                (skill) =>
+                    typeof lib.skill[skill]?.bts_funny?.act === 'function',
+            )
+            .map((skill) => ({ ...lib.skill[skill].bts_funny, skill }))
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const run = async (handler) => {
+            // 非发起技能的行动补日志（含音频/动画）；发起技能由引擎自动日志，避免重复。
+            if (handler.skill !== initiator && !lib.skill[handler.skill]?.silent)
+                player.logSkill(handler.skill);
+            await handler.act(ctx);
+            return !ctx.aborted;
+        };
+        for (const handler of handlers)
+            if (!handler.late && !(await run(handler))) return false;
+        if (ctx.funnytime && this.funnyPlayer(player))
+            await this.addBless(player, 'funny', ctx.funny);
+        for (const handler of handlers)
+            if (handler.late && !(await run(handler))) return false;
+        if (ctx.after && this.funnyPlayer(player)) this.afterFunnyAct(player);
+        return ctx.done;
+    },
+
+    /** 视为使用【欢愉万相】（2026-09-29 阿哈·原创）：万相为 bts_cd 包衍生物牌
+     *（效果见 lib.card 定义——摸牌结构与「欢愉升格」授予）。阿哈体系统一入口。 */
+    async useHuanjuWanxiang(player) {
+        await player.useCard(
+            { name: 'bts_cd_huanju_wanxiang', isCard: false },
+            [],
+        );
     },
 
     // ── 欢愉 AI 辅助（源 animal.lua L11075-11078 / StarRail-ai.lua L3706 NaturePlayer）──
@@ -1073,11 +1138,13 @@ export const bts = {
             'geju', 'zidian', 'lvexi', 'longli', 'yingyue', 'ciwen', 'quxu',
             'zoukai', 'zhouli', 'fengwang', 'fennu', 'yuanzheng',
         ];
+        // 2026-09-28 修复：原查 bts_st_ 前缀恒 false（实际技能命名 bts_sk_*，同类于 funnyPlayer）；
+        // 列表中含未移植技能者，经 hasSkill 自然返回 false，不受影响。
         for (const name of maxSkills)
-            if (player.hasSkill(`bts_st_${name}`) && this.getAngry(player, 5))
+            if (player.hasSkill(`bts_sk_${name}`) && this.getAngry(player, 5))
                 return true;
         for (const name of yesSkills)
-            if (player.hasSkill(`bts_st_${name}`)) return true;
+            if (player.hasSkill(`bts_sk_${name}`)) return true;
         return false;
     },
 

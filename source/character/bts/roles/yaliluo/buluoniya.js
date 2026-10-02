@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '风·同谐·大守护者继承人'; // 属性·命途
 export const intro =
-    `${B('布洛妮娅')}是${get.poptip('bts_glossary_guantong_faq')}支援：${get.poptip('bts_glossary_bisha_faq')}${B('行曲')}叠加${get.poptip('bts_glossary_guantong_faq')}，${B('部署')}弃【杀】调整站位并跳过出牌阶段，${B('军势')}回合结束额外摸牌。` +
+    `${B('布洛妮娅')}是${get.poptip('bts_glossary_guantong_faq')}支援：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_xingqu'))}叠加${get.poptip('bts_glossary_guantong_faq')}，${B(get.poptip('bts_sk_bushu'))}弃【杀】调整站位并跳过出牌阶段，${B(get.poptip('bts_sk_junshi'))}回合结束额外摸牌。` +
     `<li>${get.poptip('bts_glossary_guantong_faq')}伤害无视${get.poptip('bts_glossary_hudun_faq')}`;
 
 export const character = {
@@ -180,4 +180,4 @@ export const simpleTranslate = {
     bts_sk_junshi_info: '锁；回合结束时若用过杀，执行一个额外的摸牌阶段',
 };
 
-export const pinyins = { bts_ch_buluoniya: 'buluoniya' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

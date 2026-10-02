@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '风·虚无·百搭鬼牌'; // 属性·命途
 export const intro =
-    `${B('桑博')}是${get.poptip('bts_glossary_zhongdu_faq')}干扰：${get.poptip('bts_glossary_bisha_faq')}${B('惊喜')}附加${get.poptip('bts_glossary_zhongdu_faq')}，${B('撕风')}给无属性伤害判定加风，${B('横跳')}弃【杀】顺手牵羊并追加${get.poptip('bts_glossary_zhongdu_faq')}。` +
+    `${B('桑博')}是${get.poptip('bts_glossary_zhongdu_faq')}干扰：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_jingxi'))}附加${get.poptip('bts_glossary_zhongdu_faq')}，${B(get.poptip('bts_sk_sifeng'))}给无属性伤害判定加风，${B(get.poptip('bts_sk_hengtiao'))}弃【杀】顺手牵羊并追加${get.poptip('bts_glossary_zhongdu_faq')}。` +
     `<li>${get.poptip('bts_glossary_zhongdu_faq')}会在弃牌阶段令目标失去体力`;
 
 export const character = {
@@ -87,8 +87,10 @@ export const skill = {
             // 源 L3796-3800：ViewAsCard(player, targets, ..., "snatch") 视为对目标使用【顺手牵羊】
             await player.useCard({ name: 'shunshou', isCard: true }, target);
             // 源 L3801-3818：目标及所有中毒角色各判定，结果为黑桃者各附加1层中毒（翻译 L12971）
-            for (const p of game.filterPlayer(
-                (q) => q === target || lib.bts.api.getAbnor(q, 'poison'),
+            for (const p of lib.bts.api.seatOrder(
+                game.filterPlayer(
+                    (q) => q === target || lib.bts.api.getAbnor(q, 'poison'),
+                ),
             )) {
                 const judge = await p.judge((card) => true).forResult(); // 源 judge.who = p（各被判定者）
                 if (judge.suit === 'spade')
@@ -112,7 +114,7 @@ export const translate = {
     'bts_ch_sangbo_skin2': '皮肤2',
     bts_ch_sangbo: '桑博',
     bts_sk_jingxi: '惊喜',
-    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加1层${get.poptip('bts_glossary_zhongdu_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，其获得1枚惊喜标记。`,
+    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加1层${get.poptip('bts_glossary_zhongdu_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，其获得1枚${get.poptip('bts_sk_jingxi')}标记。`,
 
     bts_sk_sifeng: '撕风',
     bts_sk_sifeng_info: `锁定技，当你造成无属性伤害时，判定，若结果为黑色，此伤害视为${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害。`,
@@ -130,9 +132,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1${get.poptip('bts_glossary_zhongdu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+1惊喜标记）`,
+    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1${get.poptip('bts_glossary_zhongdu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+1${get.poptip('bts_sk_jingxi')}标记）`,
     bts_sk_sifeng_info: `锁；造成无属性伤害时判定，黑色则视为${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害`,
     bts_sk_hengtiao_info: `出牌阶段，弃1杀对1名其他角色顺手牵羊，其与所有${get.poptip('bts_glossary_zhongdu_faq')}角色判定黑桃则各+1${get.poptip('bts_glossary_zhongdu_faq')}`,
 };
 
-export const pinyins = { bts_ch_sangbo: 'sangbo' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

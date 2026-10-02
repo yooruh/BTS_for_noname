@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'pinuokangni';
 export const title = '火·虚无·流梦礁的舞者'; // 属性·命途
 export const intro =
-    `${B('大丽花')}用败谢压属性伤害，靠${get.poptip('bts_glossary_bless_gongwu_faq')}接炎杀补刀。`;
+    `${B('大丽花')}用${get.poptip('bts_glossary_abnormal_baixie_faq')}压属性伤害，靠${get.poptip('bts_glossary_bless_gongwu_faq')}接炎杀补刀。`;
 
 export const character = {
     bts_ch_dalihua: {
@@ -143,8 +143,15 @@ export const translate = {
     bts_sk_tianshi: '舔舐',
     bts_sk_tianshi_info: `结束阶段开始时，你可以弃置一张【杀】，令你与一名其他角色各附加1层${get.poptip('bts_glossary_bless_gongwu_faq')}`,
     bts_bless_gongwu: '共舞祝福',
-    bts_bless_gongwu_info: '来源：舔舐赋予；属性伤弃敌牌、置牌；回合结束自然减少1层',
+    bts_bless_gongwu_info: `来源：${get.poptip('bts_sk_tianshi')}赋予；属性伤弃敌牌、置牌；回合结束自然减少1层`,
     bts_abnormal_baixie: '败谢',
+
+    '$bts_sk_chenni1': "曲终人亡的时刻…美不胜收",
+    '$bts_sk_chenni2': "记忆的坟茔，已然敞开——",
+    '$bts_sk_bonong1': "有趣起来了",
+    '$bts_sk_bonong2': "还是老一套么？",
+    '$bts_sk_tianshi1': "为我，焚身起舞吧",
+    '$bts_sk_tianshi2': "将我，铭心蚀骨吧",
 };
 
 export const simpleTranslate = {
@@ -153,7 +160,7 @@ export const simpleTranslate = {
     bts_sk_tianshi_info: `结束阶段可弃杀令自己和1名其他角色各+1${get.poptip('bts_glossary_bless_gongwu_faq')}`,
 };
 
-export const pinyins = { bts_ch_dalihua: 'dalihua' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_gongwu: {
@@ -175,6 +182,9 @@ export const buffSkills = {
             const gongwuHand = event.player?.getCards('h') || [];
             return (
                 event.source === player &&
+                // 2026-09-28：按描述「对其他角色」补门控（源描述参照本 L14120；源条件未显式自查，
+                // 无名杀存在自伤带来源路径〔xiadie.js:179 player.damage(player,…)〕→ 不门控会自触发）。
+                event.player !== player &&
                 event.num > 0 &&
                 lib.bts.api.getNature(event) &&
                 gongwuHand.length &&
@@ -230,7 +240,7 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_gongwu_faq',
         name: '共舞祝福',
-        info: '当你对其他角色造成属性伤害时，其弃置一张手牌，并将其余手牌置于其武将牌上。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你对其他角色造成属性伤害时，其弃置一张手牌，并将其余手牌置于其武将牌上。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_abnormal_baixie_faq',

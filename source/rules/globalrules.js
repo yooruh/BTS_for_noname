@@ -44,6 +44,17 @@ export const bts_gamerule_damage = {
         // 结束分支仅 damageEnd 执行，各服一次。
         if (event.triggername === 'damageBegin1') {
             if (trigger.source !== player || trigger.num <= 0) return;
+            // 欢愉约束（2026-09-29 还原；源 gamerule_ex·DamageCaused L1235-1238：
+            // `if FunnyPlayer(player) then return true end`——QSanguosha 引擎 room.cpp 对该时机
+            // return true 即 break 整个伤害流程＝伤害被取消，源版无日志）。欢愉角色（含阿哈）
+            // 造成的伤害被取消，除非其处于「欢愉升格」（阿哈·欢愉万相，持续至其回合结束）。
+            if (
+                lib.bts.api.funnyPlayer(player) &&
+                player.countMark('bts_mk_huanju_shengge-clear') <= 0
+            ) {
+                trigger.cancel();
+                return;
+            }
             // 定夺 2026-09-12（G-06）：删冗余 _critical 归一化块——太阳神以 reason 是否含
             // "_critical" 识别暴击（源 IsSpecial/AddNew L266 等），移植曾加"再确保打上
             // _critical 标记"的保险，但条件恒不可达：reason 已含 _critical 时
@@ -211,88 +222,83 @@ export const bts_gamerule_decay = {
 export const glossary = [
     {
         id: 'bts_glossary_nuqi_faq',
-        // 特殊名称（非标记）：不带任何标点。
         name: '怒气',
-        info: '释放必杀技与部分主动技能的资源，通过技能效果获得或消耗。',
+        info: `释放${get.poptip('bts_glossary_bisha_faq')}与部分主动技能的资源。受到伤害后回复等量${get.poptip('bts_glossary_nuqi_faq')}（受${get.poptip('bts_glossary_bless_fatal_faq')}伤害时不回复）；${get.poptip('bts_glossary_bless_critical_faq')}伤害来源回复1点${get.poptip('bts_glossary_nuqi_faq')}；部分技能效果也会回复或消耗${get.poptip('bts_glossary_nuqi_faq')}。`,
     },
     {
         id: 'bts_glossary_bisha_faq',
-        // 特殊名词（非标记）：不带任何标点（叁岛 lit_negClear_faq 同款）。
         name: '必杀技',
-        info: '角色的强力技能（描述以「必杀技」开头），消耗怒气发动，无次数限制，仅受怒气门槛与怒气资源制约。',
+        info: `角色的强力技能，消耗${get.poptip('bts_glossary_nuqi_faq')}或其他资源发动，无次数限制，仅受${get.poptip('bts_glossary_nuqi_faq')}门槛与${get.poptip('bts_glossary_nuqi_faq')}资源制约。`,
     },
     {
         id: 'bts_glossary_xingqi_faq',
-        // 特殊名词（非标记）：不带任何标点。
         name: '星启',
-        info: '角色的特殊状态（星启祝福）。处于星启状态时，部分技能获得额外效果。',
+        info: `角色的特殊状态（${get.poptip('bts_glossary_bless_god_faq')}）。处于${get.poptip('bts_glossary_xingqi_faq')}状态时，部分技能获得额外效果。`,
     },
     {
         id: 'bts_glossary_hudun_faq',
-        // 特殊名称（非标记）：不带任何标点。
         name: '护盾',
-        info: '独立的防御值，每点护盾可抵挡1点伤害；贯通伤害可无视护盾。',
+        info: `独立的防御值，每点${get.poptip('bts_glossary_hudun_faq')}可抵挡1点伤害；${get.poptip('bts_glossary_guantong_faq')}伤害可无视${get.poptip('bts_glossary_hudun_faq')}。`,
     },
     {
         id: 'bts_glossary_bless_faq',
-        // 特殊名词（非标记）：不带任何标点。
         name: '祝福',
-        info: '附着于角色的状态标记，以层数计算，由技能赋予并触发对应效果；祝福在你的结束阶段开始时自然减少1层，部分祝福还会因特定效果移除层数。',
+        info: `附着于角色的状态标记，以层数计算，由技能赋予并触发对应效果；${get.poptip('bts_glossary_bless_faq')}在你的结束阶段开始时自然减少1层，部分${get.poptip('bts_glossary_bless_faq')}还会因特定效果移除层数。`,
     },
     {
         id: 'bts_glossary_bless_fatal_faq',
         name: '致命祝福',
-        info: '当你造成伤害时，该伤害视为致命伤害（不能回复怒气）。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你造成伤害时，该伤害视为${get.poptip('bts_glossary_bless_fatal_faq')}伤害（受到该伤害的角色不会因此回复${get.poptip('bts_glossary_nuqi_faq')}）。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_through_faq',
         name: '贯通祝福',
-        info: '当你造成伤害时，该伤害视为贯通伤害（可无视护盾）。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你造成伤害时，该伤害视为${get.poptip('bts_glossary_guantong_faq')}伤害（可无视${get.poptip('bts_glossary_hudun_faq')}）；你无视其他角色的防具。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_critical_faq',
         name: '暴击祝福',
-        info: '当你造成伤害时，该伤害视为暴击伤害。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你造成伤害时，该伤害视为${get.poptip('bts_glossary_bless_critical_faq')}伤害。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_busi_faq',
         name: '不死祝福',
-        info: '防止你进入濒死状态（防止进入濒死时不消耗层数）；此祝福被移除至0层且你的体力小于1时，你立即进入濒死。你的结束阶段开始时，此祝福减少1层。',
+        info: `防止你进入濒死状态（防止进入濒死时不消耗层数）；此${get.poptip('bts_glossary_bless_faq')}被移除至0层且你的体力小于1时，你立即进入濒死。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_maxhp_faq',
         name: '体力上限祝福',
-        info: `你的体力上限额外增加此祝福层数（若拥有${get.poptip('bts_glossary_bless_yuguotianqing_faq')}则翻倍）。你的结束阶段开始时，此祝福减少1层，体力上限随之下调。`,
+        info: `你的${get.poptip('bts_glossary_bless_maxhp_faq')}额外增加此${get.poptip('bts_glossary_bless_faq')}层数（若拥有${get.poptip('bts_glossary_bless_yuguotianqing_faq')}则翻倍）。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层，${get.poptip('bts_glossary_bless_maxhp_faq')}随之下调。`,
     },
     {
         id: 'bts_glossary_bless_god_faq',
         name: '星启祝福',
-        info: '你视为处于星启状态，部分技能获得额外效果。你的结束阶段开始时，此祝福减少1层。',
+        info: `你视为处于${get.poptip('bts_glossary_xingqi_faq')}状态，部分技能获得额外效果。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_yingzi_faq',
         name: '契约祝福',
-        info: '你的额定摸牌数+1。你的结束阶段开始时，此祝福减少1层。',
+        info: `你的额定摸牌数+1。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_zhiyu_faq',
         name: '治愈祝福',
-        info: '准备阶段开始时，你回复1点体力；若体力不大于1，每有1名存活且拥有生机的角色，回复量+1。你的结束阶段开始时，此祝福减少1层。',
+        info: `准备阶段开始时，你回复1点体力；若体力不大于1，每有1名存活且拥有${get.poptip('bts_sk_shengji')}的角色，回复量+1。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_zengfu_faq',
         name: '增幅祝福',
-        info: '你发动必杀技造成的伤害+1；发动必杀技结算完毕后，若拥有至少2层，摸（层数-1）张牌。你的结束阶段开始时，此祝福减少1层。',
+        info: `你发动${get.poptip('bts_glossary_bisha_faq')}造成的伤害+1；发动${get.poptip('bts_glossary_bisha_faq')}结算完毕后，若拥有至少2层，摸（层数-1）张牌。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_cifu_faq',
         name: '赐福祝福',
-        info: '当你使用【杀】造成无属性伤害时，视为虚数属性伤害。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你使用【杀】造成无属性伤害时，视为${get.poptip('bts_glossary_nature_guang_faq')}伤害。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_funny_faq',
         name: '欢愉祝福',
-        info: '每层使你的欢愉成功判定成功率+10%。你的结束阶段开始时，此祝福减少1层。',
+        info: `每层使你的欢愉成功判定成功率+10%。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_funnypoint_faq',
@@ -311,19 +317,16 @@ export const glossary = [
     },
     {
         id: 'bts_glossary_guantong_faq',
-        // 特殊名词（非标记）：不带任何标点。
         name: '贯通',
-        info: '特殊的伤害类型，可无视护盾。',
+        info: `特殊的伤害类型，可无视${get.poptip('bts_glossary_hudun_faq')}。`,
     },
     {
         id: 'bts_glossary_nature_frost_faq',
-        // 霜（冰）元素状态（键名 frost）。
         name: '|霜附加|',
         info: '附加在角色身上的元素状态：影响相关技能判定，受到不同属性伤害时该伤害+1并被移除。',
     },
     {
         id: 'bts_glossary_nature_elec_faq',
-        // 电元素状态。
         name: '|电附加|',
         info: '附加在角色身上的元素状态：影响相关技能判定，受到不同属性伤害时该伤害+1并被移除。',
     },
@@ -344,7 +347,6 @@ export const glossary = [
     },
     {
         id: 'bts_glossary_nature_flame_faq',
-        // 炎元素状态（键名 flame）。
         name: '|炎附加|',
         info: '附加在角色身上的元素状态：影响相关技能判定，受到不同属性伤害时该伤害+1并被移除。',
     },
@@ -366,7 +368,7 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_fossilize_faq',
         name: '|石化|',
-        info: `异常状态：由技能效果赋予；受到的伤害视为暴击，不能使用锦囊牌（回复体力会移除异常）。`,
+        info: `异常状态：由技能效果赋予；受到的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}，不能使用锦囊牌（回复体力会移除异常）。`,
     },
     {
         id: 'bts_glossary_abnormal_sleep_faq',
@@ -391,24 +393,24 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_luoxuan_faq',
         name: '|螺旋|',
-        info: `异常状态：由${get.poptip('bts_sk_luoxuan')}赋予（Archer·螺旋）；拥有期间所有角色不是你使用牌的合法目标（只能使用技能牌）；出牌阶段结束时移除全部。`,
+        info: `异常状态：由${get.poptip('bts_sk_luoxuan')}赋予（${get.poptip('bts_ch_archer')}·${get.poptip('bts_sk_luoxuan')}）；拥有期间所有角色不是你使用牌的合法目标（只能使用技能牌）；出牌阶段结束时移除全部。`,
     },
     {
         id: 'bts_glossary_abnormal_losemaxhp_faq',
         name: '|体力上限减少|',
-        info: `异常状态：由技能效果赋予；你额外减少等同于此异常数的体力上限；结束阶段开始时，移除1层此异常。`,
+        info: `异常状态：由技能效果赋予；你额外减少等同于此异常数的${get.poptip('bts_glossary_bless_maxhp_faq')}；结束阶段开始时，移除1层此异常。`,
     },
     {
         id: 'bts_glossary_nature_dark_dmg_faq',
         // 伤害属性（与「量子附加」状态区分）：技能造成量子属性伤害时的修饰语。
         name: '量子属性',
-        info: '作为量子属性伤害（技能造成对应属性伤害时使用，不附带属性状态）。',
+        info: `作为${get.poptip('bts_glossary_nature_dark_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
     },
     {
         id: 'bts_glossary_nature_light_dmg_faq',
         // 伤害属性（与「虚数附加」状态区分）：技能造成虚数属性伤害时的修饰语。
         name: '虚数属性',
-        info: '作为虚数属性伤害（技能造成对应属性伤害时使用，不附带属性状态）。',
+        info: `作为${get.poptip('bts_glossary_nature_guang_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
     },
     {
         id: 'bts_glossary_nature_flame_dmg_faq',
@@ -420,7 +422,7 @@ export const glossary = [
         id: 'bts_glossary_nature_wind_dmg_faq',
         // 伤害属性（与「风附加」状态区分）：技能造成风属性伤害时的修饰语。
         name: '风属性',
-        info: '作为风属性伤害（技能造成对应属性伤害时使用，不附带属性状态）。',
+        info: `作为${get.poptip('bts_glossary_nature_feng_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
     },
     {
         id: 'bts_glossary_nature_frost_dmg_faq',
@@ -438,6 +440,6 @@ export const glossary = [
         id: 'bts_glossary_nature_earth_dmg_faq',
         // 伤害属性（与「物理附加」状态区分）：技能造成物理属性伤害时的修饰语。
         name: '物理属性',
-        info: '作为物理属性伤害（技能造成对应属性伤害时使用，不附带属性状态）。',
+        info: `作为${get.poptip('bts_glossary_nature_earth_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
     },
 ];

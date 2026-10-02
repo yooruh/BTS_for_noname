@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'pinuokangni';
 export const title = '虚数·存护·「石心十人」之一'; // 属性·命途
 export const intro =
-    `${B('砂金')}靠护盾角色受伤攒${get.poptip('bts_glossary_duzhu_faq')}，攒满7枚用赌注砸群体杀。`;
+    `${B('砂金')}靠${get.poptip('bts_glossary_hudun_faq')}角色受伤攒${get.poptip('bts_glossary_duzhu_faq')}，攒满7枚用${get.poptip('bts_glossary_duzhu_faq')}砸群体杀。`;
 
 export const character = {
     bts_ch_shajin: {
@@ -44,8 +44,8 @@ export const skill = {
             player.addMark('bts_mk_duzhu', Math.ceil((judge.number || 0) / 2));
             // 源 L4895-4901：星启时所有拥有护盾的角色各+1护盾
             if (lib.bts.api.god(player))
-                for (const candidate of game.filterPlayer((candidate) =>
-                    lib.bts.api.getShield(candidate),
+                for (const candidate of lib.bts.api.seatOrder(
+                    game.filterPlayer((candidate) => lib.bts.api.getShield(candidate)),
                 ))
                     lib.bts.api.addShield(candidate, 1, player);
         },
@@ -176,7 +176,7 @@ export const translate = {
     '$bts_sk_jishil2': "不用问，随便花",
     '~bts_ch_shajin': "满盘皆输啊…",
     bts_mk_duzhu: '赌注',
-    bts_mk_duzhu_info: '来源：勋爵、宾果赋予；宾果：满7发动群杀',
+    bts_mk_duzhu_info: `来源：${get.poptip('bts_sk_xunjue')}、${get.poptip('bts_sk_binguo')}赋予；${get.poptip('bts_sk_binguo')}：满7发动群杀`,
 };
 
 export const simpleTranslate = {
@@ -185,7 +185,7 @@ export const simpleTranslate = {
     bts_sk_jishil_info: `准备阶段可弃杀令1名角色+1${get.poptip('bts_glossary_hudun_faq')}`,
 };
 
-export const pinyins = { bts_ch_shajin: 'shajin' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。

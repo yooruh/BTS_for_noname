@@ -43,6 +43,16 @@ export const buffSkills = {
         async content(event, trigger, player) {
             lib.bts.api.markDamage(trigger, '_through');
         },
+        // 「破防具」（2026-10-01 用户定夺：持贯通祝福 = 青釭剑式无视防具，范围仅祝福持有者）。
+        // 引擎防具（仁王盾/藤甲/八卦阵…）在各自 filter 与 AI 估值里读取攻击方 skillTag
+        // `unequip`（参数 {name, target, card}）；hasSkillTag 从技能 ai 字段取值，故在定义上声明。
+        // skillTagFilter 必填：带对象参数而无过滤器时，引擎会打印「疑似忘给 skillTagFilter」告警。
+        ai: {
+            unequip: true,
+            skillTagFilter(player, tag) {
+                return tag === 'unequip';
+            },
+        },
     },
     bts_bless_critical: {
         markKind: 'bless',
@@ -131,7 +141,11 @@ export const buffSkills = {
         async content(event, trigger, player) {
             let n = 1;
             if (player.hp <= 1)
-                n += game.filterPlayer((p) => p.hasSkill('bts_sk_shengji')).length;
+                // 2026-09-28 修复：补 isAlive()——源 L1707 遍历 room:getAlivePlayers()，
+                // game.filterPlayer 含阵亡角色（原会统计尸体生机）。
+                n += game.filterPlayer(
+                    (p) => p.hasSkill('bts_sk_shengji') && p.isAlive(),
+                ).length;
             // 源 L1577：RecoverStruct(nil) —— who=nil 无来源。须无来源回复：
             // 否则 source=持有者会再触发娜塔莎·生机 recoverBegin 造成双倍回复（源语义下
             // recover.who=nil → 生机 filter 恒 false）。recover('nosource') 令 source 保持
@@ -148,7 +162,7 @@ export const buffSkills = {
         filter(event, player, triggername) {
             if (triggername === 'useSkillAfter') {
                 // 源 L1085-1086：使用 SkillCard 且技能名含 "max_"（必杀技）；
-                // 无名杀以 bts_bisha 标签判定（勿用 includes('st_')，命中所有 bts_st_* 技能）
+                // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）
                 return (
                     event.player === player &&
                     lib.skill[event.skill]?.bts_bisha === true
@@ -414,6 +428,14 @@ export const buffSkills = {
                 const absorbed = Math.min(shield, trigger.num);
                 trigger.num -= absorbed;
                 lib.bts.api.removeShield(player, absorbed);
+                // 因伤抵扣护盾后广播 bts_shield_removed；「特权」（三月七）等持技者由自身触发器响应
+                //（源：RemoveShield 后 findPlayersBySkillName("st_tequan") → ViewAsCardOnly；
+                //  2026-10-02 补齐，2026-10-02 自注册重构：效果移回技能本体 sanyueqi.js）。
+                await lib.bts.api.emit('bts_shield_removed', {
+                    player,
+                    source: trigger.source || null,
+                    absorbed,
+                });
             }
         },
     },
@@ -463,25 +485,27 @@ export const buffSkills = {
 
 export const translate = {
     bts_bless_fatal: '致命祝福',
-    bts_bless_fatal_info: '来源：魔术、同行、赞颂、天河、贯云赋予；伤害视为致命（不回怒气）；回合结束自然减少1层',
+    bts_bless_fatal_info: `来源：${get.poptip('bts_sk_moshu')}、${get.poptip('bts_sk_tongxing')}、${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_tianhe')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_youyu')}赋予；伤害视为${get.poptip('bts_glossary_bless_fatal_faq')}（受伤者无法回复${get.poptip('bts_glossary_nuqi_faq')}）；回合结束自然减少1层`,
     bts_bless_through: '贯通祝福',
-    bts_bless_through_info: '来源：摇缎、辟世、礼物、圣剑、寸强、行曲赋予；伤害无视护盾；回合结束自然减少1层',
+    bts_bless_through_info: `来源：${get.poptip('bts_sk_yaoduan')}、${get.poptip('bts_sk_pishi')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_shengjian')}、${get.poptip('bts_sk_cunqiang')}、${get.poptip('bts_sk_xingqu')}赋予；伤害无视${get.poptip('bts_glossary_hudun_faq')}；你无视其他角色的防具；回合结束自然减少1层`,
     bts_bless_critical: '暴击祝福',
-    bts_bless_critical_info: '来源：赞颂、贯云、礼物赋予；伤害视为暴击；回合结束自然减少1层',
+    bts_bless_critical_info: `来源：${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_enci')}赋予；伤害视为${get.poptip('bts_glossary_bless_critical_faq')}；回合结束自然减少1层`,
     bts_bless_busi: '不死祝福',
-    bts_bless_busi_info: '来源：解禁、无悔、倏忽赋予；防止濒死；归零且体力<1时立即濒死；回合结束自然减少1层',
+    // 不含「无悔」：新版源 st_wuhui（参照本 L8079-8092、文本 L14274）不再授予不死祝福
+    //（V2.2 重做血仇路线）——2026-09-28 按新版本核实删除。
+    bts_bless_busi_info: `来源：${get.poptip('bts_sk_jiejin')}、${get.poptip('bts_sk_shuhu')}赋予；防止濒死；归零且体力<1时立即濒死；回合结束自然减少1层`,
     bts_bless_maxhp: '体力上限祝福',
-    bts_bless_maxhp_info: '来源：血仇、愈世、晨昏赋予；每层+1体力上限（雨过天晴时翻倍）；回合结束自然减少1层',
+    bts_bless_maxhp_info: `来源：${get.poptip('bts_glossary_xuechou_faq')}、${get.poptip('bts_sk_yushi')}、${get.poptip('bts_sk_chenhun')}赋予；每层+1${get.poptip('bts_glossary_bless_maxhp_faq')}（${get.poptip('bts_glossary_bless_yuguotianqing_faq')}时翻倍）；回合结束自然减少1层`,
     bts_bless_god: '星启祝福',
-    bts_bless_god_info: '来源：天阙、星尘赋予；视为处于星启状态；回合结束自然减少1层',
+    bts_bless_god_info: `来源：${get.poptip('bts_sk_tianque')}、${get.poptip('bts_sk_xingchen')}赋予；视为处于${get.poptip('bts_glossary_xingqi_faq')}状态；回合结束自然减少1层`,
     bts_bless_yingzi: '契约祝福',
-    bts_bless_yingzi_info: '来源：胜局赋予；额定摸牌+1；回合结束自然减少1层',
+    bts_bless_yingzi_info: `来源：${get.poptip('bts_sk_shengju')}、${get.poptip('bts_sk_sibao')}赋予；额定摸牌+1；回合结束自然减少1层`,
     bts_bless_zhiyu: '治愈祝福',
-    bts_bless_zhiyu_info: '来源：经验、新生、救护赋予；准备阶段回复1；回合结束自然减少1层',
+    bts_bless_zhiyu_info: `来源：${get.poptip('bts_sk_jingyan')}、${get.poptip('bts_sk_xinsheng')}、${get.poptip('bts_sk_jiuhu')}赋予；准备阶段回复1；回合结束自然减少1层`,
     bts_bless_zengfu: '增幅祝福',
-    bts_bless_zengfu_info: '来源：悦王、乱蝶、再现赋予；必杀伤害+1，用后摸牌；回合结束自然减少1层',
+    bts_bless_zengfu_info: `来源：${get.poptip('bts_sk_yuewang')}、${get.poptip('bts_glossary_abnormal_luandie_faq')}、${get.poptip('bts_sk_zaixian')}赋予；${get.poptip('bts_glossary_bisha_faq')}伤害+1，用后摸牌；回合结束自然减少1层`,
     bts_bless_cifu: '赐福祝福',
-    bts_bless_cifu_info: '来源：七札、和韵赋予；无属性杀→虚数；回合结束自然减少1层',
+    bts_bless_cifu_info: `来源：${get.poptip('bts_sk_qizha')}、${get.poptip('bts_sk_heyun')}赋予；无属性杀→虚数；回合结束自然减少1层`,
     bts_abnormal_freeze: '冻结',
     bts_abnormal_fossilize: '石化',
     bts_abnormal_sleep: '睡眠',
@@ -493,11 +517,11 @@ export const translate = {
     bts_abnormal_diyu: '地狱',
     bts_abnormal_losemaxhp: '体力上限减少',
     bts_abnormal_st_luoxuan: '螺旋',
-    bts_abnormal_st_luoxuan_info: '来源：螺旋赋予；拥有期间所有角色不是你使用牌的合法目标（只能使用技能牌）；出牌阶段结束时移除全部',
+    bts_abnormal_st_luoxuan_info: `来源：${get.poptip('bts_sk_luoxuan')}赋予；拥有期间所有角色不是你使用牌的合法目标（只能使用技能牌）；出牌阶段结束时移除全部`,
     bts_curse: '诅咒',
     bts_curse_info: '来源：技能赋予；受到伤害时伤害+诅咒层数，并清空诅咒',
     bts_shield: '护盾',
-    bts_shield_info: '来源：技能赋予；每点护盾抵挡1点伤害；贯通伤害无视护盾',
+    bts_shield_info: `来源：技能赋予；每点${get.poptip('bts_glossary_hudun_faq')}抵挡1点伤害；${get.poptip('bts_glossary_guantong_faq')}伤害无视${get.poptip('bts_glossary_hudun_faq')}`,
     bts_bless_funny: '欢愉祝福',
     bts_bless_funny_info: '来源：补缀、欢愉时刻赋予；每层使欢愉成功判定+10%；回合结束自然减少1层',
 };

@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '火·同谐·眠于银河之下'; // 属性·命途
 export const intro =
-    `${B('艾丝妲')}是过牌辅助：${get.poptip('bts_glossary_bisha_faq')}${B('星空')}与目标各摸牌，${B('星座')}随用牌积累${get.poptip('bts_glossary_bless_xuneng_faq')}，${B('星群')}在手牌最多时弃【杀】开五谷丰登并给炎系角色附加${get.poptip('bts_glossary_nature_flame_faq')}。` +
+    `${B('艾丝妲')}是过牌辅助：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_xingkong'))}与目标各摸牌，${B(get.poptip('bts_sk_xingzuo'))}随用牌积累${get.poptip('bts_glossary_bless_xuneng_faq')}，${B(get.poptip('bts_sk_xingqun'))}在手牌最多时弃【杀】开五谷丰登并给炎系角色附加${get.poptip('bts_glossary_nature_flame_faq')}。` +
     `<li>${get.poptip('bts_glossary_bless_xuneng_faq')}满3层时，你造成伤害后会自动给目标附加${get.poptip('bts_glossary_nature_flame_faq')}`;
 
 export const character = {
@@ -30,8 +30,8 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_xingkong');
             lib.bts.api.loseAngry(player, 3); // 源 L2736
-            await player.draw(player, 1);
-            for (const t of event.targets || []) await t.draw(player, 1);
+            // 自己与各目标同时摸一张牌（2026-09-30 改 asyncDraw：多人同时摸）
+            await game.asyncDraw([player, ...(event.targets || [])], 1);
             if (lib.bts.api.god(player)) player.addMark('bts_mk_xingkong-clear', 1); // 星启防止蓄能移除
         },
         ai: {
@@ -93,7 +93,7 @@ export const skill = {
             );
             const use = player.useCard({ name: 'wugu', isCard: true }, targets); // 视为【五谷丰登】
             await use;
-            for (const p of game.players) {
+            for (const p of lib.bts.api.seatOrder(game.players)) {
                 if (
                     p.isAlive() &&
                     (lib.bts.api.getAbnor(p, 'burn') ||
@@ -141,7 +141,7 @@ export const translate = {
     '$bts_sk_xingqun2': "接受星星的祝福吧~",
     '~bts_ch_aisida': "还想…知道更多……",
     bts_bless_xuneng: '蓄能祝福',
-    bts_bless_xuneng_info: '来源：星座赋予；造伤后≥3层移除3层并附炎属性；回合结束自然减少1层',
+    bts_bless_xuneng_info: `来源：${get.poptip('bts_sk_xingzuo')}赋予；造伤后≥3层移除3层并附炎属性；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
@@ -150,7 +150,7 @@ export const simpleTranslate = {
     bts_sk_xingqun_info: `手牌最多时，弃1张【杀】视为使用五谷丰登，再令${get.poptip('bts_glossary_abnormal_burn_faq')}/炎角色各+炎`,
 };
 
-export const pinyins = { bts_ch_aisida: 'aisida' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_xuneng: {
@@ -177,6 +177,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_xuneng_faq',
         name: '蓄能祝福',
-        info: '当你对其他角色造成伤害后，若拥有至少3层此祝福，移除3层并令其附加火属性。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你对其他角色造成伤害后，若拥有至少3层此${get.poptip('bts_glossary_bless_faq')}，移除3层并令其附加${get.poptip('bts_glossary_nature_yan_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

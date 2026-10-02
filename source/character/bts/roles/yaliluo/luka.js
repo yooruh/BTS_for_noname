@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '物理·虚无·铁臂'; // 属性·命途
 export const intro =
-    `${B('卢卡')}是格斗输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_glossary_bless_zhisheng_faq'))}附加诅咒并积攒${get.poptip('bts_glossary_bless_zhisheng_faq')}，${B('四溅')}用杀/弃杀积攒${get.poptip('bts_glossary_bless_zhisheng_faq')}，${B('裂拳')}决斗伤害后追击。` +
+    `${B('卢卡')}是格斗输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_glossary_bless_zhisheng_faq'))}附加诅咒并积攒${get.poptip('bts_glossary_bless_zhisheng_faq')}，${B(get.poptip('bts_sk_sijian'))}用杀/弃杀积攒${get.poptip('bts_glossary_bless_zhisheng_faq')}，${B(get.poptip('bts_sk_liequan'))}决斗伤害后追击。` +
     `<li>${get.poptip('bts_glossary_bless_zhisheng_faq')}让你的【杀】视为【决斗】`;
 
 export const character = {
@@ -133,7 +133,14 @@ export const translate = {
 
 
     bts_bless_zhisheng: '制胜祝福',
-    bts_bless_zhisheng_info: '来源：制胜、四溅赋予；杀当决斗、锁目标手牌，发动移除3层；回合结束自然减少1层',
+    bts_bless_zhisheng_info: `来源：${get.poptip('bts_glossary_bless_zhisheng_faq')}、${get.poptip('bts_sk_sijian')}赋予；杀当决斗、锁目标手牌，发动移除3层；回合结束自然减少1层`,
+
+    '$bts_sk_zhisheng1': "欢呼声在哪儿？",
+    '$bts_sk_zhisheng2': "值得我认真起来的对手…哼，见识下，火花四溅吧！",
+    '$bts_sk_sijian1': "这一拳——送你回家！",
+    '$bts_sk_sijian2': "先发制人！",
+    '$bts_sk_liequan1': "很嚣张嘛！",
+    '$bts_sk_liequan2': "别走神了！",
 };
 
 export const simpleTranslate = {
@@ -142,7 +149,7 @@ export const simpleTranslate = {
     bts_sk_liequan_info: '决斗造成伤害后，弃1杀令目标失去1体力',
 };
 
-export const pinyins = { bts_ch_luka: 'luka' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_zhisheng: {
@@ -222,6 +229,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_zhisheng_faq',
         name: '制胜祝福',
-        info: '当你使用【杀】时，若拥有至少3层此祝福，此牌视为【决斗】；当你使用【决斗】指定目标后，移除3层此祝福，将其手牌置于其武将牌上直到此牌结算完毕。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你使用【杀】时，若拥有至少3层此${get.poptip('bts_glossary_bless_faq')}，此牌视为【决斗】；当你使用【决斗】指定目标后，移除3层此${get.poptip('bts_glossary_bless_faq')}，将其手牌置于其武将牌上直到此牌结算完毕。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

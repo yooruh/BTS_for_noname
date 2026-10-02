@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '冰·智识·天才人偶'; // 属性·命途
 export const intro =
-    `${B('黑塔')}是压制输出：${get.poptip('bts_glossary_bisha_faq')}${B('魔法')}对同体力目标造成通常伤害，${B('效率')}锁定追击残血目标，${B('一锤')}造成伤害后拼点反打。` +
-    '<li>效率对同一角色每局限一次';
+    `${B('黑塔')}是压制输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_xiaomofa'))}对同体力目标造成通常伤害，${B(get.poptip('bts_sk_xiaolv'))}锁定追击残血目标，${B(get.poptip('bts_sk_yichui'))}造成伤害后拼点反打。` +
+    `<li>${get.poptip('bts_sk_xiaolv')}对同一角色每局限一次`;
 
 export const character = {
     bts_ch_heita: {
@@ -208,4 +208,4 @@ export const simpleTranslate = {
         '造成伤害后，若体力>已损失体力，可弃1杀+1非装备牌与任意名角色拼点，输家（平局双方，体力>已损失）受1伤并摸2张',
 };
 
-export const pinyins = { bts_ch_heita: 'heita' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

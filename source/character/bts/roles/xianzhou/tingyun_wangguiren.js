@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '火·虚无·狐人少女'; // 属性·命途
 export const intro =
-    `${B('忘归人')}用照世给对手挂火、拆手牌、削怒气；${get.poptip('bts_glossary_bless_huqi_faq')}护着队友，别人一旦空手卖牌，流布还能把那张牌记下来。`;
+    `${B('忘归人')}用${get.poptip('bts_sk_zhaoshi')}给对手挂火、拆手牌、削${get.poptip('bts_glossary_nuqi_faq')}；${get.poptip('bts_glossary_bless_huqi_faq')}护着队友，别人一旦空手卖牌，${get.poptip('bts_sk_liubu')}还能把那张牌记下来。`;
 
 export const character = {
     bts_ch_tingyun_wangguiren: {
@@ -48,8 +48,10 @@ export const skill = {
             // ExtraPhase 消费；无名杀全库无该惰性标记消费方，直接调 extraPhase 开额外出牌
             // 阶段（同姬子·启行 L59 等库内范式，以功能真实生效为要）。
             if (lib.bts.api.god(player))
-                for (const target of game.filterPlayer(
-                    (target) => target !== player && !selected.includes(target),
+                for (const target of lib.bts.api.seatOrder(
+                    game.filterPlayer(
+                        (target) => target !== player && !selected.includes(target),
+                    ),
                 ))
                     lib.bts.api.extraPhase(target, 'phaseUse');
         },
@@ -197,8 +199,10 @@ export const skill = {
                     );
                 },
                 async content(event, trigger, player) {
-                    for (const target of game.players.filter(
-                        (p) => p.countMark('bts_mk_liubu-clear') > 0,
+                    for (const target of lib.bts.api.seatOrder(
+                        game.players.filter(
+                            (p) => p.countMark('bts_mk_liubu-clear') > 0,
+                        ),
                     )) {
                         delete target.storage.bts_liubu_card;
                         delete target.storage.bts_liubu_owner;
@@ -228,17 +232,24 @@ export const translate = {
     bts_sk_liubu_info:
         '当一名角色因弃置而失去所有手牌后，你可以令其摸一张牌并展示之。当其于此回合内受到伤害时，若其手牌区内存在此牌，你获得之，其失去1点体力。',
     bts_bless_huqi: '狐祈祝福',
-    bts_bless_huqi_info: '来源：摇风赋予；属性伤后目标弃一张；回合结束自然减少1层',
+    bts_bless_huqi_info: `来源：${get.poptip('bts_sk_yaofeng')}赋予；属性伤后目标弃一张；回合结束自然减少1层`,
+
+    '$bts_sk_zhaoshi1': "前尘旧梦，俱已往矣",
+    '$bts_sk_zhaoshi2': "生命纵如微尘，亦能翩然起舞",
+    '$bts_sk_yaofeng1': "有福不妨同享",
+    '$bts_sk_yaofeng2': "同心一意可好？",
+    '$bts_sk_liubu1': "流云易散",
+    '$bts_sk_liubu2': "长梦已醒",
 };
 
 export const simpleTranslate = {
-    bts_sk_zhaoshi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}，让至少1名其他人掉怒气、弃手牌、着火；${get.poptip('bts_glossary_xingqi_faq')}再给剩下的人多一轮出牌`,
+    bts_sk_zhaoshi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}，让至少1名其他人掉${get.poptip('bts_glossary_nuqi_faq')}、弃手牌、着火；${get.poptip('bts_glossary_xingqi_faq')}再给剩下的人多一轮出牌`,
     bts_sk_yaofeng_info: `别人准备阶段若没${get.poptip('bts_glossary_bless_huqi_faq')}，你可弃杀给他+3`,
     bts_sk_liubu_info:
         '别人弃到空手可让他摸1张并展示；他这回合内受伤时，若此牌还在手牌区，你拿走并使其失去1体',
 };
 
-export const pinyins = { bts_ch_tingyun_wangguiren: 'tingyunwangguiren' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_huqi: {
@@ -252,6 +263,9 @@ export const buffSkills = {
         filter(event, player) {
             return (
                 event.source === player &&
+                // 2026-09-28：按描述「对其他角色」补门控（源描述参照本 L13581；源条件未显式自查，
+                // 无名杀存在自伤带来源路径〔xiadie.js:179〕→ 不门控会弃自己手牌）。
+                event.player !== player &&
                 event.num > 0 &&
                 // 源版 L1162-1165：狐祈无 _common 排除，_common 属性伤害照样触发弃牌
                 //（2026-09-13 回退至源版）。
@@ -274,6 +288,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_huqi_faq',
         name: '狐祈祝福',
-        info: '当你对其他角色造成属性伤害前，你弃置其一张手牌（由你选择）。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你对其他角色造成属性伤害前，你弃置其一张手牌（由你选择）。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

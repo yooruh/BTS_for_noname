@@ -1,7 +1,7 @@
 // 托帕（源 animal.lua L4410-4513）—— 负债循环与涨幅。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'pinuokangni';
 export const title = '火·巡猎·投资机构高级专员'; // 属性·命途
-export const intro = `${B('托帕')}用透支给目标挂${get.poptip('bts_glossary_abnormal_fuzhai_faq')}，开扭亏拿涨幅。`;
+export const intro = `${B('托帕')}用${get.poptip('bts_sk_touzhi')}给目标挂${get.poptip('bts_glossary_abnormal_fuzhai_faq')}，开${get.poptip('bts_sk_niukui')}拿${get.poptip('bts_sk_zhangfu')}。`;
 export const character = {
     bts_ch_tuopa: {
         sex: 'female',
@@ -34,15 +34,19 @@ export const skill = {
     bts_sk_zhangfu: {
         charlotte: true,
         forced: true,
-        trigger: { player: ['damageEnd', 'useCard'] },
+        // 负债②（源 st_zhangfu Damaged 分支）：任意负债角色受伤后 +1（2026-10-02 按源改为
+        // 「任意负债角色」视角，取代原「仅技能持有者自身」范围）。
+        trigger: { player: ['useCard'], global: ['damageEnd'] },
         filter(event, player, triggername) {
+            // 源 L4812（use.card:getSubcards():isEmpty()）→ 虚拟判定统一 get.is.virtualCard
+            //（2026-09-28；待实机复核）。
             return triggername === 'damageEnd'
-                ? lib.bts.api.getAbnor(player, 'fuzhai')
-                : event.card?.name === 'sha' && !event.card.cards?.length;
+                ? event.num > 0 && lib.bts.api.getAbnor(event.player, 'fuzhai')
+                : event.card?.name === 'sha' && get.is.virtualCard(event.card);
         },
         async content(event, trigger, player) {
             if (event.triggername === 'damageEnd')
-                lib.bts.api.addAbnormal(player, 'fuzhai', 1, player);
+                lib.bts.api.addAbnormal(trigger.player, 'fuzhai', 1, player);
             else {
                 player.addMark('bts_mk_zhangfu', 1);
                 const threshold = lib.bts.api.god(player) ? 2 : 1;
@@ -111,9 +115,9 @@ export const skill = {
 export const translate = {
     bts_ch_tuopa: '托帕',
     bts_sk_niukui: '扭亏',
-    bts_sk_niukui_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，获得“涨幅”。`,
+    bts_sk_niukui_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，获得“${get.poptip('bts_sk_zhangfu')}”。`,
     bts_sk_zhangfu: '涨幅',
-    bts_sk_zhangfu_info: `锁定技，拥有${get.poptip('bts_glossary_abnormal_fuzhai_faq')}时受伤后，你附加1层${get.poptip('bts_glossary_abnormal_fuzhai_faq')}；使用虚拟【杀】后获得涨幅，达到阈值时失去此技能。`,
+    bts_sk_zhangfu_info: `锁定技，任意角色拥有${get.poptip('bts_glossary_abnormal_fuzhai_faq')}时受伤后，其附加1层${get.poptip('bts_glossary_abnormal_fuzhai_faq')}；使用虚拟【杀】后获得${get.poptip('bts_sk_zhangfu')}，达到阈值时失去此技能。`,
     bts_sk_jinrong: '金融',
     bts_sk_jinrong_info: `锁定技，当角色拥有至少4层${get.poptip('bts_glossary_abnormal_fuzhai_faq')}后，你移除其3层${get.poptip('bts_glossary_abnormal_fuzhai_faq')}并视为对其使用【杀】。`,
     bts_sk_touzhi: '透支',
@@ -132,11 +136,11 @@ export const translate = {
     bts_mk_zhangfu: '涨幅',
 };
 export const simpleTranslate = {
-    bts_sk_niukui_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}获得涨幅`,
+    bts_sk_niukui_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}获得${get.poptip('bts_sk_zhangfu')}`,
     bts_sk_jinrong_info: `锁；角色${get.poptip('bts_glossary_abnormal_fuzhai_faq')}≥4时移除其3层并视为对其用杀`,
     bts_sk_touzhi_info: `准备阶段可弃杀令1名其他角色+3${get.poptip('bts_glossary_abnormal_fuzhai_faq')}`,
 };
-export const pinyins = { bts_ch_tuopa: 'tuopa' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const marks = {
     bts_mk_zhangfu: {
@@ -153,11 +157,13 @@ export const buffSkills = {
         forced: true,
         silent: true,
         filter(event, player) {
+            // 源 L1393（damage.card:subcardsLength()==0）→ 虚拟判定统一 get.is.virtualCard
+            //（2026-09-28；待实机复核）。
             return (
                 event.player === player &&
                 event.num > 0 &&
                 event.card?.name === 'sha' &&
-                !event.card.cards?.length
+                get.is.virtualCard(event.card)
             );
         },
         async content(event, trigger, player) {
@@ -172,8 +178,10 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_fuzhai_faq',
         name: '|负债|',
-        // 注：源描述 L13021 写「仅受到视为使用的【杀】造成的伤害后+1」属虚标；
-        // 源代码 L4425-4432 为任意伤害 +1，无名杀按代码实现，词条随代码对齐。
-        info: `异常状态：由${get.poptip('bts_sk_zhangfu')}赋予，受伤后+1层；层数≥4时由${get.poptip('bts_sk_jinrong')}移除3层并视为对其使用【杀】。`,
+        // 两条 +1 路径（2026-09-28 按源对齐）：
+        // ① 全局分支（参照本 L1393-1395）：持有者受「视为使用【杀】」（无实体牌）伤害后 +1；
+        // ② 涨幅分支（源 st_zhangfu Damaged）：任意负债角色受伤后 +1（2026-10-02 按源改，
+        //   取代原「仅技能持有者自身」范围）。
+        info: `异常状态：由${get.poptip('bts_sk_zhangfu')}、${get.poptip('bts_sk_touzhi')}赋予；受到视为使用的【杀】的伤害后+1层（任意${get.poptip('bts_glossary_abnormal_fuzhai_faq')}角色受伤后另+1层）；层数≥4时由${get.poptip('bts_sk_jinrong')}移除3层并视为对其使用【杀】。`,
     },
 ];

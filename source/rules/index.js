@@ -256,8 +256,9 @@ export function installBgmFollow() {
 // addMark/removeMark 实际改变存储后）手动派发：构造镜像引擎 addMark/removeMark
 // 的事件（emptyEvent content → event.trigger(event.name)），仅对 bts_ 前缀标记
 // 派发（16 处监听对象皆 bts_*，减少无关开销、不干扰引擎其他 mark 监听）。
-// 事件在 godSync 之后、addSkill/removeSkill（挂摘本技所载标记技能）之前创建，
-// 保证自身 buffSkill（如生息/升格：监听自身 bts_ 标记被移除）在派发时仍挂载可收到。
+// 事件在 godSync 之后创建；移除侧在 removeSkill 之前派发（保证自身 buffSkill 仍挂载可收到）；
+// 附加侧在 addSkill（同步生效：skills.add + addSkillTrigger 立即执行）之后派发（同理保证挂载，
+// 2026-10-02 修正：原顺序下「自身标记首次被附加」的 buffSkill 收不到事件）。
 // 派发事件名需命中 lib.hookmap 门禁（gameEvent trigger L955），故安装期强制置位；
 // 具体技能侧已把 trigger 的 addMark/removeMark 字面量改为 bts_mark_add/bts_mark_remove。
 const MARK_EVT_ADD = 'bts_mark_add';
@@ -292,11 +293,13 @@ export function installBuffSkillLifecycle() {
         const added = this.countMark(name) - before;
         // 星启祝福层数变化 → 重算星启来源并挂摘统一「星启」标记（godSync）。
         if (name === MARKS.bless('god')) lib.bts.api?.godSync?.(this);
-        if (added && String(name).startsWith('bts_')) {
-            dispatchMarkEvent(MARK_EVT_ADD, this, name, added, effectiveLog);
-        }
+        // 先挂载「标记技能」（addSkill 同步生效），再派发 bts_mark_add——保证自身 buffSkill
+        //（如生息/升格：监听自身 bts_ 标记被「附加」）在派发时已完成挂载可收到。
         if (lib.skill[name]?.mark && !this.hasSkill(name)) {
             this.addSkill(name);
+        }
+        if (added && String(name).startsWith('bts_')) {
+            dispatchMarkEvent(MARK_EVT_ADD, this, name, added, effectiveLog);
         }
         return result;
     };
@@ -321,10 +324,94 @@ export function installBuffSkillLifecycle() {
     };
 }
 
+/**
+ * 崩铁杀自定义事件注册（2026-10-02 技能效果自注册重构）。
+ * 除 bts_mark_add/bts_mark_remove（见 installBuffSkillLifecycle）外的自派发事件：
+ *   bts_pet_add / bts_pet_remove / bts_resource_add / bts_shield_removed / bts_funny_act_after
+ * 派发点见 rules/utils.js emit()；消费技能以 trigger: { player/global: '<名>' } 监听。
+ * 事件名须命中 lib.hookmap 门禁（引擎 gameEvent.js trigger 门禁），故安装期统一置位；
+ * 幂等：重复赋值无副作用。
+ */
+const CUSTOM_EVENTS = [
+    'bts_pet_add', // 忆灵登场/重复召唤（utils.addPet）
+    'bts_pet_remove', // 忆灵离场（utils.removePet，先于形态还原派发）
+    'bts_resource_add', // 怒气/祝福/护盾被附加（utils.addAngry/addBless/addShield）
+    'bts_shield_removed', // 护盾因伤害被抵扣（rules/globalBuffs.js bts_shield）
+    'bts_funny_act_after', // 欢愉行动后置（utils.afterFunnyAct）
+];
+
+export function installCustomEventHooks() {
+    for (const name of CUSTOM_EVENTS) lib.hookmap[name] = true;
+}
+
 // ── AI 防重试守卫挂载（tool/ai/aiGuard.js，注册全局技能 bts_aiGuardReset）──
 export function installAiGuard() {
     lib.bts.aiGuard = aiGuard;
     lib.skill.bts_aiGuardReset = aiGuardReset;
     if (!lib.skill.global.includes('bts_aiGuardReset'))
         game.addGlobalSkill('bts_aiGuardReset');
+}
+
+// ── 「不可被指定为目标」目标封锁挂载（2026-10-01；貊泽·掠袭·潜行先行，实现通用化）──
+// 源版以 alive=false 让潜行者从一切目标选择与指定中消失；无名杀逐路径等价实现：
+//   ① 卡牌选目标：技能自带 targetEnabled mod（moze.js）——引擎在 canUse 与 chooseToUse
+//      的默认目标过滤器里读；但技能声明了自定义 filterTarget 时会整体替换默认过滤器
+//      （不读 targetEnabled，黑塔·魔法/剑制 等全走该路径）→ 需 ② ③ 覆盖。
+//   ② 技能选目标：chooseToUse/chooseTarget 的候选统一由 Check.processSelection 计算
+//      （isSelectable → event.filterTarget；AI 的 get.selectableTargets 读同一份
+//      selectable 名单）——在此追加判据，UI 与 AI 双端一并生效。
+//   ③ 自动「视为使用」（技能以固定目标直接 useCard，不经选目标流程，如黑塔·效率、
+//      Archer·螺旋 反击追杀）：useCard 内容首步过滤目标；全部目标被滤空时中止本次
+//      使用（源 ViewAsCard「目标为空则 return false」同语义）。
+// 判据统一为 lib.bts.api.untargetable(target)（utils.js）；自身指定自身不受限。
+let untargetableGuardInstalled = false;
+
+export function installUntargetableGuard() {
+    if (untargetableGuardInstalled) return;
+    untargetableGuardInstalled = true;
+    // ② 选目标候选封锁。
+    if (game.Check && typeof game.Check.processSelection === 'function') {
+        const origProcess = game.Check.processSelection;
+        game.Check.processSelection = function (options) {
+            if (options && options.type === 'target') {
+                const inner = options.isSelectable;
+                options.isSelectable = function (target, event) {
+                    if (!inner(target, event)) return false;
+                    return !(
+                        event?.player !== target &&
+                        lib.bts.api?.untargetable?.(target)
+                    );
+                };
+            }
+            return origProcess.call(this, options);
+        };
+    }
+    // ③ 自动「视为使用」封锁（就地包裹 useCard 内容首步）。
+    //    不能 insert 新步骤：该内容内部用绝对索引 event.goto(11)/goto(12)，插步会使跳转
+    //    错位；就地包裹则步骤索引布局不变。事件在播放前同步构造，首步能读到最终 targets；
+    //    数组元素在编译产物里按运行时索引读取，安装早于任何对局，时序安全。
+    const steps = lib.element.content?.useCard;
+    if (Array.isArray(steps) && !steps.btsTargetGuard) {
+        const first = steps[0];
+        steps.btsTargetGuard = true;
+        steps[0] = async function (event, trigger, player, result) {
+            if (event.targets && event.targets.length) {
+                const untargetable = lib.bts.api?.untargetable;
+                if (typeof untargetable === 'function') {
+                    const before = event.targets.length;
+                    event.targets = event.targets.filter(
+                        (target) =>
+                            target === event.player || !untargetable(target),
+                    );
+                    if (before && !event.targets.length) {
+                        // 全部目标均为不可指定者：视为未发生这次使用（与引擎首步
+                        // 「err: no card → event.finish()」同式，后续步骤不再执行）。
+                        event.finish();
+                        return;
+                    }
+                }
+            }
+            return first.apply(this, arguments);
+        };
+    }
 }

@@ -36,7 +36,9 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_zansong');
             const target = event.targets[0];
             lib.bts.api.loseAngry(player, 5); // 源 L5361：LoseAngry(player, 5)
-            // 源 L5362：AddBless(targets[1], "@bless_fatal", 3, player)
+            // 源 L5362：AddAngry(targets[1], 1, player) —— 目标回复1点怒气（2026-10-02 补缺）
+            lib.bts.api.addAngry(target, 1, player);
+            // 源 L5363：AddBless(targets[1], "@bless_fatal", 3, player)
             await lib.bts.api.addBless(target, 'fatal', 3, player);
             // 源 L5363-5369：星启时额外+3暴击祝福，并将「暴击数>致命数」的差值一半
             // 折转为等量致命祝福（平衡转换，源描述 L13237 同步承诺）。
@@ -175,10 +177,10 @@ export const skill = {
     },
 
     // ── 锁定技·倾诉（源 st_qingsu = TriggerSkill Compulsory EventPhaseStart Judge，L5425-5443）──
-    // 判定阶段开始时，你观看牌堆顶七张牌（仅你能看，保持原序放回牌堆顶）。
-    // 注：源描述 L13246 写「准备阶段开始时」，源代码（L5428）实为判定阶段——按代码，无名杀用判定阶段。
+    // 准备阶段开始时，你观看牌堆顶七张牌（仅你能看，保持原序放回牌堆顶）。
+    //（2026-10-02 用户定夺按源描述「准备阶段」回改；源代码为判定阶段口径。）
     bts_sk_qingsu: {
-        trigger: { player: 'phaseJudgeBegin' },
+        trigger: { player: 'phaseZhunbeiBegin' },
         forced: true,
         async content(event, trigger, player) {
             // 源 L5430-5440：getNCards(7) + fillAG 展示给拥有者 + returnToTopDrawPile 保序放回
@@ -201,12 +203,12 @@ export const translate = {
     'bts_ch_xingqiri_skin3': '皮肤3',
     bts_ch_xingqiri: '星期日',
     bts_sk_zansong: '赞颂',
-    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色附加3层${get.poptip('bts_glossary_bless_fatal_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，其额外附加3层${get.poptip('bts_glossary_bless_critical_faq')}，若其${get.poptip('bts_glossary_bless_critical_faq')}数大于${get.poptip('bts_glossary_bless_fatal_faq')}数，移除差值一半的${get.poptip('bts_glossary_bless_critical_faq')}并附加等量的${get.poptip('bts_glossary_bless_fatal_faq')}。`,
+    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色回复1点${get.poptip('bts_glossary_nuqi_faq')}并附加3层${get.poptip('bts_glossary_bless_fatal_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，其额外附加3层${get.poptip('bts_glossary_bless_critical_faq')}，若其${get.poptip('bts_glossary_bless_critical_faq')}数大于${get.poptip('bts_glossary_bless_fatal_faq')}数，移除差值一半的${get.poptip('bts_glossary_bless_critical_faq')}并附加等量的${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_sk_enci: '恩赐',
     bts_sk_enci_info: `摸牌阶段开始时，你可以跳过摸牌阶段和出牌阶段并选择一名其他角色（若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，你弃置一张【杀】），此回合结束时，令其附加1层${get.poptip('bts_glossary_bless_critical_faq')}，其执行一个额外的回合，若其拥有其武将牌上没有的技能，其再执行一个额外的出牌阶段。`,
     bts_sk_qingsu: '倾诉',
     bts_sk_qingsu_info:
-        '锁定技，判定阶段开始时，你观看牌堆顶七张牌并保持原序置于牌堆顶。',
+        '锁定技，准备阶段开始时，你观看牌堆顶七张牌并保持原序置于牌堆顶。',
 
     '$bts_sk_zansong1': "以此身躯……",
     '$bts_sk_zansong2': "与你同道，护你左右，领你远行",
@@ -218,9 +220,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+3${get.poptip('bts_glossary_bless_fatal_faq')}（${get.poptip('bts_glossary_xingqi_faq')}额外+3${get.poptip('bts_glossary_bless_critical_faq')}，暴击>致命时差值一半折转致命）`,
+    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色回1${get.poptip('bts_glossary_nuqi_faq')}并+3${get.poptip('bts_glossary_bless_fatal_faq')}（${get.poptip('bts_glossary_xingqi_faq')}额外+3${get.poptip('bts_glossary_bless_critical_faq')}，${get.poptip('bts_glossary_bless_critical_faq')}>${get.poptip('bts_glossary_bless_fatal_faq')}时差值一半折转${get.poptip('bts_glossary_bless_fatal_faq')}）`,
     bts_sk_enci_info: `摸牌阶段可跳摸牌/出牌选1名其他角色（其无${get.poptip('bts_glossary_bless_fatal_faq')}才弃1【杀】），回合末其+1${get.poptip('bts_glossary_bless_critical_faq')}并额外回合，有武将牌外技能再+1出牌阶段`,
-    bts_sk_qingsu_info: '锁；判定阶段看牌堆顶7张并保序放回',
+    bts_sk_qingsu_info: '锁；准备阶段看牌堆顶7张并保序放回',
 };
 
-export const pinyins = { bts_ch_xingqiri: 'xingqiri' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

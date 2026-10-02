@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'pinuokangni';
 export const title = '量子·巡猎·无铭的英灵'; // 属性·命途
 export const intro =
-    `${B('Archer')}用${get.poptip('bts_glossary_nature_dark_faq')}剑制攒心眼，拿双杀放螺旋。`;
+    `${B('Archer')}用${get.poptip('bts_glossary_nature_dark_faq')}${get.poptip('bts_sk_jianzhi')}攒${get.poptip('bts_sk_xinyan')}，拿双杀放${get.poptip('bts_sk_luoxuan')}。`;
 
 export const character = {
     bts_ch_archer: {
@@ -149,10 +149,10 @@ export const translate = {
     'bts_ch_archer_skin1': '皮肤1',
     bts_ch_archer: 'Archer',
     bts_sk_jianzhi: '剑制',
-    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害（${get.poptip('bts_glossary_xingqi_faq')}时为2点${get.poptip('bts_glossary_guantong_faq')}伤害），获得2枚心眼。`,
+    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害（${get.poptip('bts_glossary_xingqi_faq')}时为2点${get.poptip('bts_glossary_guantong_faq')}伤害），获得2枚${get.poptip('bts_sk_xinyan')}。`,
     bts_sk_xinyan: '心眼',
     bts_sk_xinyan_info:
-        '其他角色受到不为你造成的伤害后，你可以弃置1枚心眼标记，视为对其使用【杀】，然后摸一张牌并展示之。',
+        `其他角色受到不为你造成的伤害后，你可以弃置1枚${get.poptip('bts_sk_xinyan')}标记，视为对其使用【杀】，然后摸一张牌并展示之。`,
     bts_sk_luoxuan: '螺旋',
     bts_sk_luoxuan_info: `出牌阶段，你可以弃置两张【杀】，对一名其他角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害，你附加1层${get.poptip('bts_glossary_abnormal_luoxuan_faq')}。`,
 
@@ -169,9 +169,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成暗伤，得2心眼`,
-    bts_sk_xinyan_info: '他人间伤害后可弃1心眼对其用杀并摸1展示',
+    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成暗伤，得2${get.poptip('bts_sk_xinyan')}`,
+    bts_sk_xinyan_info: `他人间伤害后可弃1${get.poptip('bts_sk_xinyan')}对其用杀并摸1展示`,
     bts_sk_luoxuan_info: `出牌阶段弃2杀对1名其他角色造成${get.poptip('bts_glossary_bless_critical_faq')}伤害并+1${get.poptip('bts_glossary_abnormal_luoxuan_faq')}`,
 };
 
-export const pinyins = { bts_ch_archer: 'archer' };
+// 默认读音把拉丁名逐字符拆开（A r c h e r）：按叁岛式以整词覆盖。
+export const pinyins = {
+    'Archer': ['Archer'],
+};

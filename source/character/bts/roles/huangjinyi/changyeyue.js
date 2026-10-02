@@ -1,11 +1,11 @@
 // 长夜月（源 animal.lua L8845-8960）—— 长夜忆灵组合模板。
 // 技能：无眠（必杀技·至暗之谜+召唤长夜）、同行（扣血得忆质+致命）、咒礼（结束阶段失体召唤长夜）、
-//       长夜：漆黑（源占位空技能）、余露（忆质≥8霜伤收束）、夜影（距离修正）。
+//       长夜：漆黑（源占位空技能、重召回血在 AddPet）、余露（忆质≥8霜伤收束）、夜影（距离修正）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'huangjinyi';
 export const title = '冰·记忆·隐秘的陌客'; // 属性·命途
 export const intro =
-    `${B('长夜月')}靠${get.poptip('bts_glossary_bless_zhianzhimi_faq')}攒${get.poptip('bts_glossary_yizhi_faq')}，召出长夜再用余露的霜伤收尾。`;
+    `${B('长夜月')}靠${get.poptip('bts_glossary_bless_zhianzhimi_faq')}攒${get.poptip('bts_glossary_yizhi_faq')}，召出${get.poptip('bts_ch_changye')}再用余露的霜伤收尾。`;
 
 export const character = {
     bts_ch_changyeyue: {
@@ -71,7 +71,7 @@ export const skill = {
                 player,
             );
             // 源 L8856：AddPet(player, "changye")
-            lib.bts.api.addPet(player, 'changye');
+            await lib.bts.api.addPet(player, 'changye');
         },
         ai: {
             order(item, player) {
@@ -127,23 +127,26 @@ export const skill = {
         async content(event, trigger, player) {
             await player.loseHp(); // 源 L8898：room:loseHp(player)
             // 源 L8899：AddPet(player, "changye")
-            lib.bts.api.addPet(player, 'changye');
+            await lib.bts.api.addPet(player, 'changye');
             // 源 L8900-8902：源为 GetXiLian 时额外 +1 忆质（无名杀以爱诗技能近似）
             if (player.hasSkill('bts_sk_aishi')) player.addMark('bts_mk_yizhi', 1);
         },
         ai: { result: { player: 1 } },
     },
 
-    // ── 占位技·漆黑（源 st_qihei = TriggerSkill Compulsory Damaged，L8908-8914）──
-    // 源实现为空技能（on_trigger 无操作），无名杀以永不触发的过滤占位。
+    // ── 锁定技·漆黑（源 st_qihei = TriggerSkill Compulsory Damaged，L8908-8914）──
+    // 源技能壳为空、效果硬编码在 AddPet；2026-10-02 自注册重构：改为监听 bts_pet_add
+    //（rules/utils.js addPet 在重复召唤时派发）——长夜重复召唤时，你回复1点体力（源 L807-810）。
     bts_sk_qihei: {
         charlotte: true,
-        trigger: { player: 'damageEnd' },
+        trigger: { player: 'bts_pet_add' },
         forced: true,
-        filter() {
-            return false;
+        filter(event) {
+            return event.pet === 'changye' && event.repeated;
         },
-        async content() {},
+        async content(event, trigger, player) {
+            await player.recover(player);
+        },
         ai: { noe: true },
     },
 
@@ -232,15 +235,15 @@ export const translate = {
     bts_ch_changye: '长夜',
     bts_ch_changyeyue_and_changye: '长夜月&长夜',
     bts_sk_wumian: '无眠',
-    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加2层${get.poptip('bts_glossary_bless_zhianzhimi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为4层），并召唤长夜。`,
+    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加2层${get.poptip('bts_glossary_bless_zhianzhimi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为4层），并召唤${get.poptip('bts_ch_changye')}。`,
     bts_sk_tongxing: '同行',
     bts_sk_tongxing_info: `锁定技，扣减体力后，获得1枚${get.poptip('bts_glossary_yizhi_faq')}；若你拥有${get.poptip('bts_glossary_bless_zhianzhimi_faq')}，改为7枚。然后若没有${get.poptip('bts_glossary_bless_fatal_faq')}，附加1层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_sk_zhouli: '昼离',
-    bts_sk_zhouli_info: '结束阶段开始时，你可以失去1点体力，召唤长夜。',
+    bts_sk_zhouli_info: `结束阶段开始时，你可以失去1点体力，召唤${get.poptip('bts_ch_changye')}。`,
     bts_sk_qihei: '漆黑',
-    bts_sk_qihei_info: '锁定技。',
+    bts_sk_qihei_info: `锁定技，当${get.poptip('bts_ch_changye')}被重复召唤时，你回复1点体力。`,
     bts_sk_yulu: '雨露',
-    bts_sk_yulu_info: `锁定技，${get.poptip('bts_glossary_yizhi_faq')}不少于8枚时，移除全部${get.poptip('bts_glossary_yizhi_faq')}与长夜，对伤害关联角色造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
+    bts_sk_yulu_info: `锁定技，${get.poptip('bts_glossary_yizhi_faq')}不少于8枚时，移除全部${get.poptip('bts_glossary_yizhi_faq')}与${get.poptip('bts_ch_changye')}，对伤害关联角色造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
     bts_sk_yeying: '夜影',
     bts_sk_yeying_info:
         '锁定技，拥有此技能的角色距离极近；其他角色计算距离时+1。',
@@ -258,21 +261,18 @@ export const translate = {
     '$bts_sk_yulu2': "诸位，后会有期~",
     '~bts_ch_changye': "没能…保护好……",
     '~bts_ch_changyeyue': "没能…保护好……",
-    bts_bless_zhianzhimi_info: '来源：无眠赋予；扣血获忆质×6；回合结束自然减少1层',
+    // 2026-09-28：×6→×7 对齐源（参照本 L14486「7倍」）与实现（定夺 C-03 ×7）。
+    bts_bless_zhianzhimi_info: `来源：${get.poptip('bts_sk_wumian')}赋予；扣血获${get.poptip('bts_glossary_yizhi_faq')}×7；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
-    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+${get.poptip('bts_glossary_bless_zhianzhimi_faq')}并召唤长夜`,
-    bts_sk_tongxing_info: `锁；扣血+${get.poptip('bts_glossary_yizhi_faq')}，${get.poptip('bts_glossary_bless_zhianzhimi_faq')}时改+6并确保${get.poptip('bts_glossary_bless_fatal_faq')}`,
-    bts_sk_zhouli_info: '结束阶段可失1体力召唤长夜',
-    bts_sk_yulu_info: `锁；${get.poptip('bts_glossary_yizhi_faq')}≥8时移除长夜并造成霜伤`,
+    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+${get.poptip('bts_glossary_bless_zhianzhimi_faq')}并召唤${get.poptip('bts_ch_changye')}`,
+    bts_sk_tongxing_info: `锁；扣血+${get.poptip('bts_glossary_yizhi_faq')}，${get.poptip('bts_glossary_bless_zhianzhimi_faq')}时改+7并确保${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_zhouli_info: `结束阶段可失1体力召唤${get.poptip('bts_ch_changye')}`,
+    bts_sk_yulu_info: `锁；${get.poptip('bts_glossary_yizhi_faq')}≥8时移除${get.poptip('bts_ch_changye')}并造成霜伤`,
 };
 
-export const pinyins = {
-    bts_ch_changyeyue: 'changyeyue',
-    bts_ch_changye: 'changye',
-    bts_ch_changyeyue_and_changye: 'changyeyuechangye',
-};
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_zhianzhimi: {
@@ -287,11 +287,12 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_zhianzhimi_faq',
         name: '至暗之谜祝福',
-        info: '你扣减体力获得忆质时，获得量×6。你的结束阶段开始时，此祝福减少1层。',
+        // 2026-09-28：×6→×7 对齐源（参照本 L14486）与实现（定夺 C-03）。
+        info: `你扣减体力获得${get.poptip('bts_glossary_yizhi_faq')}时，获得量×7。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_yizhi_faq',
         name: '|忆质|',
-        info: `长夜月专属：${get.poptip('bts_sk_tongxing')}受伤、${get.poptip('bts_sk_zhouli')}召唤各+量；满8由${get.poptip('bts_sk_yulu')}对最近伤害者造成伤害并解长夜。`,
+        info: `长夜月专属：${get.poptip('bts_sk_tongxing')}受伤、${get.poptip('bts_sk_zhouli')}召唤各+量；满8由${get.poptip('bts_sk_yulu')}对最近伤害者造成伤害并解${get.poptip('bts_ch_changye')}。`,
     },
 ];

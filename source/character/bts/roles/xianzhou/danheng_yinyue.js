@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '虚数·毁灭·苍龙尊裔'; // 属性·命途
 export const intro =
-    `${B('丹恒·饮月')}用龙力同时挑多名角色的${get.poptip('bts_glossary_bless_fatal_faq')}决斗，非【杀】弃牌附上的诅咒还能靠${get.poptip('bts_sk_kangxin')}补牌。`;
+    `${B('丹恒·饮月')}用${get.poptip('bts_sk_longli')}同时挑多名角色的${get.poptip('bts_glossary_bless_fatal_faq')}决斗，非【杀】弃牌附上的诅咒还能靠${get.poptip('bts_sk_kangxin')}补牌。`;
 
 export const character = {
     bts_ch_danheng_yinyue: {
@@ -124,9 +124,17 @@ export const translate = {
     bts_sk_zhuoshi: '濯世',
     bts_sk_zhuoshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并摸两张牌；若你为${get.poptip('bts_glossary_xingqi_faq')}，改为摸三张牌并执行一个额外回合。`,
     bts_sk_longli: '龙力',
-    bts_sk_longli_info: `出牌阶段，你可以弃置一至三张非装备牌，视为对至多一名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}【决斗】；若弃置两张及以上，改为对至多三名其他角色使用致命光属性【决斗】。每弃置一张非【杀】，你附加1层诅咒并结束出牌阶段。`,
+    bts_sk_longli_info: `出牌阶段，你可以弃置一至三张非装备牌，视为对至多一名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}【决斗】；若弃置两张及以上，改为对至多三名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}光属性【决斗】。每弃置一张非【杀】，你附加1层诅咒并结束出牌阶段。`,
     bts_sk_kangxin: '亢心',
     bts_sk_kangxin_info: '锁定技，当你移除诅咒后，摸等同于移除层数的牌。',
+
+    '$bts_sk_zhuoshi1': "潜鳞，已现",
+    '$bts_sk_zhuoshi2': "洞天隐月，苍龙濯世！",
+    '$bts_sk_longli1': "天洪奔涌…",
+    '$bts_sk_longli2': "霄龙现影，破！",
+    '$bts_sk_longli3': "神蛟腾云，起！",
+    '$bts_sk_kangxin1': "云吟御水",
+    '$bts_sk_kangxin2': "破绽百出",
 };
 
 export const simpleTranslate = {
@@ -135,4 +143,4 @@ export const simpleTranslate = {
     bts_sk_kangxin_info: '移除诅咒时摸等量牌',
 };
 
-export const pinyins = { bts_ch_danheng_yinyue: 'danhengyinyue' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

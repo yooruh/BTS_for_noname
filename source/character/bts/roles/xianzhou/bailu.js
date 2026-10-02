@@ -2,7 +2,7 @@
 // 技能：雷音（必杀技·群体生息）、珠露（受伤后弃【杀】治疗）、济世（濒死回复至1点）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xianzhou';
 export const title = '雷·丰饶·衔药龙女'; // 属性·命途
-export const intro = `${B('白露')}发${get.poptip('bts_glossary_bless_shengxi_faq')}给队友，用${get.poptip('bts_glossary_bailu_zhulu_faq')}和济世帮忙回血。`;
+export const intro = `${B('白露')}发${get.poptip('bts_glossary_bless_shengxi_faq')}给队友，用${get.poptip('bts_glossary_bailu_zhulu_faq')}和${get.poptip('bts_sk_jishi')}帮忙回血。`;
 export const character = {
     bts_ch_bailu: {
         sex: 'female',
@@ -152,23 +152,26 @@ export const translate = {
     '$bts_sk_jishi2': "要雨露均沾哦~",
     '~bts_ch_bailu': "医不自医……",
     bts_bless_shengxi: '生息祝福',
-    bts_bless_shengxi_info: '来源：雷音赋予；受伤/被移除时移除1层并回复1，逐层至耗尽；回合结束自然减少1层',
+    bts_bless_shengxi_info: `来源：${get.poptip('bts_sk_leiyin')}赋予；附加或受伤后移除1层并回复1；回合结束自然减少1层`,
 };
 export const simpleTranslate = {
     bts_sk_leiyin_info: `${get.poptip('bts_glossary_bisha_faq')}；失4${get.poptip('bts_glossary_nuqi_faq')}令自己与至少1名其他角色各+2${get.poptip('bts_glossary_bless_shengxi_faq')}`,
     bts_sk_jishi_info: '限定；他人濒死时可令其回复至1体力',
 };
-export const pinyins = { bts_ch_bailu: 'bailu' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_shengxi: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_shengxi_faq',
-        trigger: { player: 'damageEnd', global: 'bts_mark_remove' },
+        // 附加此祝福或受伤后（源描述；源代码作被移除时——同族 7 处 gain 方向与描述相反
+        // 的系统性笔误，2026-10-02 用户定夺按描述方向实现：监听 bts_mark_add；
+        // 移除/回合结束自然减少不再触发回血）。
+        trigger: { player: 'damageEnd', global: 'bts_mark_add' },
         forced: true,
         silent: true,
         filter(event, player, triggername) {
-            if (triggername === 'bts_mark_remove')
+            if (triggername === 'bts_mark_add')
                 return (
                     event.player === player &&
                     event.markName === 'bts_bless_shengxi' &&
@@ -189,11 +192,11 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_shengxi_faq',
         name: '生息祝福',
-        info: '受伤后或此祝福被移除时，若已受伤，移除1层此祝福并回复1点体力（逐层继续直至耗尽）。你的结束阶段开始时，此祝福自然减少1层，同样会触发上述效果。',
+        info: `附加此${get.poptip('bts_glossary_bless_faq')}或受伤后，若已受伤，移除1层此${get.poptip('bts_glossary_bless_faq')}并回复1点体力。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}自然减少1层（减少不再触发回血）。`,
     },
     {
         id: 'bts_glossary_bailu_zhulu_faq',
         name: '|珠露|',
-        info: `白露专属：${get.poptip('bts_sk_zhulu')}治疗时在被奶角色上充留；带珠露的角色之后可被珠露的二次随机补奶选中。`,
+        info: `白露专属：${get.poptip('bts_sk_zhulu')}治疗时在被奶角色上充留；带${get.poptip('bts_glossary_bailu_zhulu_faq')}的角色之后可被${get.poptip('bts_glossary_bailu_zhulu_faq')}的二次随机补奶选中。`,
     },
 ];

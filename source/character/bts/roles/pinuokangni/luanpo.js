@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'pinuokangni';
 export const title = '虚数·智识·忍者'; // 属性·命途
 export const intro =
-    `${B('乱破')}用天流换${get.poptip('bts_glossary_bless_jieyin_faq')}和额外回合，追击受伤的关联角色。`;
+    `${B('乱破')}用${get.poptip('bts_sk_tianliu')}换${get.poptip('bts_glossary_bless_jieyin_faq')}和额外回合，追击受伤的关联角色。`;
 
 export const character = {
     bts_ch_luanpo: {
@@ -117,10 +117,12 @@ export const skill = {
             // 源 L5335：弃【杀】；cost 所选牌在技能事件 event.cards
             await player.discard(event.cards);
             // 源 L5342-5347：对全部 DamageLink 标记角色各弃一张手牌（目标非选择，强制逐一执行）。
-            for (const candidate of game.filterPlayer(
-                (candidate) =>
-                    candidate.countMark(`bts_damage_link_${player.playerid}`) &&
-                    candidate.countCards('h'),
+            for (const candidate of lib.bts.api.seatOrder(
+                game.filterPlayer(
+                    (candidate) =>
+                        candidate.countMark(`bts_damage_link_${player.playerid}`) &&
+                        candidate.countCards('h'),
+                ),
             ))
                 await player.discardPlayerCard(candidate, 'h', true);
         },
@@ -143,7 +145,7 @@ export const translate = {
     bts_sk_guanche_info:
         '受到伤害后，你可以弃置一张【杀】，弃置所有伤害关联角色各一张手牌。',
     bts_bless_jieyin_info:
-        '结印祝福：你的手牌【杀】视为【决斗】；当你使用【决斗】对其他角色造成伤害时，若其手牌数大于1，防止此伤害并弃置其两张手牌，否则其弃置一张牌并失去1点体力。',
+        `${get.poptip('bts_glossary_bless_jieyin_faq')}：你的手牌【杀】视为【决斗】；当你使用【决斗】对其他角色造成伤害时，若其手牌数大于1，防止此伤害并弃置其两张手牌，否则其弃置一张牌并失去1点体力。`,
 
     '$bts_sk_tianliu1': "银河忍法，千变万化",
     '$bts_sk_tianliu2': "此乃——「忍法•奥义•缭乱灭破杀阵」！",
@@ -161,7 +163,7 @@ export const simpleTranslate = {
     bts_sk_guanche_info: '受伤后可弃杀弃伤害关联角色手牌',
 };
 
-export const pinyins = { bts_ch_luanpo: 'luanpo' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_jieyin: {
@@ -226,6 +228,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_jieyin_faq',
         name: '结印祝福',
-        info: '你的手牌【杀】视为【决斗】；当你使用【决斗】对其他角色造成伤害时，若其拥有超过1张手牌，防止此伤害并弃置其两张手牌，否则其弃置一张牌并失去1点体力。你的结束阶段开始时，此祝福减少1层。',
+        info: `你的手牌【杀】视为【决斗】；当你使用【决斗】对其他角色造成伤害时，若其拥有超过1张手牌，防止此伤害并弃置其两张手牌，否则其弃置一张牌并失去1点体力。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

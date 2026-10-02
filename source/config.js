@@ -4,6 +4,8 @@ import { extensionUpdateManager } from './tool/update/index.js';
 import { configManager } from './tool/configuration/configManager.js';
 import { applyNodeintroWide } from './tool/ui/nodeintroWidth.js';
 import { applyCardsInfo } from './tool/ui/cardsInfo.js';
+import { dialogManager } from './tool/ui/dialogManager.js';
+import { extensionPath } from './tool/utils/paths.js';
 
 export const config = {
     bts_update_online: {
@@ -24,17 +26,44 @@ export const config = {
     },
     bts_help: {
         name: '<button class="bts-config-button">帮助文档</button>',
-        intro: '查看崩铁杀规则与机制说明',
+        intro: '查看崩铁杀完整帮助文档（规则机制、底层扩展与设置说明）',
         clear: true,
         async onclick() {
-            const helpText = [
-                '崩铁杀帮助',
-                '• 怒气：受伤回复等量怒气；致命伤害不回复。',
-                '• 护盾：优先抵消伤害；贯通伤害无视护盾。',
-                '• 异常：麻痹影响摸牌，烧伤在出牌阶段受伤，中毒在弃牌阶段失去体力；冻结/石化/睡眠会限制用牌。',
-                '• 当前已提供丹恒、开拓者、翡翠三名移植示例；宠物、角色专属祝福与其余角色将随角色模块接入。',
-            ].join('\n');
-            alert(helpText);
+            // 完整版文档页（style/html/help.html，叁岛 showDocModal 同款）；
+            // {{version}} 占位由 dataProcessor 替换为当前版本号。
+            const version =
+                game.getExtensionConfig('崩铁杀', 'version') || '未知版本';
+            try {
+                await dialogManager.showDocModal(
+                    `${extensionPath}/style/html/help.html`,
+                    '帮助文档',
+                    (content) => content.replace(/\{\{version\}\}/g, version),
+                );
+            } catch (error) {
+                console.error('打开【崩铁杀】帮助文档失败', error);
+                alert('打开帮助文档失败，请检查扩展文件完整性');
+            }
+        },
+    },
+    bts_update_log: {
+        name: '<button class="bts-config-button">更新日志</button>',
+        intro: '查看崩铁杀完整历史更新（由 release/releases.json 与构建脚本自动生成）',
+        clear: true,
+        async onclick() {
+            // 完整历史更新日志页（style/html/update.html，构建脚本自动生成）；
+            // {{version}} 占位由 dataProcessor 替换为当前版本号。
+            const version =
+                game.getExtensionConfig('崩铁杀', 'version') || '未知版本';
+            try {
+                await dialogManager.showDocModal(
+                    `${extensionPath}/style/html/update.html`,
+                    '更新日志',
+                    (content) => content.replace(/\{\{version\}\}/g, version),
+                );
+            } catch (error) {
+                console.error('打开【崩铁杀】更新日志失败', error);
+                alert('打开更新日志失败，请检查扩展文件完整性');
+            }
         },
     },
     bts_nodeintro_wide: {
@@ -74,7 +103,7 @@ export const config = {
     bts_ai_character_mode: {
         name: 'AI选将逻辑',
         intro: '身份模式AI选将逻辑：纯随机 / 按评分（太阳神选将权重表） / 按流派（技能定位标签）；仅单机·标准身份生效',
-        init: 'random',
+        init: 'score',
         item: {
             random: '纯随机',
             score: '按评分',
@@ -85,7 +114,7 @@ export const config = {
         },
     },
     bts_god_condition: {
-        name: '主公星启启用条件',
+        name: '主公星启条件',
         intro: '身份模式主公星启的启用条件：均启用 / 仅崩铁角色在场 / 仅崩铁角色为主公 / 不启用',
         init: 'bts_present',
         item: {

@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, B, O } from '../../shared.j
 export const sort = 'yaliluo';
 export const title = '冰·存护·以朗道之名'; // 属性·命途
 export const intro =
-    `${B('杰帕德')}是防守反击：${get.poptip('bts_glossary_bisha_faq')}${B('永屹')}给自己和队友加${get.poptip('bts_glossary_hudun_faq')}，${B('震慑')}被【杀】指定时弃杀反击${get.poptip('bts_glossary_abnormal_freeze_faq')}，${B('刚正')}濒死时回血。` +
+    `${B('杰帕德')}是防守反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yongyi'))}给自己和队友加${get.poptip('bts_glossary_hudun_faq')}，${B(get.poptip('bts_sk_zhenshe'))}被【杀】指定时弃杀反击${get.poptip('bts_glossary_abnormal_freeze_faq')}，${B(get.poptip('bts_sk_gangzheng'))}濒死时回血。` +
     `<li>${get.poptip('bts_glossary_abnormal_freeze_faq')}会让目标不能使用装备牌`;
 
 export const character = {
@@ -121,7 +121,7 @@ export const skill = {
             content: (storage) =>
                 storage
                     ? '刚正已发动（限一次）。'
-                    : '当你进入濒死状态时，回复体力至1点（maxHp的一半），此技能仅发动一次。',
+                    : '当你进入濒死状态时，回复体力至体力上限的一半（至多1点），此技能仅发动一次。',
         },
         markimage: `${extensionPath}/image/mark/bts_sk_gangzheng.png`,
         ai: { noe: true },
@@ -140,7 +140,7 @@ export const translate = {
     bts_sk_zhenshe_info: `当其他角色使用【杀】指定你为目标后，你可以弃置一张【杀】，令其附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}。`,
 
     bts_sk_gangzheng: '刚正',
-    bts_sk_gangzheng_info: `觉醒技，当你进入濒死状态时，你回复体力至1点（${get.poptip('bts_glossary_bless_maxhp_faq')}的一半），此技能仅发动一次。`,
+    bts_sk_gangzheng_info: `觉醒技，当你进入濒死状态时，你回复体力至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点），此技能仅发动一次。`,
 
     '$bts_sk_yongyi1': "我以朗道之名",
     '$bts_sk_yongyi2': "历经冰雪，铸成此志，永不终结！",
@@ -154,7 +154,7 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
     bts_sk_zhenshe_info: `被他人用杀指定后，弃1杀令其+1${get.poptip('bts_glossary_abnormal_freeze_faq')}`,
-    bts_sk_gangzheng_info: '觉醒；濒死时回复至1点（限一次）',
+    bts_sk_gangzheng_info: `觉醒；濒死时回复至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点，限一次）`,
 };
 
-export const pinyins = { bts_ch_jiepade: 'jiepade' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

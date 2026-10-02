@@ -20,8 +20,8 @@ import { extensionPath } from '../../../../tool/utils/paths.js';
 export const sort = 'pinuokangni';
 export const title = '量子·智识·慈玉女士'; // 属性·命途
 export const intro =
-    `${B('翡翠')}是${get.poptip('bts_glossary_hudun_faq')}/${get.poptip('bts_glossary_bless_yingzi_faq')}流BOSS：${get.poptip('bts_glossary_bisha_faq')}${B('狱契')}以${get.poptip('bts_glossary_nuqi_faq')}换取群体${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害并积攒狱契标记，` +
-    `${B('肆保')}为无${get.poptip('bts_glossary_bless_yingzi_faq')}角色附加${get.poptip('bts_glossary_bless_yingzi_faq')}，${B('烁牙')}随伤害积累层数，攒满后对全体受害者挥出暗【杀】。` +
+    `${B('翡翠')}是${get.poptip('bts_glossary_hudun_faq')}/${get.poptip('bts_glossary_bless_yingzi_faq')}流BOSS：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yuqi'))}以${get.poptip('bts_glossary_nuqi_faq')}换取群体${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害并积攒${get.poptip('bts_sk_yuqi')}标记，` +
+    `${B(get.poptip('bts_sk_sibao'))}为无${get.poptip('bts_glossary_bless_yingzi_faq')}角色附加${get.poptip('bts_glossary_bless_yingzi_faq')}，${B(get.poptip('bts_sk_shuoya'))}随伤害积累层数，攒满后对全体受害者挥出暗【杀】。` +
     `<li>适合作为单机BOSS局主公开局（配合 customScenes 起始${get.poptip('bts_glossary_hudun_faq')}/${get.poptip('bts_glossary_nuqi_faq')}）`;
 
 export const character = {
@@ -175,13 +175,13 @@ export const skill = {
 export const translate = {
     bts_ch_feicui: '翡翠',
     bts_sk_yuqi: '狱契',
-    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并对至少一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，获得2枚狱契标记。`,
+    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并对至少一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，获得2枚${get.poptip('bts_sk_yuqi')}标记。`,
 
     bts_sk_sibao: '肆保',
     bts_sk_sibao_info: `出牌阶段开始时，若没有角色拥有${get.poptip('bts_glossary_bless_yingzi_faq')}，你可以弃置一张【杀】并选择一名其他角色，令其附加3层${get.poptip('bts_glossary_bless_yingzi_faq')}。`,
 
     bts_sk_shuoya: '烁牙',
-    bts_sk_shuoya_info: `锁定技，当你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你获得1枚烁牙标记，若你拥有至少8枚烁牙标记，你弃8枚烁牙标记，视为对所有受到过由你造成的伤害的角色使用暗【杀】，若你拥有狱契标记，你弃1枚狱契标记，令此【杀】不能被响应。`,
+    bts_sk_shuoya_info: `锁定技，当你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你获得1枚${get.poptip('bts_sk_shuoya')}标记，若你拥有至少8枚${get.poptip('bts_sk_shuoya')}标记，你弃8枚${get.poptip('bts_sk_shuoya')}标记，视为对所有受到过由你造成的伤害的角色使用暗【杀】，若你拥有${get.poptip('bts_sk_yuqi')}标记，你弃1枚${get.poptip('bts_sk_yuqi')}标记，令此【杀】不能被响应。`,
 
     '$bts_sk_yuqi1': "协定已成",
     '$bts_sk_yuqi2': "以此为据，也就再无反悔的余地…你我都是",
@@ -193,9 +193,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，获得2枚狱契`,
+    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，获得2枚${get.poptip('bts_sk_yuqi')}`,
     bts_sk_sibao_info: `出牌阶段开始时，若无人拥有${get.poptip('bts_glossary_bless_yingzi_faq')}，可弃1张【杀】令1名其他角色+3层${get.poptip('bts_glossary_bless_yingzi_faq')}`,
-    bts_sk_shuoya_info: `锁；你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你+1枚烁牙；≥8枚时弃8枚，对所有受到过你伤害的角色使用暗杀；有狱契则弃1枚使其不可响应`,
+    bts_sk_shuoya_info: `锁；你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你+1枚${get.poptip('bts_sk_shuoya')}；≥8枚时弃8枚，对所有受到过你伤害的角色使用暗杀；有${get.poptip('bts_sk_yuqi')}则弃1枚使其不可响应`,
 };
 
-export const pinyins = { bts_ch_feicui: 'feicui' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

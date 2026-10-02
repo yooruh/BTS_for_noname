@@ -101,7 +101,7 @@ export const translate = {
     '$bts_sk_lingfu2': "灵符…保命…",
     '~bts_ch_huohuo': "投…投降……",
     bts_bless_rangming: '禳命祝福',
-    bts_bless_rangming_info: '来源：灵符赋予；必杀/准备阶段回复并清异常；回合结束自然减少1层',
+    bts_bless_rangming_info: `来源：${get.poptip('bts_sk_lingfu')}赋予；${get.poptip('bts_glossary_bisha_faq')}/准备阶段回复并清异常；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
@@ -110,7 +110,7 @@ export const simpleTranslate = {
     bts_sk_pingfu_info: '锁；其他角色至你的距离+2',
 };
 
-export const pinyins = { bts_ch_huohuo: 'huohuo' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_rangming: {
@@ -153,6 +153,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_rangming_faq',
         name: '禳命祝福',
-        info: '因你回复过体力的角色于其准备阶段或发动必杀技后，回复1点体力并移除1层异常。你的结束阶段开始时，此祝福减少1层。',
+        info: `因你回复过体力的角色于其准备阶段或发动${get.poptip('bts_glossary_bisha_faq')}后，回复1点体力并移除1层异常。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

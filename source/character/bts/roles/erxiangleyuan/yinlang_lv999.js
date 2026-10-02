@@ -1,14 +1,13 @@
 // 银狼LV999（源 animal.lua L11324-11423，V2.2 欢愉子系统）—— 无启、爆射、狼尊与顺风。
-// 技能：无启（必杀技·耗分数换额外回合）、爆射（准备弃杀换笑点）、狼尊（跳阶段换忙盒/电驰）、顺风（笑点消耗转分数）。
+// 技能：无启（必杀技·耗分数换额外回合）、爆射（准备弃杀换笑点）、狼尊（跳阶段换忙盒/电驰）、顺风（笑点获得转分数）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'erxiangleyuan';
 export const title = '虚数·欢愉·狂欢企划'; // 称号
 export const intro =
-    `${B('银狼LV999')}靠爆射攒${get.poptip('bts_glossary_funnypoint_faq')}，顺风把笑点消耗转为分数，无启烧60分抢额外回合，狂到狼尊附体。`;
+    `${B('银狼LV999')}靠${get.poptip('bts_sk_baoshe_funny')}攒${get.poptip('bts_glossary_funnypoint_faq')}，${get.poptip('bts_sk_shunfeng')}把笑点获得转为分数，${get.poptip('bts_sk_wuqi')}烧60分抢额外回合，狂到${get.poptip('bts_sk_langzun_funny')}附体。`;
 
 export const character = {
     bts_ch_yinlang_lv999: {
-        isUnseen: true, // 欢愉体系
         sex: 'female',
         group: 'erxiangleyuan',
         hp: 4,
@@ -97,6 +96,16 @@ export const skill = {
             if (event.cards?.length) await player.discard(event.cards); // 源 L11349：askForCard 弃杀
             player.addMark('bts_mk_funnypoint', 5); // 源 L11351：gainMark(@funnypoint, 5)
         },
+        // 欢愉行动注册（自注册重构）：funnyAct 泛化派发的 late 阶段（欢愉祝福结算之后）
+        // ——获得15枚分数（源 L11351 尾块 / 旧 if 链爆射分支）。
+        bts_funny: {
+            order: 90,
+            late: true,
+            async act(ctx) {
+                ctx.player.addMark('bts_mk_fenshu', 15);
+                ctx.done = true;
+            },
+        },
         ai: { result: { player: 1 } },
     },
 
@@ -147,9 +156,10 @@ export const skill = {
     },
 
     // ── 锁定技·顺风（源 st_shunfeng = TriggerSkill Compulsory MarkChanged，L11405-11423）──
-    // 当一名角色移除笑点后，你获得等量分数（源代码 mark.gain<0 = 笑点减少；翻译写「获得笑点」与代码不符，按代码）。
+    // 当一名角色获得笑点后，你获得等量分数（源代码作笑点减少方向，翻译写「获得笑点」——
+    // 同族 7 处 gain 方向与描述相反的系统性笔误，2026-10-02 用户定夺按描述方向实现）。
     bts_sk_shunfeng: {
-        trigger: { global: 'bts_mark_remove' },
+        trigger: { global: 'bts_mark_add' },
         forced: true,
         filter(event) {
             return event.markName === 'bts_mk_funnypoint' && event.num > 0;
@@ -181,20 +191,30 @@ export const translate = {
     bts_sk_baoshe_funny: '爆射',
     bts_sk_baoshe_funny_info: '出牌阶段开始时，你可以弃置一张【杀】，获得5枚笑点。',
     bts_sk_langzun_funny: '狼尊',
-    bts_sk_langzun_funny_info: '锁定技，你跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并获得1枚电驰；电驰超过8时，恢复爆射、失去狼尊、清空分数与电驰。忙盒：随机摸两张牌、获得3枚笑点、或令伤过你的角色各失去1点体力。',
+    bts_sk_langzun_funny_info: `锁定技，你跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并获得1枚电驰；电驰超过8时，恢复${get.poptip('bts_sk_baoshe_funny')}、失去${get.poptip('bts_sk_langzun_funny')}、清空分数与电驰。忙盒：随机摸两张牌、获得3枚笑点、或令伤过你的角色各失去1点体力。`,
     bts_sk_shunfeng: '顺风',
-    bts_sk_shunfeng_info: '锁定技，当一名角色移除笑点后，你获得等量的分数。',
+    bts_sk_shunfeng_info: '锁定技，当一名角色获得笑点后，你获得等量的分数。',
     bts_mk_fenshu: '分数',
-    bts_mk_fenshu_info: '来源：顺风赋予；无启消耗60发动',
+    bts_mk_fenshu_info: `来源：${get.poptip('bts_sk_shunfeng')}赋予；${get.poptip('bts_sk_wuqi')}消耗60发动`,
     bts_mk_dianchi: '电驰',
     '~bts_ch_yinlang_lv999': '哼，不演了……',
+
+    '$bts_sk_wuqi1': "哼，不装了",
+    '$bts_sk_wuqi2': "接下来这把——高端局！",
+    '$bts_sk_baoshe_funny1': "教你两招",
+    '$bts_sk_baoshe_funny2': "无限火力",
+    '$bts_sk_shunfeng1': "一波带走",
+    '$bts_sk_shunfeng2': "爽就完了",
 };
 
 export const simpleTranslate = {
-    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；耗60分数结束出牌并额外回合，99.9%爆射→狼尊`,
+    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；耗60分数结束出牌并额外回合，99.9%${get.poptip('bts_sk_baoshe_funny')}→${get.poptip('bts_sk_langzun_funny')}`,
     bts_sk_baoshe_funny_info: '出牌开始可弃杀+5笑点',
-    bts_sk_langzun_funny_info: '锁；跳摸/出/弃阶段各忙盒+1电驰，电驰>8恢复爆射',
-    bts_sk_shunfeng_info: '锁；笑点移除时+等量分数',
+    bts_sk_langzun_funny_info: `锁；跳摸/出/弃阶段各忙盒+1电驰，电驰>8恢复${get.poptip('bts_sk_baoshe_funny')}`,
+    bts_sk_shunfeng_info: '锁；笑点获得时+等量分数',
 };
 
-export const pinyins = { bts_ch_yinlang_lv999: 'yinlanglv999' };
+// 默认读音把「LV999」逐字符拆开：按叁岛式写「中文名 → 拼音数组」整段覆盖。
+export const pinyins = {
+    '银狼LV999': ['yín', 'láng', 'LV999'],
+};

@@ -1,10 +1,10 @@
 // 那刻夏（源 animal.lua L7861-7959）—— 升华异常与随机元素伤害。
-// 技能：世塑（必杀技·升华异常）、揭露（他人移除异常后附加升华）、驱虚（结束阶段弃杀随机元素伤害）。
+// 技能：世塑（必杀技·升华异常）、揭露（他人附加异常后附加升华）、驱虚（结束阶段弃杀随机元素伤害）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'huangjinyi';
 export const title = '风·智识·纷争的魔术师'; // 属性·命途
 export const intro =
-    `${B('那刻夏')}给人挂${get.poptip('bts_glossary_abnormal_shenghua_faq')}异常，再用驱虚的随机元素伤砸开局面。`;
+    `${B('那刻夏')}给人挂${get.poptip('bts_glossary_abnormal_shenghua_faq')}异常，再用${get.poptip('bts_sk_quxu')}的随机元素伤砸开局面。`;
 
 export const character = {
     bts_ch_nakexia: {
@@ -49,16 +49,16 @@ export const skill = {
     },
 
     // ── 锁定技·揭露（源 st_jielu = TriggerSkill Compulsory MarkChanged，L7885-7901）──
-    // 当其他角色移除异常后，若其拥有至少2种异常且不处于升华，其附加1层升华异常。
+    // 当其他角色附加异常后，若其拥有至少2种异常且不处于升华，其附加1层升华异常。
     bts_sk_jielu: {
-        // 源 st_jielu（animal.lua L7885-7902）：MarkChanged 且 mark.gain<0（room.cpp
-        // setPlayerMark：gain=新值-旧值，<0 = 移除）——「其他角色移除异常后」触发；
-        // 源翻译写「附加异常后」与代码不符，以代码为准。触发标记含升华自身（源未排除，
-        // 升华被移除且仍有≥2种异常时会立即重新附加）。
-        trigger: { global: 'bts_mark_remove' },
+        // 源 st_jielu（animal.lua L7885-7902）：MarkChanged；源代码作 mark.gain<0，翻译写
+        // 「当其他角色附加异常后」——同族 7 处 gain 方向与描述相反的系统性笔误，
+        // 2026-10-02 用户定夺按描述方向实现（bts_mark_add）。事件在新值写入后派发，
+        // 升华自身附加时 guard「不处于升华」即拍住，不会自附加连环。
+        trigger: { global: 'bts_mark_add' },
         forced: true,
         filter(event, player) {
-            // 源 L7891：@abnormal_ 标记被移除（gain<0）、移除者仍有≥2种异常、且不处于升华
+            // 源 L7891：@abnormal_ 标记被附加、获得后其仍有≥2种异常、且不处于升华
             return (
                 event.player &&
                 event.player !== player &&
@@ -69,7 +69,7 @@ export const skill = {
             );
         },
         async content(event, trigger, player) {
-            // 源 L7894：AddAbnormal(player, "@abnormal_shenghua", 1, p)（trigger=removeMark 事件）
+            // 源 L7894：AddAbnormal(player, "@abnormal_shenghua", 1, p)（trigger=addMark 事件）
             lib.bts.api.addAbnormal(trigger.player, 'shenghua', 1, player);
         },
         ai: { noe: true },
@@ -175,7 +175,7 @@ export const translate = {
     bts_sk_shisu: '世塑',
     bts_sk_shisu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各附加1层${get.poptip('bts_glossary_abnormal_shenghua_faq')}。`,
     bts_sk_jielu: '揭露',
-    bts_sk_jielu_info: `锁定技，当其他角色移除异常后，若其拥有至少2种异常且不处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}，其附加1层${get.poptip('bts_glossary_abnormal_shenghua_faq')}。（源翻译写「附加异常后」与代码不符，以代码为准）`,
+    bts_sk_jielu_info: `锁定技，当其他角色附加异常后，若其拥有至少2种异常且不处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}，其附加1层${get.poptip('bts_glossary_abnormal_shenghua_faq')}。`,
     bts_sk_quxu: '驱虚',
     bts_sk_quxu_info: `结束阶段开始时，你可以弃置一张【杀】并选择至少一名其他角色，这些角色各有25%受到1点随机元素通常伤害；失败则下次以双倍概率判定。若有角色处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}或以此法受到伤害，所有目标角色重复此流程（每阶段限一次）。`,
     bts_abnormal_shenghua: '升华',
@@ -191,12 +191,12 @@ export const translate = {
 
 export const simpleTranslate = {
     bts_sk_shisu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1${get.poptip('bts_glossary_abnormal_shenghua_faq')}`,
-    bts_sk_jielu_info: `锁；他人移除异常后若仍有≥2种异常且未升华，令其+1${get.poptip('bts_glossary_abnormal_shenghua_faq')}`,
+    bts_sk_jielu_info: `锁；他人附加异常后若其有≥2种异常且未${get.poptip('bts_glossary_abnormal_shenghua_faq')}，令其+1${get.poptip('bts_glossary_abnormal_shenghua_faq')}`,
     bts_sk_quxu_info:
         '结束阶段可弃杀选其他角色，25%随机元素通常伤害，失败下次概率翻倍',
 };
 
-export const pinyins = { bts_ch_nakexia: 'nakexia' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_shenghua: {

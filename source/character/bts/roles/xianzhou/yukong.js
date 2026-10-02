@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '虚数·同谐·天舶司司舵'; // 属性·命途
 export const intro =
-    `${B('驭空')}进${get.poptip('bts_glossary_xingqi_faq')}后，给队友发${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}祝福。`;
+    `${B('驭空')}进${get.poptip('bts_glossary_xingqi_faq')}后，给队友发${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_faq')}。`;
 
 export const character = {
     bts_ch_yukong: {
@@ -41,17 +41,18 @@ export const skill = {
             if (!lib.bts.api.god(player)) return;
             const result = await player
                 .chooseTarget(
-                    '贯云：你自身+1致命+1暴击祝福，并选择任意名其他角色各获得致命与暴击祝福',
+                    '贯云：你自身+2致命+2暴击祝福，并选择任意名其他角色各获得2层致命与暴击祝福',
                     [0, Infinity],
                     (card, source, target) => target !== source,
                 )
                 .forResult();
             // 源 L5794-5799：自己与所选角色各+1暴击、+1致命祝福
-            await lib.bts.api.addBless(player, 'critical', 1, player);
-            await lib.bts.api.addBless(player, 'fatal', 1, player);
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            await lib.bts.api.addBless(player, 'critical', 2, player);
+            await lib.bts.api.addBless(player, 'fatal', 2, player);
             for (const target of result.targets || []) {
-                await lib.bts.api.addBless(target, 'critical', 1, player);
-                await lib.bts.api.addBless(target, 'fatal', 1, player);
+                await lib.bts.api.addBless(target, 'critical', 2, player);
+                await lib.bts.api.addBless(target, 'fatal', 2, player);
             }
         },
         ai: {
@@ -109,7 +110,7 @@ export const translate = {
     'bts_ch_yukong_skin2': '皮肤2',
     bts_ch_yukong: '驭空',
     bts_sk_guanyun: '贯云',
-    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，你与任意名其他角色各附加1层${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}。`,
+    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，你与任意名其他角色各附加2层${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}。`,
     bts_sk_tianque: '天阙',
     bts_sk_tianque_info: `准备阶段开始时，你可以弃置一张【杀】，获得1层${get.poptip('bts_glossary_bless_god_faq')}。`,
     bts_sk_qizha: '七札',
@@ -125,9 +126,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成1伤害，${get.poptip('bts_glossary_xingqi_faq')}时分发${get.poptip('bts_glossary_bless_fatal_faq')}/${get.poptip('bts_glossary_bless_critical_faq')}`,
+    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成1伤害，${get.poptip('bts_glossary_xingqi_faq')}时自身与所选角色各+2${get.poptip('bts_glossary_bless_fatal_faq')}/${get.poptip('bts_glossary_bless_critical_faq')}`,
     bts_sk_tianque_info: `准备阶段可弃杀获得${get.poptip('bts_glossary_xingqi_faq')}`,
     bts_sk_qizha_info: `锁；回合结束+1${get.poptip('bts_glossary_bless_cifu_faq')}`,
 };
 
-export const pinyins = { bts_ch_yukong: 'yukong' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

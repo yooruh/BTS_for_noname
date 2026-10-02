@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '物理·丰饶·地火首领'; // 属性·命途
 export const intro =
-    `${B('娜塔莎')}是治疗核心：${get.poptip('bts_glossary_bisha_faq')}${B('新生')}群体回复，${B('生机')}助体力≤1的角色多回血，${B('救护')}受伤后弃【杀】给${get.poptip('bts_glossary_bless_zhiyu_faq')}。` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}时新生还给目标附加${get.poptip('bts_glossary_bless_zhiyu_faq')}`;
+    `${B('娜塔莎')}是治疗核心：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_xinsheng'))}群体回复，${B(get.poptip('bts_sk_shengji'))}助体力≤1的角色多回血，${B(get.poptip('bts_sk_jiuhu'))}受伤后弃【杀】给${get.poptip('bts_glossary_bless_zhiyu_faq')}。` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_xinsheng')}还给目标附加${get.poptip('bts_glossary_bless_zhiyu_faq')}`;
 
 export const character = {
     bts_ch_natasha: {
@@ -39,9 +39,10 @@ export const skill = {
             // 源 L3442-3444：目标各回复1点
             for (const target of event.targets || []) await target.recover(player, 1);
             // 源 L3445-3449：星启时目标各附加1层治愈祝福
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
             if (lib.bts.api.god(player)) {
                 for (const target of event.targets || [])
-                    await lib.bts.api.addBless(target, 'zhiyu', 1, player);
+                    await lib.bts.api.addBless(target, 'zhiyu', 2, player);
             }
         },
         ai: {
@@ -125,7 +126,7 @@ export const translate = {
     'bts_ch_natasha_skin1': '皮肤1',
     bts_ch_natasha: '娜塔莎',
     bts_sk_xinsheng: '新生',
-    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各回复1点体力，若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加1层${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,
+    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各回复1点体力，若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加2层${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,
 
     bts_sk_shengji: '生机',
     bts_sk_shengji_info:
@@ -144,9 +145,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各回复1体力（${get.poptip('bts_glossary_xingqi_faq')}则目标+1${get.poptip('bts_glossary_bless_zhiyu_faq')}）`,
+    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各回复1体力（${get.poptip('bts_glossary_xingqi_faq')}则目标各+2${get.poptip('bts_glossary_bless_zhiyu_faq')}）`,
     bts_sk_shengji_info: '锁；你令体力≤1的角色回复体力时回复量+1',
     bts_sk_jiuhu_info: `角色受伤后，弃1张【杀】令其+1${get.poptip('bts_glossary_bless_zhiyu_faq')}`,
 };
 
-export const pinyins = { bts_ch_natasha: 'natasha' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

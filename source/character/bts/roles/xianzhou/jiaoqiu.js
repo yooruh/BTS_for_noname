@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '火·虚无·曜青丹士'; // 属性·命途
 export const intro =
-    `${B('椒丘')}把${get.poptip('bts_glossary_abnormal_burn_faq')}层数对齐到最高，必杀、链接和【杀】都能继续加炎伤。`;
+    `${B('椒丘')}把${get.poptip('bts_glossary_abnormal_burn_faq')}层数对齐到最高，${get.poptip('bts_glossary_bisha_faq')}、链接和【杀】都能继续加炎伤。`;
 
 export const character = {
     bts_ch_jiaoqiu: {
@@ -109,7 +109,7 @@ export const skill = {
             if (triggername === 'useSkillAfter') {
                 // 源 L6986：鼎阵（max_dingzhen 必杀技卡）TargetSpecified → 各目标+1烧伤。
                 // 无名杀鼎阵为主动技不发牌事件，改经 useSkillAfter 以 bts_bisha 判定
-                //（勿用 includes('st_')，命中所有 bts_st_* 技能）。
+                //（勿用子串匹配如 includes('st_')）。
                 return lib.skill[event.skill]?.bts_bisha === true;
             }
             // 源 L6986：使用【杀】指定目标 → 各目标+1烧伤（燔燎联动见 st_fanliao content）
@@ -138,7 +138,7 @@ export const translate = {
     bts_sk_fanliao: '燔燎',
     bts_sk_fanliao_info: `失去装备区里的牌后，你可以弃置一张【杀】，令一名其他角色附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
     bts_sk_jingwei: '精味',
-    bts_sk_jingwei_info: `锁定技，当你发动${get.poptip('bts_glossary_bisha_faq')}、发动燔燎或使用【杀】指定目标后，令其附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
+    bts_sk_jingwei_info: `锁定技，当你发动${get.poptip('bts_glossary_bisha_faq')}、发动${get.poptip('bts_sk_fanliao')}或使用【杀】指定目标后，令其附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
 
     '$bts_sk_dingzhen1': "承蒙诸位赏脸……",
     '$bts_sk_dingzhen2': "来都来了，不如吃过再走",
@@ -153,10 +153,10 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_dingzhen_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标${get.poptip('bts_glossary_abnormal_burn_faq')}对齐最高值并各+1${get.poptip('bts_glossary_abnormal_dingzhen_faq')}`,
     bts_sk_fanliao_info: `失装备后可弃杀令1名其他角色+1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
-    bts_sk_jingwei_info: `锁；${get.poptip('bts_glossary_bisha_faq')}/燔燎/杀指定目标后+1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
+    bts_sk_jingwei_info: `锁；${get.poptip('bts_glossary_bisha_faq')}/${get.poptip('bts_sk_fanliao')}/杀指定目标后+1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
 };
 
-export const pinyins = { bts_ch_jiaoqiu: 'jiaoqiu' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_dingzhen: {
@@ -171,6 +171,6 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_dingzhen_faq',
         name: '|鼎阵|',
-        info: `异常状态：由${get.poptip('bts_sk_dingzhen')}赋予（椒丘必杀技，同时令目标烧伤层数拉齐）；与烧伤结算联动。`,
+        info: `异常状态：由${get.poptip('bts_sk_dingzhen')}赋予（椒丘${get.poptip('bts_glossary_bisha_faq')}，同时令目标${get.poptip('bts_glossary_abnormal_burn_faq')}层数拉齐）；与${get.poptip('bts_glossary_abnormal_burn_faq')}结算联动。`,
     },
 ];

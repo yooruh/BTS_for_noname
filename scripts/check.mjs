@@ -13,6 +13,7 @@
  *   node scripts/check.mjs --globals              角色包级标识符是否被技能引用
  *   node scripts/check.mjs --logskill             logSkill 重复 + cost 结算约定检查
  *   node scripts/check.mjs --choosetarget         active 技能 content 选目标时机检查
+ *   node scripts/check.mjs --skill-embed          技能效果自注册纪律（占位滤器 / rules 层代执行）
  *   node scripts/check.mjs --skins                核对 image/character 与角色 id（孤儿/缺失头像）
  *   node scripts/check.mjs                        交互选择
  */
@@ -318,6 +319,82 @@ function logskillCheck() {
     return real.length > 0;
 }
 
+// ── skill-embed：技能效果自注册纪律（2026-10-02 自注册重构配套）────────────
+// 规则 A（角色文件）：永不触发占位滤器（无参 `filter() { return false; }`）——
+//   技能效果必须挂在技能自身上（trigger/content 或欢愉 bts_funny 注册字段），
+//   不得留空壳占位、由 rules API 按 hasSkill 代执行。
+// 规则 B（rules 层）：`logSkill('bts_…')` 跨技能代执行——日志与效果应回到技能本体，
+//   API 层只广播自定义事件（bts_mark_add/bts_pet_* 等），由技能监听后自行 logSkill；
+//   确需在 API 层记日志的用 `audit-skill-embed: skip` 注释豁免。
+// 豁免：违规行或紧邻上一行（注释）含 `audit-skill-embed: skip`；规则 A 可在技能块内注释豁免。
+const SKILL_EMBED_SKIP_RE = /audit-skill-embed\s*:\s*skip/;
+function skillEmbedCheck() {
+    const violations = [];
+    // 规则 A：角色技能文件占位滤器
+    const roleFiles = walkRoleFiles(ROLES_DIR, []);
+    for (const file of roleFiles) {
+        const text = readFileSync(file, 'utf8');
+        const rel = relative(ROOT, file).replace(/\\/g, '/');
+        const re = /(?:^|\n)(\s*)filter\s*\(\s*\)\s*\{/g;
+        let m;
+        while ((m = re.exec(text))) {
+            const braceIdx = m.index + m[0].lastIndexOf('{');
+            const close = matchingBrace(text, braceIdx);
+            if (close === -1) continue;
+            const body = stripCommentsAndStrings(text.slice(braceIdx + 1, close), 0)
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (body !== 'return false;') continue;
+            const line = lineOf(text, m.index);
+            const near = text.split('\n').slice(Math.max(0, line - 4), line).join('\n');
+            violations.push({
+                rel, line, rule: 'A', type: 'placeholder-filter',
+                msg: '永不触发的 filter 占位；效果应自注册（trigger/content/bts_funny）',
+                skip: SKILL_EMBED_SKIP_RE.test(near),
+            });
+        }
+    }
+    // 规则 B：rules 层跨技能 logSkill
+    const rulesRoot = resolve(ROOT, 'source', 'rules');
+    const rulesFiles = [];
+    const collect = (dir) => {
+        for (const entry of readdirSync(dir)) {
+            const full = join(dir, entry);
+            if (statSync(full).isDirectory()) collect(full);
+            else if (entry.endsWith('.js')) rulesFiles.push(full);
+        }
+    };
+    if (existsSync(rulesRoot)) collect(rulesRoot);
+    for (const file of rulesFiles) {
+        const text = readFileSync(file, 'utf8');
+        const rel = relative(ROOT, file).replace(/\\/g, '/');
+        const lines = text.split('\n');
+        const re = /\blogSkill\s*\(\s*['"`]bts_/g;
+        let m;
+        while ((m = re.exec(text))) {
+            const line = lineOf(text, m.index);
+            const near = lines.slice(Math.max(0, line - 2), line).join('\n');
+            violations.push({
+                rel, line, rule: 'B', type: 'rules-layer logSkill',
+                msg: 'rules/API 层跨技能 logSkill；应广播事件由技能监听自记（或注释 audit-skill-embed: skip）',
+                skip: SKILL_EMBED_SKIP_RE.test(near),
+            });
+        }
+    }
+    const real = violations.filter((v) => !v.skip);
+    for (const v of violations) {
+        if (v.skip)
+            log.warn(`[SKIP ${v.rule}] ${v.rel}:${v.line} — ${v.msg}（audit-skill-embed: skip）`);
+        else log.error(`[${v.rule}] ${v.rel}:${v.line}（${v.type}）：${v.msg}`);
+    }
+    if (real.length) console.error(`\n违规 ${real.length} 处（另有 ${violations.length - real.length} 处已豁免）。`);
+    else
+        log.ok(
+            `audit-skill-embed 通过：0 处占位滤器/API 层代执行（规则 A 扫描 ${roleFiles.length} 份角色文件、规则 B 扫描 ${rulesFiles.length} 份 rules 文件）。`,
+        );
+    return real.length > 0;
+}
+
 // ── choosetarget：active 技能 content 选目标时机 ─────────────────────────────
 const TARGET_CHOOSE_RE = /\.(?:chooseTarget|chooseCardTarget)\s*\(/g;
 const SKIP_FLAG_RE = /audit-choosetarget\s*:\s*skip/;
@@ -379,8 +456,8 @@ async function skinsCheck() {
     const charDir = join(ROOT, 'image', 'character');
     const files = existsSync(charDir) ? readdirSync(charDir).map((f) => f.slice(0, -4)) : [];
     const orphans = files.filter((f) => !ids.has(f));
-    // 已知缺头像（太阳神无专属图，缺口清单/迁移工作记录已声明，待后续补图；不判失败）
-    const KNOWN_MISSING_AVATAR = new Set(['bts_ch_yinlang_lv999']);
+    // 已知缺头像（太阳神无专属图/原创角色立绘待补，缺口清单/迁移工作记录已声明，待后续补图；不判失败）
+    const KNOWN_MISSING_AVATAR = new Set(['bts_ch_yinlang_lv999', 'bts_ch_aha']);
     const missingAll = [...ids].filter((id) => !files.includes(id));
     const missing = missingAll.filter((id) => !KNOWN_MISSING_AVATAR.has(id));
     console.log(`角色 id: ${ids.size}，文件: ${files.length}`);
@@ -521,6 +598,7 @@ function printUsage() {
   node scripts/check.mjs --globals              包级标识符引用检查
   node scripts/check.mjs --logskill             logSkill/cost 约定检查
   node scripts/check.mjs --choosetarget         active 选目标时机检查
+  node scripts/check.mjs --skill-embed          技能效果自注册纪律（占位滤器 / rules 层代执行）
   node scripts/check.mjs --skins                头像孤儿/缺失核对
   node scripts/check.mjs --marks                标记键全覆盖审计（对照生成注册表）
   node scripts/check.mjs --mirror               双源码树字节一致校验（zip/source ↔ 冒烟镜像）
@@ -535,7 +613,7 @@ async function main() {
         .filter((a) => !['--help', '--fix'].includes(a))
         .map((a) => a.replace(/^--/, ''))
         .filter((a) =>
-            ['invisible', 'globals', 'logskill', 'choosetarget', 'skins', 'marks', 'mirror'].includes(
+            ['invisible', 'globals', 'logskill', 'choosetarget', 'skill-embed', 'skins', 'marks', 'mirror'].includes(
                 a,
             ),
         );
@@ -553,6 +631,7 @@ async function main() {
                     { label: 'globals — 包级标识符引用（--globals）', value: 'globals' },
                     { label: 'logskill — logSkill/cost 约定（--logskill）', value: 'logskill' },
                     { label: 'choosetarget — active 选目标时机（--choosetarget）', value: 'choosetarget' },
+                    { label: 'skill-embed — 技能效果自注册纪律（--skill-embed）', value: 'skill-embed' },
                     { label: 'skins — 头像孤儿/缺失（--skins）', value: 'skins' },
                     { label: 'marks — 标记键全覆盖审计（--marks）', value: 'marks' },
                     { label: 'mirror — 双源码树一致校验（--mirror）', value: 'mirror' },
@@ -576,6 +655,7 @@ async function main() {
             else if (name === 'globals') had = globalsCheck();
             else if (name === 'logskill') had = logskillCheck();
             else if (name === 'choosetarget') had = choosetargetCheck();
+            else if (name === 'skill-embed') had = skillEmbedCheck();
             else if (name === 'skins') had = await skinsCheck();
             else if (name === 'marks') had = await marksCheck();
             else if (name === 'mirror') had = mirrorCheck();

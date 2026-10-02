@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'huangjinyi';
 export const title = '物理·虚无·奏浪的剑棋'; // 属性·命途
 export const intro =
-    `${B('海瑟音')}叠${get.poptip('bts_glossary_bless_haiqu_faq')}，打人或被打一轮就清掉场上的${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}；别人出牌时，也能用海妖、泛音搭把手。`;
+    `${B('海瑟音')}叠${get.poptip('bts_glossary_bless_haiqu_faq')}，打人或被打一轮就清掉场上的${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}；别人出牌时，也能用${get.poptip('bts_sk_haiyao')}、${get.poptip('bts_sk_fanyin')}搭把手。`;
 
 export const character = {
     bts_ch_haiseyin: {
@@ -197,7 +197,7 @@ export const simpleTranslate = {
     bts_sk_fanyin_info: `别人出牌阶段弃【杀】，可让他+1${get.poptip('bts_glossary_bless_haiyao_faq')}`,
 };
 
-export const pinyins = { bts_ch_haiseyin: 'haiseyin' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_haiqu: {
@@ -213,7 +213,7 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
-            for (const target of game.filterPlayer())
+            for (const target of lib.bts.api.seatOrder(game.filterPlayer()))
                 await lib.skill['bts_sk_mosuo'].util.kafuka(target, player);
         },
     },
@@ -246,11 +246,11 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_haiqu_faq',
         name: '绝海祝福',
-        info: '当你造成或受到伤害后，你结算并移除所有角色的麻痹、烧伤、中毒。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你造成或受到伤害后，你结算并移除所有角色的${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_haiyao_faq',
         name: '海妖祝福',
-        info: '当你对其他角色造成伤害时，防止此伤害并令其附加1层麻痹、烧伤或中毒（随机）。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你对其他角色造成伤害时，防止此伤害并令其附加1层${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}或${get.poptip('bts_glossary_zhongdu_faq')}（随机）。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

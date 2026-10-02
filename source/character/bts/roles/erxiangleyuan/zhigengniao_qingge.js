@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '风·记忆·晴歌'; // 属性·命途
 export const intro =
-    `${B('知更鸟·晴歌')}拿${get.poptip('bts_glossary_qifen_faq')}攒出晴空乐手，和声一响就补一记${get.poptip('bts_glossary_nature_wind_faq')}追击。`;
+    `${B('知更鸟·晴歌')}拿${get.poptip('bts_glossary_qifen_faq')}攒出${get.poptip('bts_ch_qingkongyueshou')}，${get.poptip('bts_sk_hesheng')}一响就补一记${get.poptip('bts_glossary_nature_wind_faq')}追击。`;
 
 export const character = {
     bts_ch_zhigengniao_qingge: {
@@ -93,10 +93,12 @@ export const skill = {
                 async content(event, trigger, player) {
                     // 源 L1502-1507：标记于晴歌下回合 RoundStart 清除（"于你的下个准备阶段开始前"）。
                     // 无名杀以 phaseZhunbeiBegin 近似 RoundStart（同知更鸟·迭奏 clear 范式）。
-                    for (const p of game.filterPlayer(
-                        (p) =>
-                            p.hasSkill('bts_sk_kuangxiang_buff') &&
-                            p.storage.bts_kuangxiang_owner === player.playerid,
+                    for (const p of lib.bts.api.seatOrder(
+                        game.filterPlayer(
+                            (p) =>
+                                p.hasSkill('bts_sk_kuangxiang_buff') &&
+                                p.storage.bts_kuangxiang_owner === player.playerid,
+                        ),
                     )) {
                         delete p.storage.bts_kuangxiang_owner;
                         p.removeSkill('bts_sk_kuangxiang_buff');
@@ -136,13 +138,15 @@ export const skill = {
     },
 
     // ── 锁定技·巡游（源 st_xunyou = TriggerSkill Compulsory Damage/HpRecover，L10150-10163）──
-    // 一名角色造成伤害或回复体力后，你获得2枚气氛标记。
-    // 注：源描述含「附加护盾」为虚标（源代码 events 仅 Damage/HpRecover 无护盾），以代码为准。
+    // 一名角色造成伤害、回复体力或附加护盾后，你获得2枚气氛标记。
+    //（「附加护盾」为源描述承诺、源代码缺事件—— 2026-10-02 用户定夺按描述补实现：监听 bts_mark_add）
     bts_sk_xunyou: {
-        trigger: { global: ['damageEnd', 'recoverEnd'] },
+        trigger: { global: ['damageEnd', 'recoverEnd', 'bts_mark_add'] },
         forced: true,
-        filter(event) {
+        filter(event, player, triggername) {
             // 源 L10153-10158：Damage / HpRecover 事件（无名杀 damageEnd/recoverEnd）
+            if (triggername === 'bts_mark_add')
+                return event.markName === 'bts_shield';
             return event.num > 0;
         },
         async content(event, trigger, player) {
@@ -187,35 +191,42 @@ export const skill = {
             // 源 L10170：结算 cost 所选【杀】（自选数据在 event.cards）
             if (event.cards?.length) await player.discard(event.cards);
             // 源 L10171：AddPet(player, "qingkongyueshou")
-            lib.bts.api.addPet(player, 'qingkongyueshou');
+            await lib.bts.api.addPet(player, 'qingkongyueshou');
         },
         ai: { result: { player: 1 } },
     },
 
-    // ── 占位技·万风（源 st_wanfeng = TriggerSkill Compulsory，L10177-10183）──
-    // 源实现为空技能（events 为空、on_trigger 无操作），无名杀以永不触发的过滤占位。
+    // ── 锁定技·万风（源 st_wanfeng = TriggerSkill Compulsory，L10177-10183）──
+    // 源实现为空技能（events 为空、on_trigger 无操作），离场效果硬编码在 RemovePet；
+    // 2026-10-02 自注册重构：改为监听 bts_pet_remove——晴空乐手离场时，执行一个额外回合。
     bts_sk_wanfeng: {
         charlotte: true,
+        trigger: { player: 'bts_pet_remove' },
         forced: true,
-        trigger: { player: 'damageEnd' },
-        filter() {
-            return false;
+        filter(event, player) {
+            return event.pet === 'qingkongyueshou' && player.isAlive();
         },
-        async content() { },
+        async content(event, trigger, player) {
+            lib.bts.api.extraTurn(player, 'bts_extra_turn'); // 乐手离场：额外回合（源 st_wanfeng）
+        },
         ai: { noe: true },
     },
 
-    // ── 占位技·心跳（源 st_xintiao = TriggerSkill Compulsory，L10185-10191）──
-    // 源实现为空技能，无名杀以永不触发的过滤占位；登场效果（首次回怒/二次+6气氛）
-    // 已实现于 rules/utils.js addPet 登场结算（用户定夺 2026-09-02 按描述补实现）。
+    // ── 锁定技·心跳（源 st_xintiao = TriggerSkill Compulsory，L10185-10191）──
+    // 源技能壳为空、效果硬编码在 AddPet；2026-10-02 自注册重构：改为监听 bts_pet_add——
+    // 首次召唤 +1 怒气（源 st_xintiao 首起分支）、在场重复召唤 +6 气氛（源 L812-814）。
     bts_sk_xintiao: {
         charlotte: true,
+        trigger: { player: 'bts_pet_add' },
         forced: true,
-        trigger: { player: 'damageEnd' },
-        filter() {
-            return false;
+        filter(event) {
+            return event.pet === 'qingkongyueshou';
         },
-        async content() { },
+        async content(event, trigger, player) {
+            if (trigger.repeated)
+                player.addMark('bts_mk_qifen', 6); // 重复召唤：+6 气氛（源 L812-814）
+            else lib.bts.api.addAngry(player); // 首次召唤：+1 怒气（源 st_xintiao 首起分支）
+        },
         ai: { noe: true },
     },
 
@@ -313,37 +324,44 @@ export const translate = {
     bts_sk_kuangxiang: '狂想',
     bts_sk_kuangxiang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色回复1点${get.poptip('bts_glossary_nuqi_faq')}且于你的下个准备阶段开始前额定摸牌数+1。本回合结束时，其还会执行一个额外回合。`,
     bts_sk_xunyou: '巡游',
-    bts_sk_xunyou_info: `锁定技，一名角色造成伤害或回复体力后，你获得2枚${get.poptip('bts_glossary_qifen_faq')}标记。（源描述含「附加护盾」为虚标，源代码无护盾事件，以代码为准）`,
+    bts_sk_xunyou_info: `锁定技，一名角色造成伤害、回复体力或附加${get.poptip('bts_glossary_hudun_faq')}后，你获得2枚${get.poptip('bts_glossary_qifen_faq')}标记。`,
     bts_sk_kuangxiang_buff: '狂想增益',
     bts_sk_kuangxiang_buff_info: '摸牌阶段额定摸牌数+1。',
     bts_sk_yueshou: '乐手',
-    bts_sk_yueshou_info: '当你使用牌指定目标后，你可以弃置一张【杀】，召唤晴空乐手。',
+    bts_sk_yueshou_info: `当你使用牌指定目标后，你可以弃置一张【杀】，召唤${get.poptip('bts_ch_qingkongyueshou')}。`,
     bts_sk_wanfeng: '晚风',
-    bts_sk_wanfeng_info: `锁定技，当晴空乐手被移除后，此回合结束时，你执行一个额外的回合。`,
+    bts_sk_wanfeng_info: `锁定技，当${get.poptip('bts_ch_qingkongyueshou')}被移除后，此回合结束时，你执行一个额外的回合。`,
     bts_sk_xintiao: '心跳',
-    bts_sk_xintiao_info: `锁定技，当晴空乐手登场时，若已存在晴空乐手，你获得6枚气氛标记，否则你回复1点怒气。`,
+    bts_sk_xintiao_info: `锁定技，当${get.poptip('bts_ch_qingkongyueshou')}登场时，若已存在${get.poptip('bts_ch_qingkongyueshou')}，你获得6枚${get.poptip('bts_glossary_qifen_faq')}标记，否则你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_hesheng: '和声',
-    bts_sk_hesheng_info: `锁定技，当你拥有至少12枚${get.poptip('bts_glossary_qifen_faq')}标记后，你翻面；此后每回合开始时，弃X枚${get.poptip('bts_glossary_qifen_faq')}标记（X为标记数的一半且至少为12，向下取整），对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，然后若你没有${get.poptip('bts_glossary_qifen_faq')}标记，移除晴空乐手。`,
+    bts_sk_hesheng_info: `锁定技，当你拥有至少12枚${get.poptip('bts_glossary_qifen_faq')}标记后，你翻面；此后每回合开始时，弃X枚${get.poptip('bts_glossary_qifen_faq')}标记（X为标记数的一半且至少为12，向下取整），对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，然后若你没有${get.poptip('bts_glossary_qifen_faq')}标记，移除${get.poptip('bts_ch_qingkongyueshou')}。`,
     bts_mk_qifen: '气氛',
     bts_pet_qingkongyueshou: '晴空乐手',
 
 
 
-    bts_mk_qifen_info: '来源：巡游赋予；和声：满12翻面爆发',
+    bts_mk_qifen_info: `来源：${get.poptip('bts_sk_xunyou')}赋予；${get.poptip('bts_sk_hesheng')}：满12翻面爆发`,
+
+    '$bts_sk_hesheng1': "心弦拨奏——Bessie~",
+    '$bts_sk_wanfeng1': "舞力全开——Paddie~",
+    '$bts_sk_xintiao1': "节奏鬼才——Drummie~",
+    '$bts_sk_hesheng2': "灵魂律动，solo时间~",
+    '$bts_sk_wanfeng2': "节拍不止，音浪不息~",
+    '$bts_sk_xintiao2': "跟随海风，自由摇摆~",
 };
 
 export const simpleTranslate = {
     bts_sk_kuangxiang_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色回怒并额外回合`,
-    bts_sk_xunyou_info: `锁；全局伤害/回复后+2${get.poptip('bts_glossary_qifen_faq')}`,
-    bts_sk_yueshou_info: '成为非技能牌目标后可弃杀召唤乐手',
-    bts_sk_hesheng_info: `锁；${get.poptip('bts_glossary_qifen_faq')}≥12时翻面，此后每回合开始弃${get.poptip('bts_glossary_qifen_faq')}（向下取整）风伤上个伤害你者；${get.poptip('bts_glossary_qifen_faq')}耗尽时移除乐手`,
+    bts_sk_xunyou_info: `锁；全局伤害/回复/${get.poptip('bts_glossary_hudun_faq')}后+2${get.poptip('bts_glossary_qifen_faq')}`,
+    bts_sk_yueshou_info: `成为非技能牌目标后可弃杀召唤${get.poptip('bts_ch_qingkongyueshou')}`,
+    bts_sk_hesheng_info: `锁；${get.poptip('bts_glossary_qifen_faq')}≥12时翻面，此后每回合开始弃${get.poptip('bts_glossary_qifen_faq')}（向下取整）风伤上个伤害你者；${get.poptip('bts_glossary_qifen_faq')}耗尽时移除${get.poptip('bts_ch_qingkongyueshou')}`,
 };
 
+// 默认读音有误（更→gēng、乐→yuè）：按叁岛式写「中文名 → 带声调拼音数组」覆盖。
 export const pinyins = {
-    bts_ch_zhigengniao_qingge: 'zhigengniaoqingge',
-    bts_ch_qingkongyueshou: 'qingkongyueshou',
-    bts_ch_zhigengniao_qingge_and_qingkongyueshou:
-        'zhigengniaoqinggeqingkongyueshou',
+    '知更鸟·晴歌': ['zhī', 'gēng', 'niǎo', '·', 'qíng', 'gē'],
+    '晴空乐手': ['qíng', 'kōng', 'yuè', 'shǒu'],
+    '知更鸟&晴空乐手': ['zhī', 'gēng', 'niǎo', '&', 'qíng', 'kōng', 'yuè', 'shǒu'],
 };
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
@@ -352,6 +370,6 @@ export const glossary = [
     {
         id: 'bts_glossary_qifen_faq',
         name: '|气氛|',
-        info: `知更鸟·晴歌专属：${get.poptip('bts_sk_xunyou')}获得；满12由${get.poptip('bts_sk_hesheng')}翻面并造成风属性伤害。`,
+        info: `知更鸟·晴歌专属：${get.poptip('bts_sk_xunyou')}获得；满12由${get.poptip('bts_sk_hesheng')}翻面并造成${get.poptip('bts_glossary_nature_feng_faq')}伤害。`,
     },
 ];

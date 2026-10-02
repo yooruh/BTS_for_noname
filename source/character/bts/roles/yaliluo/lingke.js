@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '量子·丰饶·雪原探险家'; // 属性·命途
 export const intro =
-    `${B('玲可')}是后勤回复：${get.poptip('bts_glossary_bisha_faq')}${B('方案')}群体回复，${B('经验')}回复他人时附加${get.poptip('bts_glossary_bless_zhiyu_faq')}，${B('罐头')}受伤时弃【杀】补给队友并让其代为承伤。` +
+    `${B('玲可')}是后勤回复：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_fangan'))}群体回复，${B(get.poptip('bts_sk_jingyan'))}回复他人时附加${get.poptip('bts_glossary_bless_zhiyu_faq')}，${B(get.poptip('bts_sk_guantou'))}受伤时弃【杀】补给队友并让其代为承伤。` +
     `<li>${get.poptip('bts_glossary_bless_zhiyu_faq')}在受伤时能提供额外回复`;
 
 export const character = {
@@ -117,7 +117,7 @@ export const skill = {
             target.storage[`bts_guantou_set_${player.playerid}`] =
                 game.getGlobalHistory('everything', (e) => e.name === 'phaseAfter').length;
             // 源 L4073-4086：遍历全场存活且有标记者，依次询问是否代受本次伤害
-            for (const p of game.players) {
+            for (const p of lib.bts.api.seatOrder(game.players)) {
                 if (
                     p !== player &&
                     p.isAlive() &&
@@ -213,4 +213,4 @@ export const simpleTranslate = {
     bts_sk_guantou_info: `受伤时弃1杀补给1名受伤/有${get.poptip('bts_glossary_hudun_faq')}角色；其下回合结束前可代你承伤`,
 };
 
-export const pinyins = { bts_ch_lingke: 'lingke' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

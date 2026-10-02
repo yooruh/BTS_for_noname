@@ -95,8 +95,10 @@ export const skill = {
             if (event.triggername === 'useCard') {
                 // 源 L8150-8153：全场清空主顾标记，目标获得1枚
                 const target = trigger.targets[0];
-                for (const current of game.filterPlayer(
-                    (current) => current.countMark('bts_mk_zhugu') > 0,
+                for (const current of lib.bts.api.seatOrder(
+                    game.filterPlayer(
+                        (current) => current.countMark('bts_mk_zhugu') > 0,
+                    ),
                 )) {
                     current.removeMark('bts_mk_zhugu', current.countMark('bts_mk_zhugu'));
                 }
@@ -231,7 +233,7 @@ export const translate = {
     '$bts_sk_taoyin1': "财宝…让我吸吸！",
     '$bts_sk_taoyin2': "猫咪…大开口！",
     '~bts_ch_saifeier': "这就是…逐火……",
-    bts_mk_zhugu_info: '来源：勋爵、宾果赋予；宾果：满7发动群杀',
+    bts_mk_zhugu_info: `来源：${get.poptip('bts_sk_xunjue')}、${get.poptip('bts_sk_binguo')}赋予；${get.poptip('bts_sk_binguo')}：满7发动群杀`,
 };
 
 export const simpleTranslate = {
@@ -240,7 +242,7 @@ export const simpleTranslate = {
     bts_sk_taoyin_info: `结束阶段可弃杀对距离1有牌目标用顺手并+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
 };
 
-export const pinyins = { bts_ch_saifeier: 'saifeier' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -248,11 +250,11 @@ export const glossary = [
     {
         id: 'bts_glossary_zhugu_faq',
         name: '|主顾|',
-        info: `赛飞儿专属：${get.poptip('bts_sk_reqing')}以【顺手牵羊】指定目标；主顾角色受伤后赛飞儿获得等量欺诈。`,
+        info: `赛飞儿专属：${get.poptip('bts_sk_reqing')}以【顺手牵羊】指定目标；${get.poptip('bts_glossary_zhugu_faq')}角色受伤后赛飞儿获得等量${get.poptip('bts_glossary_qizha_faq')}。`,
     },
     {
         id: 'bts_glossary_qizha_faq',
         name: '|欺诈|',
-        info: `赛飞儿专属：主顾角色受伤后获得等量；${get.poptip('bts_sk_jingshang')}消耗全部，按数量令目标获得诅咒。`,
+        info: `赛飞儿专属：${get.poptip('bts_glossary_zhugu_faq')}角色受伤后获得等量；${get.poptip('bts_sk_jingshang')}消耗全部，按数量令目标获得诅咒。`,
     },
 ];

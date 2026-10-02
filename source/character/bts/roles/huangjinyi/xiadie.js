@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'huangjinyi';
 export const title = '量子·记忆·死荫的侍女'; // 属性·命途
 export const intro =
-    `${B('遐蝶')}用${get.poptip('bts_glossary_xinrui_faq')}召死龙，组合形态里替自己扛伤，再甩${get.poptip('bts_glossary_nature_dark_faq')}暗伤。`;
+    `${B('遐蝶')}用${get.poptip('bts_glossary_xinrui_faq')}召${get.poptip('bts_ch_silong')}，组合形态里替自己扛伤，再甩${get.poptip('bts_glossary_nature_dark_faq')}暗伤。`;
 
 export const character = {
     bts_ch_xiadie: {
@@ -67,7 +67,7 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_wangxiao');
             player.removeMark('bts_mk_xinrui', 7); // 源 L7706：LoseOther(player, "@xinrui", 7)
-            lib.bts.api.addPet(player, 'silong', { removeRecover: 1 }); // 源 L7707：AddPet(player, "silong")
+            await lib.bts.api.addPet(player, 'silong'); // 源 L7707：AddPet(player, "silong")
             // 源 L7708-7710：星启时 addPlayerMark "extra_turn" —— 额外回合
             if (lib.bts.api.god(player)) lib.bts.api.extraTurn(player, 'bts_extra_turn');
         },
@@ -196,16 +196,18 @@ export const skill = {
 
     // ── 锁定技·晦翼（源 st_huiyi = TriggerSkill Compulsory Damaged，L7820-7826）──
     // 源实现为空技能（events 声明的 Damaged 无实际逻辑）；死龙承伤由全局忆灵生命池结算
-    //（rules/resolver.js petLifeDelta，用户定夺 2026-09-02 统一实现；
-    // 耗尽移除后 removePet 的 removeRecover:1 回复1点体力）。
+    //（rules/utils.js petLifeDelta，用户定夺 2026-09-02 统一实现）；死龙被移除后回复1点体力
+    // 由本技能监听 bts_pet_remove 自注册结算（原 removeRecover 机制已并入本技能）。
     bts_sk_huiyi: {
         charlotte: true,
-        trigger: { player: 'damageEnd' },
+        trigger: { player: 'bts_pet_remove' },
         forced: true,
-        filter() {
-            return false;
+        filter(event, player) {
+            return event.pet === 'silong' && player.isAlive();
         },
-        async content() {},
+        async content(event, trigger, player) {
+            await player.recover(player, 1);
+        },
         ai: { noe: true },
     },
 
@@ -282,9 +284,9 @@ export const translate = {
     bts_ch_silong: '死龙',
     bts_ch_xiadie_and_silong: '遐蝶&死龙',
     bts_sk_wangxiao: '亡哮',
-    bts_sk_wangxiao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，若你拥有至少7枚${get.poptip('bts_glossary_xinrui_faq')}且没有死龙，你可以弃7枚${get.poptip('bts_glossary_xinrui_faq')}，召唤死龙；若你为${get.poptip('bts_glossary_xingqi_faq')}，此回合结束时，执行一个额外的回合。`,
+    bts_sk_wangxiao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，若你拥有至少7枚${get.poptip('bts_glossary_xinrui_faq')}且没有${get.poptip('bts_ch_silong')}，你可以弃7枚${get.poptip('bts_glossary_xinrui_faq')}，召唤${get.poptip('bts_ch_silong')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，此回合结束时，执行一个额外的回合。`,
     bts_sk_huangwu: '荒芜',
-    bts_sk_huangwu_info: `当一名角色扣减体力后，若你没有死龙，其可以令你获得等量的${get.poptip('bts_glossary_xinrui_faq')}（至多7枚，若你拥有${get.poptip('bts_sk_aishi')}则至多14枚）。`,
+    bts_sk_huangwu_info: `当一名角色扣减体力后，若你没有${get.poptip('bts_ch_silong')}，其可以令你获得等量的${get.poptip('bts_glossary_xinrui_faq')}（至多7枚，若你拥有${get.poptip('bts_sk_aishi')}则至多14枚）。`,
     bts_sk_youdie: '幽蝶',
     bts_sk_youdie_info:
         '当你使用【杀】时，你可以选择任意名其他角色。你失去1点体力，这些角色依次可以失去1点体力。',
@@ -292,10 +294,10 @@ export const translate = {
     bts_sk_yanxi_info: `出牌阶段，你可以对自己造成2点伤害并选择一名其他角色，对其造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害。`,
     bts_sk_huiyi: '晦翼',
     bts_sk_huiyi_info:
-        '锁定技，死龙承受伤害时等量失去生命；死龙生命耗尽被移除后，你回复1点体力。',
+        `锁定技，${get.poptip('bts_ch_silong')}承受伤害时等量失去生命；${get.poptip('bts_ch_silong')}生命耗尽被移除后，你回复1点体力。`,
     bts_sk_yinbi: '荫蔽',
     bts_sk_yinbi_info:
-        '当其他角色受到不小于其体力值的伤害时，若死龙存在，你可以代为承受此伤害。',
+        `当其他角色受到不小于其体力值的伤害时，若${get.poptip('bts_ch_silong')}存在，你可以代为承受此伤害。`,
     bts_mk_xinrui: '新蕊',
     bts_pet_silong: '死龙',
 
@@ -313,23 +315,19 @@ export const translate = {
     '$bts_sk_yinbi2': "请珍惜灵魂还未枯萎的时光",
     '~bts_ch_silong': "好温暖啊…西风……",
     '~bts_ch_xiadie': "好温暖啊…西风……",
-    bts_mk_xinrui_info: '来源：荒芜赋予；亡哮：满7召唤死龙',
+    bts_mk_xinrui_info: `来源：${get.poptip('bts_sk_huangwu')}赋予；${get.poptip('bts_sk_wangxiao')}：满7召唤${get.poptip('bts_ch_silong')}`,
 };
 
 export const simpleTranslate = {
-    bts_sk_wangxiao_info: `${get.poptip('bts_glossary_bisha_faq')}；弃7${get.poptip('bts_glossary_xinrui_faq')}召唤死龙，${get.poptip('bts_glossary_xingqi_faq')}时额外回合`,
+    bts_sk_wangxiao_info: `${get.poptip('bts_glossary_bisha_faq')}；弃7${get.poptip('bts_glossary_xinrui_faq')}召唤${get.poptip('bts_ch_silong')}，${get.poptip('bts_glossary_xingqi_faq')}时额外回合`,
     bts_sk_huangwu_info: `他人扣血后可令你获得等量${get.poptip('bts_glossary_xinrui_faq')}（至多7，${get.poptip('bts_sk_aishi')}时14）`,
     bts_sk_youdie_info: '用杀后可选其他角色；自身失1体力，目标可各失1体力',
     bts_sk_yanxi_info: '出牌阶段自伤2，对1名其他角色造成1点暗伤',
-    bts_sk_huiyi_info: '锁；死龙受伤等量失生命，耗尽移除后回复1',
-    bts_sk_yinbi_info: '其他角色受致死伤害时，死龙可代为承受',
+    bts_sk_huiyi_info: `锁；${get.poptip('bts_ch_silong')}受伤等量失生命，耗尽移除后回复1`,
+    bts_sk_yinbi_info: `其他角色受致死伤害时，${get.poptip('bts_ch_silong')}可代为承受`,
 };
 
-export const pinyins = {
-    bts_ch_xiadie: 'xiadie',
-    bts_ch_silong: 'silong',
-    bts_ch_xiadie_and_silong: 'xiadiesilong',
-};
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -337,6 +335,6 @@ export const glossary = [
     {
         id: 'bts_glossary_xinrui_faq',
         name: '|新蕊|',
-        info: `遐蝶专属：${get.poptip('bts_sk_huangwu')}获得；满7由${get.poptip('bts_sk_wangxiao')}召唤死龙。`,
+        info: `遐蝶专属：${get.poptip('bts_sk_huangwu')}获得；满7由${get.poptip('bts_sk_wangxiao')}召唤${get.poptip('bts_ch_silong')}。`,
     },
 ];

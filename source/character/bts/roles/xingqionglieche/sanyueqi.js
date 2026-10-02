@@ -1,8 +1,8 @@
-// 三月七（源 animal.lua L1960-2028）—— 冰箭必杀技冻结群控、可爱给盾、特权为源已注释空技能。
+// 三月七（源 animal.lua L1960-2028）—— 冰箭必杀技冻结群控、可爱给盾、特权（护盾抵扣后视为用杀，规则层）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xingqionglieche';
 export const title = '冰·存护·超超超超厉害的本姑娘☆'; // 属性·命途
 export const intro =
-    `${B('三月七')}是控场辅助：${get.poptip('bts_glossary_bisha_faq')}${B('冰箭')}用${get.poptip('bts_glossary_nuqi_faq')}令多名角色${B(get.poptip('bts_glossary_abnormal_freeze_faq'))}，${B('可爱')}弃【杀】给盾，${get.poptip('bts_glossary_xingqi_faq')}时冰箭还能回复${get.poptip('bts_glossary_nuqi_faq')}。` +
+    `${B('三月七')}是控场辅助：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_bingjian'))}用${get.poptip('bts_glossary_nuqi_faq')}令多名角色${B(get.poptip('bts_glossary_abnormal_freeze_faq'))}，${B(get.poptip('bts_sk_keai'))}弃【杀】给盾，${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_bingjian')}还能回复${get.poptip('bts_glossary_nuqi_faq')}。` +
     `<li>${get.poptip('bts_glossary_abnormal_freeze_faq')}令目标禁装备牌且伤害基数-1，注意目标选择`;
 
 export const character = {
@@ -47,13 +47,34 @@ export const skill = {
         },
     },
 
-    // ── 特权（源 st_tequan，L1980-1995；on_trigger 整体被注释，实际为空技能）──
+    // ── 特权（源 st_tequan）──
+    // 锁定技，当一名角色因受到伤害而移除护盾后，你可以视为对来源使用【杀】。
+    // 触发点：rules/globalBuffs.js bts_shield 抵扣后派发 bts_shield_removed
+    //（源：RemoveShield 后 findPlayersBySkillName("st_tequan") → ViewAsCardOnly）；
+    // 效果在本技能自注册（自动日志 + 音频由此接通）。
     bts_sk_tequan: {
-        trigger: { global: 'damageEnd' },
-        filter() {
-            return false;
-        }, // 源实现已注释，保持空技能（描述仍保留）
-        async content() {},
+        trigger: { global: 'bts_shield_removed' },
+        forced: true,
+        filter(event) {
+            return !!event.source;
+        },
+        async content(event, trigger, player) {
+            const choice = await player
+                .chooseBool(
+                    `特权：是否视为对${get.translation(trigger.source)}使用【杀】？`,
+                )
+                .set('ai', () => get.attitude(player, trigger.source) < 0)
+                .forResult();
+            if (choice.bool)
+                await player.useCard(
+                    {
+                        name: 'sha',
+                        isCard: true,
+                        storage: { bts_sk_tequan: true },
+                    },
+                    trigger.source,
+                );
+        },
         ai: { noe: true },
     },
 
@@ -117,7 +138,7 @@ export const translate = {
     bts_sk_bingjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}，然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
 
     bts_sk_tequan: '特权',
-    bts_sk_tequan_info: `锁定技，当一名角色因受到伤害而移除${get.poptip('bts_glossary_hudun_faq')}后，你可以视为对来源使用【杀】。（源实现已注释，暂无实际效果）`,
+    bts_sk_tequan_info: `锁定技，当一名角色因受到伤害而移除${get.poptip('bts_glossary_hudun_faq')}后，你可以视为对来源使用【杀】。`,
 
     bts_sk_keai: '可爱',
     bts_sk_keai_info: `出牌阶段，你可以弃置一张【杀】并选择一名角色，令其附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
@@ -133,8 +154,8 @@ export const translate = {
 
 export const simpleTranslate = {
     bts_sk_bingjian_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1层${get.poptip('bts_glossary_abnormal_freeze_faq')}；若${get.poptip('bts_glossary_xingqi_faq')}则回复1点${get.poptip('bts_glossary_nuqi_faq')}`,
-    bts_sk_tequan_info: '锁；空技能（源实现已注释）',
+    bts_sk_tequan_info: '锁；角色因伤失盾后可视为对来源用【杀】',
     bts_sk_keai_info: `出牌阶段，弃1张【杀】令1名角色（含自己）+1层${get.poptip('bts_glossary_hudun_faq')}`,
 };
 
-export const pinyins = { bts_ch_sanyueqi: 'sanyueqi' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

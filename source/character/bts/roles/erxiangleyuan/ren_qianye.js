@@ -5,7 +5,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '火·虚无·千冶成刃'; // 属性·命途
 export const intro =
-    `${B('千冶·刃')}用薪肉换出${get.poptip('bts_glossary_abnormal_shahuo_faq')}形态，濒死后再把薪肉拿回来。`;
+    `${B('千冶·刃')}用${get.poptip('bts_sk_xinrou')}换出${get.poptip('bts_glossary_abnormal_shahuo_faq')}形态，濒死后再把${get.poptip('bts_sk_xinrou')}拿回来。`;
 
 export const character = {
     bts_ch_ren_qianye: {
@@ -39,7 +39,9 @@ export const skill = {
             await player.addSkill('bts_sk_jinchang');
             await player.addSkill('bts_sk_renzang');
             // 源 L9580-9582：所有其他角色各附加2层煞火
-            for (const target of game.filterPlayer((target) => target !== player))
+            for (const target of lib.bts.api.seatOrder(
+                game.filterPlayer((target) => target !== player),
+            ))
                 lib.bts.api.addAbnormal(target, 'shahuo', 2, player);
         },
         ai: {
@@ -224,7 +226,7 @@ export const skill = {
                 .forResult();
             if (choice.index === 1 && total >= 9) {
                 // 源 L9711-9718：移除其他角色全部煞火，自身保留 (n-9) 层后视为使用【杀】
-                for (const target of game.filterPlayer())
+                for (const target of lib.bts.api.seatOrder(game.filterPlayer()))
                     lib.bts.api.removeAbnormal(target, 'shahuo', -1);
                 lib.bts.api.addAbnormal(
                     player,
@@ -265,11 +267,11 @@ export const translate = {
     'bts_ch_ren_qianye_skin1': '皮肤1',
     bts_ch_ren_qianye: '千冶·刃',
     bts_sk_xinrou: '薪肉',
-    bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}和1点体力，失去薪肉，获得千冶、忿怒、尽偿、刃葬，所有其他角色各附加2层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
+    bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}和1点体力，失去${get.poptip('bts_sk_xinrou')}，获得${get.poptip('bts_sk_qianye')}、${get.poptip('bts_sk_fennu')}、${get.poptip('bts_sk_jinchang')}、${get.poptip('bts_sk_renzang')}，所有其他角色各附加2层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
     bts_sk_qianye: '千冶',
     bts_sk_qianye_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，对这些角色各造成1点通常伤害。`,
     bts_sk_fennu: '忿怒',
-    bts_sk_fennu_info: `锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}伤害；进入濒死时回复至3点，失去本形态技能并重获薪肉。`,
+    bts_sk_fennu_info: `锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}伤害；进入濒死时回复至3点，失去本形态技能并重获${get.poptip('bts_sk_xinrou')}。`,
     bts_sk_jinchang: '尽偿',
     bts_sk_jinchang_info: `锁定技，当你对其他角色造成伤害后，令其附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。同盟：未对你造成过伤害的其他角色造成伤害后，可经你与其的同意，令其伤害目标附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
     bts_sk_renzang: '刃葬',
@@ -277,20 +279,19 @@ export const translate = {
     bts_abnormal_shahuo: '煞火',
 
     // ── 语音台词来源优先级：无名杀既有 > 太阳神（见 文档/文案与语音规范.md §2.1）──
-    // 尽偿/薪肉#2 三条语音键暂注释：台词为无名杀既有，但太阳神任何版本均无对应音频——
-    //   $bts_sk_xinrou2「此行，迈向终结吧」源仅 max_xinrou1.ogg 单行；
-    //   $bts_sk_jinchang1「为你送葬。凡铁而已」、$bts_sk_jinchang2「这便是最后一面」源无 st_jinchang 音频。
+    // 尽偿#1/2 已配音频（2026-10-02 用户提供素材，台词随素材：恩怨，在此作别 / 迈向终结吧）。
+    // 薪肉#2 仍暂注释：台词为无名杀既有「此行，迈向终结吧」，但太阳神任何版本均无对应音频（源仅 max_xinrou1.ogg 单行）。
     // 声明键而无 mp3 / 键号超出 mp3 行数会使 rebuild --audio --check 报错；待有源音频再取消注释。
     '$bts_sk_xinrou1': "支离血肉，千冶成刃",
     // '$bts_sk_xinrou2': "此行，迈向终结吧",
     '$bts_sk_qianye1': "于万死中归来……",
-    '$bts_sk_fennu1': "所有恩怨，都就此作别", // 源 $st_fennu1；原误填尽偿台词
+    '$bts_sk_fennu1': "为你送葬",
     '$bts_sk_renzang1': "炼狱…加身！",
-    // '$bts_sk_jinchang1': "为你送葬。凡铁而已",
+    '$bts_sk_jinchang1': "恩怨，在此作别",
     '$bts_sk_qianye2': "焚此残躯，以尔等淬火！",
     '$bts_sk_fennu2': "剑若出鞘，不死不休",
     '$bts_sk_renzang2': "剑冢…无间！",
-    // '$bts_sk_jinchang2': "这便是最后一面",
+    '$bts_sk_jinchang2': "迈向终结吧",
     '~bts_ch_ren_qianye': "倏忽…还不能……",
 };
 
@@ -302,7 +303,7 @@ export const simpleTranslate = {
     bts_sk_renzang_info: `${get.poptip('bts_glossary_abnormal_shahuo_faq')}≥9时吸收后群杀，或体力>1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}群决斗`,
 };
 
-export const pinyins = { bts_ch_ren_qianye: 'renqianye' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_shahuo: {

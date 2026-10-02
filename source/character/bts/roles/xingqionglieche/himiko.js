@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xingqionglieche';
 export const title = '火·智识·群星的探险家'; // 属性·命途
 export const intro =
-    `${B('姬子')}是${get.poptip('bts_glossary_nature_flame_dmg_faq')}输出：${get.poptip('bts_glossary_bisha_faq')}${B('天坠')}用${get.poptip('bts_glossary_nuqi_faq')}对多名角色造成${get.poptip('bts_glossary_nature_flame_dmg_faq')}通常伤害，${get.poptip('bts_glossary_xingqi_faq')}时再给体力最高者附加${get.poptip('bts_glossary_nature_flame_faq')}；${B('乘胜')}别人获得附加时攒标记，攒够挥出炎杀；${B('熔核')}点杀${get.poptip('bts_glossary_abnormal_burn_faq')}目标。` +
+    `${B('姬子')}是${get.poptip('bts_glossary_nature_flame_dmg_faq')}输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_tianzhui'))}用${get.poptip('bts_glossary_nuqi_faq')}对多名角色造成${get.poptip('bts_glossary_nature_flame_dmg_faq')}通常伤害，${get.poptip('bts_glossary_xingqi_faq')}时再给体力最高者附加${get.poptip('bts_glossary_nature_flame_faq')}；${B(get.poptip('bts_sk_chengsheng'))}别人获得附加时攒标记，攒够挥出炎杀；${B(get.poptip('bts_sk_ronghe'))}点杀${get.poptip('bts_glossary_abnormal_burn_faq')}目标。` +
     `<li>${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害对无附加目标附加炎、对${get.poptip('bts_glossary_nature_flame_faq')}目标触发${get.poptip('bts_glossary_abnormal_burn_faq')}、对其他附加目标移除并增伤`;
 
 export const character = {
@@ -165,7 +165,7 @@ export const translate = {
 
     bts_sk_chengsheng: '乘胜',
     bts_sk_chengsheng_info:
-        '锁定技，当其他角色获得属性后，你获得1枚乘胜标记，若标记数不小于3，移除这些标记，视为对所有受到过由你造成伤害的角色使用炎【杀】。',
+        `锁定技，当其他角色获得属性后，你获得1枚${get.poptip('bts_sk_chengsheng')}标记，若标记数不小于3，移除这些标记，视为对所有受到过由你造成伤害的角色使用炎【杀】。`,
 
     bts_sk_ronghe: '熔核',
     bts_sk_ronghe_info: `出牌阶段，你可以弃置一张【杀】并选择一名处于${get.poptip('bts_glossary_abnormal_burn_faq')}的角色，对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害。`,
@@ -182,8 +182,8 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_tianzhui_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}通常伤害；${get.poptip('bts_glossary_xingqi_faq')}则令体力最高者各附加炎；杀死角色后回1${get.poptip('bts_glossary_nuqi_faq')}`,
     bts_sk_chengsheng_info:
-        '锁；其他角色获得属性后，你+1枚乘胜；≥3时移除并对所有受到过你伤害的角色使用炎杀',
+        `锁；其他角色获得属性后，你+1枚${get.poptip('bts_sk_chengsheng')}；≥3时移除并对所有受到过你伤害的角色使用炎杀`,
     bts_sk_ronghe_info: `出牌阶段，弃1张【杀】对1名${get.poptip('bts_glossary_abnormal_burn_faq')}角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害`,
 };
 
-export const pinyins = { bts_ch_himiko: 'jizi' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

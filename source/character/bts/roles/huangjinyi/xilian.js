@@ -7,7 +7,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'huangjinyi';
 export const title = '冰·记忆·往昔的涟漪'; // 属性·命途
 export const intro =
-    `${B('昔涟')}攒${get.poptip('bts_glossary_jiyi_faq')}给黄金裔同伴铺路：把爱诗交给他们，攒够记忆就开乐土、抛必杀，自己手里的${get.poptip('bts_glossary_bisha_faq')}也能少花力气。`;
+    `${B('昔涟')}攒${get.poptip('bts_glossary_jiyi_faq')}给黄金裔同伴铺路：把${get.poptip('bts_sk_aishi')}交给他们，攒够${get.poptip('bts_glossary_jiyi_faq')}就开${get.poptip('bts_sk_letu')}、抛${get.poptip('bts_glossary_bisha_faq')}，自己手里的${get.poptip('bts_glossary_bisha_faq')}也能少花力气。`;
 
 export const character = {
     bts_ch_xilian: {
@@ -352,13 +352,13 @@ export const translate = {
     'bts_ch_xilian_skin53': '皮肤53',
     bts_ch_xilian: '昔涟',
     bts_sk_shiyue: '誓约',
-    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过此技能则改为12枚）并选择一名角色：若其为黄金裔，其获得爱诗；否则其摸三张牌。首次发动后你获得乐土，选择任意名角色使其下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各执行一个额外回合。`,
+    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过此技能则改为12枚）并选择一名角色：若其为黄金裔，其获得${get.poptip('bts_sk_aishi')}；否则其摸三张牌。首次发动后你获得${get.poptip('bts_sk_letu')}，选择任意名角色使其下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各执行一个额外回合。`,
     bts_sk_zhuiyi: '追忆',
     bts_sk_zhuiyi_info: `锁定技，当你使用【杀】或【决斗】后，获得1枚${get.poptip('bts_glossary_jiyi_faq')}；【决斗】改为3枚。`,
     bts_sk_zhongyuan: '众愿',
-    bts_sk_zhongyuan_info: `一名角色的回合结束时，若其不为你，其可以令你获得1枚${get.poptip('bts_glossary_jiyi_faq')}；否则，若你没有${get.poptip('bts_sk_letu')}，你可以弃置一张【杀】获得3枚${get.poptip('bts_glossary_jiyi_faq')}，于下个回合的回合结束前拥有乐土。`,
+    bts_sk_zhongyuan_info: `一名角色的回合结束时，若其不为你，其可以令你获得1枚${get.poptip('bts_glossary_jiyi_faq')}；否则，若你没有${get.poptip('bts_sk_letu')}，你可以弃置一张【杀】获得3枚${get.poptip('bts_glossary_jiyi_faq')}，于下个回合的回合结束前拥有${get.poptip('bts_sk_letu')}。`,
     bts_sk_letu: '乐土',
-    bts_sk_letu_info: `你可以将手牌【杀】当【决斗】使用；任意角色造成伤害后，若你拥有${get.poptip('bts_sk_aishi')}，你将牌堆顶一张牌称为"乐土"（能当手牌使用或打出）置于武将牌上并获得1枚${get.poptip('bts_glossary_jiyi_faq')}，此乐土牌于你的下个出牌阶段开始时置入弃牌堆。`,
+    bts_sk_letu_info: `你可以将手牌【杀】当【决斗】使用；任意角色造成伤害后，若你拥有${get.poptip('bts_sk_aishi')}，你将牌堆顶一张牌称为"${get.poptip('bts_sk_letu')}"（能当手牌使用或打出）置于武将牌上并获得1枚${get.poptip('bts_glossary_jiyi_faq')}，此${get.poptip('bts_sk_letu')}牌于你的下个出牌阶段开始时置入弃牌堆。`,
     bts_sk_letu_use: '乐土',
     bts_sk_aishi: '爱诗',
     bts_sk_aishi_info: `昔涟授予黄金裔的标记。拥有${get.poptip('bts_sk_aishi')}时，各黄金裔技能获得额外的"诗歌"效果（见技能详情）。（源为空技能纯标记，效果由各技能经 hasSkill 检测后自行结算）`,
@@ -391,18 +391,18 @@ export const translate = {
     '$bts_sk_letu2': "让刹那，成为永恒~",
     '~bts_ch_xilian': "我会…等你……",
     bts_mk_zhongyuan_used: '众愿·临时乐土',
-    bts_mk_zhongyuan_used_info: '来源：众愿（弃杀）赋予；乐土标记为临时，于下个自己的回合结束时回收',
+    bts_mk_zhongyuan_used_info: `来源：${get.poptip('bts_sk_zhongyuan')}（弃杀）赋予；${get.poptip('bts_sk_letu')}标记为临时，于下个自己的回合结束时回收`,
 };
 
 export const simpleTranslate = {
-    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}；弃${get.poptip('bts_glossary_jiyi_faq')}让黄金裔拿爱诗，不然摸3；第一次发还送乐土和${get.poptip('bts_glossary_nuqi_faq')}豁免`,
+    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}；弃${get.poptip('bts_glossary_jiyi_faq')}让黄金裔拿${get.poptip('bts_sk_aishi')}，不然摸3；第一次发还送${get.poptip('bts_sk_letu')}和${get.poptip('bts_glossary_nuqi_faq')}豁免`,
     bts_sk_zhuiyi_info: `锁；用杀记1、用决斗记3${get.poptip('bts_glossary_jiyi_faq')}`,
-    bts_sk_zhongyuan_info: `别人回合结束+1${get.poptip('bts_glossary_jiyi_faq')}；自己回合结束无乐土可弃杀+3重拿乐土（临时，下回合结束回收）`,
-    bts_sk_letu_info: `手牌杀当决斗；有${get.poptip('bts_sk_aishi')}时任意伤害后白嫖1张乐土牌（可当手牌）并+1${get.poptip('bts_glossary_jiyi_faq')}`,
+    bts_sk_zhongyuan_info: `别人回合结束+1${get.poptip('bts_glossary_jiyi_faq')}；自己回合结束无${get.poptip('bts_sk_letu')}可弃杀+3重拿${get.poptip('bts_sk_letu')}（临时，下回合结束回收）`,
+    bts_sk_letu_info: `手牌杀当决斗；有${get.poptip('bts_sk_aishi')}时任意伤害后白嫖1张${get.poptip('bts_sk_letu')}牌（可当手牌）并+1${get.poptip('bts_glossary_jiyi_faq')}`,
     bts_sk_aishi_info: '标记；给黄金裔的"诗歌"加成（见技能详情）',
 };
 
-export const pinyins = { bts_ch_xilian: 'xilian' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
@@ -410,7 +410,7 @@ export const glossary = [
     {
         id: 'bts_glossary_extra_st_faq',
         name: '|怒气豁免|',
-        info: `消耗怒气时豁免等量怒气（怒气消耗减免）：由${get.poptip('bts_sk_shiyue')}赋予（昔涟可选择任意角色获得）。`,
+        info: `消耗${get.poptip('bts_glossary_nuqi_faq')}时豁免等量${get.poptip('bts_glossary_nuqi_faq')}（${get.poptip('bts_glossary_nuqi_faq')}消耗减免）：由${get.poptip('bts_sk_shiyue')}赋予（昔涟可选择任意角色获得）。`,
     },
     {
         id: 'bts_glossary_jiyi_faq',
@@ -420,6 +420,6 @@ export const glossary = [
     {
         id: 'bts_glossary_st_letu_active_faq',
         name: '|乐土状态|',
-        info: `昔涟状态：由${get.poptip('bts_sk_shiyue')}（永久）、${get.poptip('bts_sk_zhongyuan')}（临时）获得；状态内可将手牌【杀】当【决斗】，且拥有${get.poptip('bts_sk_aishi')}时任意角色造成伤害后除外1张乐土牌（能当手牌使用或打出）并获1枚${get.poptip('bts_glossary_jiyi_faq')}。`,
+        info: `昔涟状态：由${get.poptip('bts_sk_shiyue')}（永久）、${get.poptip('bts_sk_zhongyuan')}（临时）获得；状态内可将手牌【杀】当【决斗】，且拥有${get.poptip('bts_sk_aishi')}时任意角色造成伤害后除外1张${get.poptip('bts_sk_letu')}牌（能当手牌使用或打出）并获1枚${get.poptip('bts_glossary_jiyi_faq')}。`,
     },
 ];

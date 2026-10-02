@@ -70,7 +70,7 @@ export const skill = {
     // ── 触发技·掠袭（源 st_lvexi = TriggerSkill Damage/Damaged/Death，L6511-6577）──
     // 当你造成伤害后，若你没有暗之祝福，可发动钺贯（锦囊当风杀）并附加4层暗之祝福，
     // 将此伤害角色标记为猎物；此回合结束时进入潜行（不可被指定为目标），直到暗之祝福
-    // 全部移除、或你或猎物死亡；猎物受到其他角色【杀】伤害后，你移除1层暗之祝福并追击【杀】。
+    // 全部移除、你或猎物死亡、或全场仅剩2人；猎物受到其他角色【杀】伤害后，你移除1层暗之祝福并追击【杀】。
     bts_sk_lvexi: {
         // 源 L6521（Damage 事件，lua player=伤害来源）：造成伤害后、无暗之祝福时发动。
         // 无名杀伤害事件的 player 角色=受伤者，故用 source 角色定位伤害来源。
@@ -105,11 +105,12 @@ export const skill = {
             await lib.bts.api.addBless(player, 'dark', 4, player);
             player.addMark('bts_mk_moze_dark_assault', 1); // 源 L6526：addPlayerMark(player, st_lvexi)
             player.storage.bts_moze_prey = prey.playerid;
-            // 固定键镜像已承担显示（「猎物」徽章），动态 per-猎物 键为内部簿记：
-            // log=false 关闭日志与 get.info 校验（否则未注册键触发「孩子，你的技能…」告警；
-            // 2026-09-26 实机警告同类修复）。
-            prey.addMark(`bts_mk_liewu_${player.playerid}`, 1, false); // 源 L6527：addPlayerMark(damage.to, "@liewu")
-            player.addMark('bts_mk_liewu', 1); // 固定键镜像：掠袭中显示「猎物」徽章（动态 per-猎物 键不可静态注册）
+            // 「猎物」标记挂在猎物本人（源 L6527：addPlayerMark(damage.to, "@liewu")；
+            // 2026-10-01 用户定夺：由此前貊泽身上的固定键镜像改为猎物本体显示，贴近源版）。
+            // 动态 per-猎物 键为内部簿记：log=false 关闭日志与 get.info 校验（否则未注册键
+            // 触发「孩子，你的技能…」告警；2026-09-26 实机警告同类修复）。
+            prey.addMark('bts_mk_liewu', 1); // 固定键：猎物本体显示「猎物」徽章
+            prey.addMark(`bts_mk_liewu_${player.playerid}`, 1, false); // 内部簿记（每貊泽一份）
         },
         group: [
             'bts_sk_lvexi_assault',
@@ -117,14 +118,16 @@ export const skill = {
             'bts_sk_lvexi_blessZero',
             'bts_sk_lvexi_clear',
         ],
-        // 源 L6515-6518（EventPhaseStart NotActive）：潜行——置 alive=false，不可被指定为目标
+        // 源 L6515-6518（EventPhaseStart NotActive）：潜行——置 alive=false，不可被指定为目标。
+        // 卡牌路径走本 mod（引擎 canUse/chooseToUse 默认过滤器读 targetEnabled）；技能自定义
+        // filterTarget 会整体替换默认过滤器（不读 targetEnabled），另有「选目标候选守卫」
+        // （Check.processSelection）与「自动视为使用守卫」（useCard 内容首步）兜住技能与
+        // 自动 useCard 两条路径——三处判据统一为 lib.bts.api.untargetable（rules/index.js
+        // installUntargetableGuard；2026-10-01 实机记录：黑塔·魔法/效率、Archer·螺旋 可
+        // 绕过原 targetEnabled 单层封锁）。
         mod: {
             targetEnabled(card, player, target) {
-                if (
-                    target.hasSkill('bts_sk_lvexi') &&
-                    target.countMark('bts_mk_moze_stealth') &&
-                    player !== target
-                )
+                if (player !== target && lib.bts.api.untargetable(target))
                     return false;
             },
         },
@@ -156,23 +159,35 @@ export const skill = {
                             prey,
                             'bts_sk_lvexi',
                         );
-                    // 源 L6550-6557：暗之祝福耗尽 → 结束掠袭（「全场仅剩2人」条件已按新描述移除；
+                    // 源 L6550-6557：暗之祝福耗尽、或全场仅剩2人 → 结束掠袭
+                    //（2026-10-02 用户定夺：恢复源版「全场仅剩2人」退出条件，源为
+                    // room:getAllPlayers(true):length()==2，按项目人数惯例取存活角色数 ≤2；
                     // 归零主路径由 blessZero 监听 bts_mark_remove 兜底，此处双保险且幂等）。
-                    if (!lib.bts.api.getBless(player, 'dark'))
+                    if (
+                        !lib.bts.api.getBless(player, 'dark') ||
+                        lib.bts.api.alivePlayerCount() <= 2
+                    )
                         lib.skill['bts_sk_lvexi'].util.endLvexiState(player);
                 },
                 ai: { noe: true },
             },
             stealth: {
                 // 源 L6515-6518（EventPhaseStart NotActive）：此回合结束时进入潜行——
-                // alive=false（不被视为存活、不可被指定为目标，无名杀以 targetEnabled mod 近似）
+                // alive=false（不被视为存活、不可被指定为目标，无名杀以三层封锁近似：
+                // targetEnabled mod + 选目标候选守卫 + useCard 内容守卫）。
+                // 时机核对：源 ServerPlayer::play 的相位表末项为 NotActive，事件只对
+                // 「标记持有者（貊泽）自己的回合结束」命中（can_trigger 恒真但相位对照对象
+                // = 当前回合者），与 player:'phaseEnd'（貊泽自己的回合结束）等价——勿改为 global。
                 trigger: { player: 'phaseEnd' },
                 forced: true,
                 filter(event, player) {
-                    // 仅掠袭进行中且尚未潜行时进入
+                    // 仅掠袭进行中、尚未潜行、且全场不止2人时进入（源 NotActive 分支本身无
+                    // 人数判据；掠袭的「全场仅剩2人即结束」政策覆盖潜行进入——2026-10-02
+                    // 用户定夺，避免残局进入潜行僵持）。
                     return (
                         player.countMark('bts_mk_moze_dark_assault') > 0 &&
-                        !player.countMark('bts_mk_moze_stealth')
+                        !player.countMark('bts_mk_moze_stealth') &&
+                        lib.bts.api.alivePlayerCount() > 2
                     );
                 },
                 async content(event, trigger, player) {
@@ -203,14 +218,17 @@ export const skill = {
                 ai: { noe: true },
             },
             clear: {
-                // 源 L6561-6571（Death）：你或猎物死亡 → 结束掠袭
+                // 源 L6561-6571（Death）：你或猎物死亡 → 结束掠袭；2026-10-02 用户定夺恢复
+                // 源版「全场仅剩2人时退出」：任一阵亡使存活角色数降至 ≤2 时同样结束
+                //（潜行随 endLvexiState 一并解除）。
                 trigger: { player: 'dieAfter', global: 'dieAfter' },
                 forced: true,
                 filter(event, player) {
                     return (
                         player.countMark('bts_mk_moze_dark_assault') > 0 &&
                         (event.player === player ||
-                            event.player?.playerid === player.storage.bts_moze_prey)
+                            event.player?.playerid === player.storage.bts_moze_prey ||
+                            lib.bts.api.alivePlayerCount() <= 2)
                     );
                 },
                 async content(event, trigger, player) {
@@ -228,16 +246,21 @@ export const skill = {
 // 三处监听统一走本函数，避免清理逻辑分散；幂等，可重复调用（事件先后交错无害）。
 // 经 bts_sk_lvexi.util 挂载（叁岛 util 字段范式）：content 只能经 lib.skill['bts_sk_lvexi'].util 访问。
 function endLvexiState(player) {
-    const prey = game.filterPlayer(
+    // 猎物查找必须含阵亡者：本函数最常经「猎物死亡」（clear 的 dieAfter）触发，而 dieAfter
+    // 发射时死亡角色已移出 game.players（进 game.dead），game.filterPlayer 找不到 → 猎物
+    // 标记残留（2026-09-27 档案实锤：死者持 bts_mk_liewu_<pid>=1；2026-10-01 修复）。
+    const prey = game.findPlayer2(
         (p) => p.playerid === player.storage.bts_moze_prey,
-    )[0];
-    if (prey)
+        true,
+    );
+    if (prey) {
         prey.removeMark(
             `bts_mk_liewu_${player.playerid}`,
             prey.countMark(`bts_mk_liewu_${player.playerid}`),
             false, // 内部簿记键：静默移除（与 addMark 的 log=false 成对）
         );
-    player.removeMark('bts_mk_liewu', player.countMark('bts_mk_liewu')); // 固定键镜像同步移除
+        prey.removeMark('bts_mk_liewu', prey.countMark('bts_mk_liewu')); // 猎物本体显示标记
+    }
     player.removeMark(
         'bts_mk_moze_dark_assault',
         player.countMark('bts_mk_moze_dark_assault'),
@@ -268,7 +291,7 @@ export const marks = {
         markType: 'text', // 源版无对应图标素材（@moze_stealth 为移植新增状态），文字角标
     },
     bts_mk_liewu: {
-        // 固定键镜像：掠袭进行中=1（动态 bts_mk_liewu_<pid> 无法静态注册，图标已就位）
+        // 猎物本体显示标记：掠袭锁定猎物期间=1（动态 bts_mk_liewu_<pid> 为内部簿记不注册）
         markKind: 'mark',
     },
 };
@@ -295,13 +318,13 @@ export const translate = {
     '$bts_sk_lvexi4': "乌羽潜行",
     '~bts_ch_moze': "功亏…一篑……",
     bts_bless_dark: '暗之祝福',
-    bts_bless_dark_info: '来源：掠袭赋予；无属性伤害→量子；回合结束自然减少1层',
+    bts_bless_dark_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；无属性伤害→量子；回合结束自然减少1层`,
     bts_mk_moze_dark_assault: '暗袭',
-    bts_mk_moze_dark_assault_info: '来源：掠袭赋予；掠袭：猎物受杀后追击',
+    bts_mk_moze_dark_assault_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；${get.poptip('bts_sk_lvexi')}：猎物受杀后追击`,
     bts_mk_moze_stealth: '潜行',
-    bts_mk_moze_stealth_info: '来源：掠袭赋予；不可被其他角色指定为目标，暗之祝福清空或你/猎物死亡时解除',
+    bts_mk_moze_stealth_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；不可被其他角色指定为目标，${get.poptip('bts_glossary_bless_dark_faq')}清空、你/猎物死亡或全场仅剩2人时解除`,
     bts_mk_liewu: '猎物',
-    bts_mk_liewu_info: '来源：掠袭赋予；标记目标角色为猎物，掠袭结束移除',
+    bts_mk_liewu_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；标记目标角色为猎物，${get.poptip('bts_sk_lvexi')}结束移除`,
 };
 
 export const simpleTranslate = {
@@ -310,7 +333,7 @@ export const simpleTranslate = {
     bts_sk_lvexi_info: `造成伤害后无${get.poptip('bts_glossary_bless_dark_faq')}可发动${get.poptip('bts_sk_yueguan')}（锦囊当风杀）+4层并标记猎物，回合结束潜行（不可被指定为目标）至${get.poptip('bts_glossary_bless_dark_faq')}清空或死亡；猎物受他人杀伤耗1层追击；目标已被打死则无法发动`,
 };
 
-export const pinyins = { bts_ch_moze: 'moze' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_dark: {
@@ -344,11 +367,11 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_dark_faq',
         name: '暗之祝福',
-        info: '当你造成无属性伤害时，视为量子属性伤害。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你造成无属性伤害时，视为${get.poptip('bts_glossary_nature_dark_faq')}伤害。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_moze_dark_assault_faq',
         name: '|暗袭|',
-        info: `貊泽专属：${get.poptip('bts_sk_lvexi')}赋予；猎物受他人【杀】伤害后追击；暗之祝福清空或你/猎物死亡时结束。`,
+        info: `貊泽专属：${get.poptip('bts_sk_lvexi')}赋予；猎物受他人【杀】伤害后追击；${get.poptip('bts_glossary_bless_dark_faq')}清空或你/猎物死亡时结束。`,
     },
 ];

@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '雷·巡猎·折足之狼'; // 属性·命途
 export const intro =
-    `${B(get.poptip('bts_glossary_bless_busi_faq'))}把伤害染成光；麻痹或光属目标受伤时，补一记追击。`;
+    `${B(get.poptip('bts_glossary_bless_busi_faq'))}把伤害染成光；${get.poptip('bts_glossary_mabi_faq')}或光属目标受伤时，补一记追击。`;
 
 export const character = {
     bts_ch_busitu: {
@@ -217,9 +217,12 @@ export const translate = {
     bts_sk_suyuan_info: `锁定技，当${get.poptip('bts_glossary_nature_light_faq')}或处于${get.poptip('bts_glossary_mabi_faq')}的其他角色受到不为你造成的伤害后，若你的${get.poptip('bts_glossary_lanhan_faq')}少于3枚，你获得1枚${get.poptip('bts_glossary_lanhan_faq')}、回复1点${get.poptip('bts_glossary_nuqi_faq')}并视为对其使用【杀】。`,
     bts_mk_lanhan: '婪酣',
 
-
-
-
+    '$bts_sk_xiangyan1': "献出我血，吞没不义……",
+    '$bts_sk_xiangyan2': "恶兽们，来，开始自相残杀吧！",
+    '$bts_sk_bianshao1': "千疮百孔呐",
+    '$bts_sk_bianshao2': "露馅了吧",
+    '$bts_sk_suyuan1': "以牙还牙",
+    '$bts_sk_suyuan2': "争个死活",
 };
 
 export const simpleTranslate = {
@@ -228,7 +231,7 @@ export const simpleTranslate = {
     bts_sk_suyuan_info: `锁；光/${get.poptip('bts_glossary_mabi_faq')}他人受非你伤害时，${get.poptip('bts_glossary_lanhan_faq')}<3则+${get.poptip('bts_glossary_lanhan_faq')}回怒并追杀`,
 };
 
-export const pinyins = { bts_ch_busitu: 'busitu' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。

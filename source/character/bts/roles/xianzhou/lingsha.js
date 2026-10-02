@@ -134,7 +134,7 @@ export const skill = {
                     event.card?.storage?.bts_sk_fuyuan && event.num > 0
                 );
             // 源 L7064-7071：使用必杀技（max_ 技能牌）或结束阶段开始。
-            // 无名杀以 bts_bisha 标签判定（勿用 includes('st_')，命中所有 bts_st_* 技能）
+            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）
             return (
                 triggername === 'phaseJieshuBegin' ||
                 lib.skill[event.skill]?.bts_bisha === true
@@ -246,7 +246,7 @@ export const translate = {
     '~bts_ch_lingsha': "烟消…火灭……",
     bts_abnormal_chunzui: '醇醉',
     bts_mk_fuyuan: '浮元',
-    bts_mk_fuyuan_info: '来源：浮元赋予；浮元：3次后失去',
+    bts_mk_fuyuan_info: `来源：${get.poptip('bts_glossary_fuyuan_faq')}赋予；${get.poptip('bts_glossary_fuyuan_faq')}：3次后失去`,
 };
 
 export const simpleTranslate = {
@@ -256,7 +256,7 @@ export const simpleTranslate = {
     bts_sk_fuyuan_info: `${get.poptip('bts_glossary_bisha_faq')}后或结束阶段可用${get.poptip('bts_glossary_fuyuan_faq')}杀：防伤、弃N牌+炎、治疗最低关联者；3次后失去`,
 };
 
-export const pinyins = { bts_ch_lingsha: 'lingsha' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_chunzui: {

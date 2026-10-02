@@ -1,0 +1,21 @@
+# 无语音技能排除清单（供 scripts/voice.mjs 使用）
+#
+# 作用：把「本来就没有语音」的技能列入这里——gen 不再为其预留「缺音频（待补）」空位，
+#   reorganize 会移除其残留条目、write 会跳过其台词行。适用于 mod技 / 内部子技 /
+#   封锁技 / 链驱动等纯机制型技能（源版亦无语音）。
+#
+# 格式：每行一个技能 id；支持 * 通配（如 bts_sk_*_blocker）；# 起注释（整行或行尾）；
+#   空行忽略。须以 bts_ 开头（防误配）。
+# 管理：`node scripts/voice.mjs exclude` 交互菜单；或 `exclude list|add|remove [id…]`；
+#   也可直接编辑本文件，之后重跑 `node scripts/voice.mjs gen` 生效。
+#
+# 首批（2026-10-02）：白厄变身期结算子技 ×3 + 黄泉封锁技（机制型，源版即无语音）
+bts_sk_fanshi_drive         # 白厄·燔世——波次驱动（变身期延后结算子技）
+bts_sk_fanshi_drive_skip    # 白厄·燔世——推进跳过
+bts_sk_shihun_tail          # 白厄·弑魂——收尾追击
+bts_sk_canmeng_blocker      # 黄泉·残梦——封锁技（skillBlocker 机制）
+bts_sk_guiji                # 花火·诡计
+bts_sk_pingfu               # 藿藿·凭附
+bts_sk_yeying               # 长夜月·夜影
+bts_sk_aishi                # 昔涟·爱诗
+bts_sk_jungong              # 刻律德菈·军功

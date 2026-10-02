@@ -4,8 +4,8 @@ import { lib, game, ui, get, ai, _status, styleText, B, O } from '../../shared.j
 export const sort = 'xingqionglieche';
 export const title = '虚数·虚无·名的传承'; // 属性·命途
 export const intro =
-    `${B('瓦尔特')}是控制型：${get.poptip('bts_glossary_bisha_faq')}${B('拟洞')}令一名角色跳过下个回合，你回复${get.poptip('bts_glossary_nuqi_faq')}，${B('扭曲')}在造成伤害后强制对方弃牌，${B('断界')}拼点翻面并叠仪式摸牌。` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}时拟洞附加「仪式瞬发」，令下次断界直接摸牌`;
+    `${B('瓦尔特')}是控制型：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_nidong'))}令一名角色跳过下个回合，你回复${get.poptip('bts_glossary_nuqi_faq')}，${B(get.poptip('bts_sk_niuqu'))}在造成伤害后强制对方弃牌，${B(get.poptip('bts_sk_duanjie'))}拼点翻面并叠仪式摸牌。` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_nidong')}附加「仪式瞬发」，令下次${get.poptip('bts_sk_duanjie')}直接摸牌`;
 
 export const character = {
     bts_ch_welt: {
@@ -199,7 +199,7 @@ export const simpleTranslate = {
         '出牌阶段，弃1张【杀】与1名角色拼点，没赢者翻面；翻面后摸仪式层数张牌',
 };
 
-export const pinyins = { bts_ch_welt: 'waerte' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const marks = {
     bts_mk_skill_moment: {

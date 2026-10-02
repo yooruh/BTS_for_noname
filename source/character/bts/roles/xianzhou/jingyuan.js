@@ -190,7 +190,7 @@ export const translate = {
     '$bts_sk_shenjun2': "哼，破绽百出",
     '~bts_ch_jingyuan': "久疏战阵了…",
     bts_bless_shenjun: '神君祝福',
-    bts_bless_shenjun_info: '来源：吾身、震曜赋予；攻击范围/手牌上限+层数，神君耗5层连杀；回合结束自然减少1层',
+    bts_bless_shenjun_info: `来源：${get.poptip('bts_sk_wushen')}、${get.poptip('bts_sk_zhenyao')}赋予；攻击范围/手牌上限+层数，${get.poptip('bts_glossary_bless_shenjun_faq')}耗5层连杀；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
@@ -199,7 +199,7 @@ export const simpleTranslate = {
     bts_sk_shenjun_info: `出牌结束时${get.poptip('bts_glossary_bless_shenjun_faq')}≥5可扣5层：先对上一个被你伤过的角色用【杀】，再随机对本回合伤过的角色至多3次`,
 };
 
-export const pinyins = { bts_ch_jingyuan: 'jingyuan' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_shenjun: {
@@ -222,11 +222,11 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_shenjun_faq',
         name: '神君祝福',
-        info: '你的攻击范围与手牌上限增加此祝福层数；拥有至少5层时可由神君移除5层发动【杀】连击。你的结束阶段开始时，此祝福减少1层。',
+        info: `你的攻击范围与手牌上限增加此${get.poptip('bts_glossary_bless_faq')}层数；拥有至少5层时可由${get.poptip('bts_glossary_bless_shenjun_faq')}移除5层发动【杀】连击。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_st_zhankan_faq',
         name: '|斩勘|',
-        info: `景元专属：${get.poptip('bts_sk_zhankan')}觉醒获得，+3怒气并解锁${get.poptip('bts_sk_shenjun')}。`,
+        info: `景元专属：${get.poptip('bts_sk_zhankan')}觉醒获得，+3${get.poptip('bts_glossary_nuqi_faq')}并解锁${get.poptip('bts_sk_shenjun')}。`,
     },
 ];

@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xinghelieshou';
 export const title = '量子·虚无·封禁玩家'; // 属性·命途
 export const intro =
-    `${B('银狼')}是异常干扰：${get.poptip('bts_glossary_bisha_faq')}${B('封号')}用${get.poptip('bts_glossary_nuqi_faq')}附加诅咒，${B('程序')}在指定目标后随机附加基础异常，${B('更改')}弃【杀】把一名角色的属性复制给另一名角色。` +
-    `<li>目标异常种类越多，封号回${get.poptip('bts_glossary_nuqi_faq')}越强`;
+    `${B('银狼')}是异常干扰：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_fenghao'))}用${get.poptip('bts_glossary_nuqi_faq')}附加诅咒，${B(get.poptip('bts_sk_chengxu'))}在指定目标后随机附加基础异常，${B(get.poptip('bts_sk_genggai'))}弃【杀】把一名角色的属性复制给另一名角色。` +
+    `<li>目标异常种类越多，${get.poptip('bts_sk_fenghao')}回${get.poptip('bts_glossary_nuqi_faq')}越强`;
 
 export const character = {
     bts_ch_yinlang: {
@@ -178,4 +178,4 @@ export const simpleTranslate = {
         '链接；出牌阶段，弃1张【杀】选1名有附加角色和1名其他角色，后者获得前者的附加',
 };
 
-export const pinyins = { bts_ch_yinlang: 'yinlang' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

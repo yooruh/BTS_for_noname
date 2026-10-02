@@ -19,9 +19,9 @@ import {
 export const sort = 'xingqionglieche';
 export const title = '风·巡猎·迷离过去的陌客'; // 属性·命途
 export const intro =
-    `${B('丹恒')}是反击型角色：${get.poptip('bts_glossary_nuqi_faq')}/${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}供给时积累${B(get.poptip('bts_glossary_guantong_faq'))}，用【杀】转化的${B('疾雨')}触发${B(get.poptip('bts_glossary_abnormal_fossilize_faq'))}。` +
-    `<li>尽量在受到供给后积攒${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}再输出，洞天对处于异常的目标伤害更高` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}（主公）时洞天击杀可获得额外回合`;
+    `${B('丹恒')}是反击型角色：${get.poptip('bts_glossary_nuqi_faq')}/${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}供给时积累${B(get.poptip('bts_glossary_guantong_faq'))}，用【杀】转化的${B(get.poptip('bts_sk_jiyu'))}触发${B(get.poptip('bts_glossary_abnormal_fossilize_faq'))}。` +
+    `<li>尽量在受到供给后积攒${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}再输出，${get.poptip('bts_sk_dongtian')}对处于异常的目标伤害更高` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}（主公）时${get.poptip('bts_sk_dongtian')}击杀可获得额外回合`;
 
 export const character = {
     bts_ch_danheng: {
@@ -54,7 +54,7 @@ export const skill = {
             const target = event.targets[0];
             if (!target) return;
             lib.bts.api.loseAngry(player, 3); // 源 L1752
-            // 目标处于异常时伤害+1；reason 带 _fatal = 致命伤害（无法回怒气，见 resolver damageEnd）
+            // 目标处于异常时伤害+1；reason 带 _fatal = 致命伤害（受伤者无法回怒气，见 resolver damageEnd）
             const num = lib.bts.api.getAbnor(target) ? 2 : 1; // 源 L1754
             const damage = target.damage(player, num, 'nocard');
             damage.reason = 'bts_sk_dongtian_bts_reason_fatal';
@@ -83,15 +83,22 @@ export const skill = {
     },
 
     // ── 锁定技·寸强（源 st_cunqiang = TriggerSkill Compulsory，L1766-1790）──
+    // 2026-10-02 自注册重构：他人令你回复怒气/附加护盾经 lib.bts.api.addAngry/addShield
+    // 广播 bts_resource_add，本技能监听结算（原在 API 内按 hasSkill 内联代执行）。
     bts_sk_cunqiang: {
         trigger: {
-            // 怒气/护盾由 lib.bts.api.addAngry/addShield 中的直接联动处理；
-            // 此处保留其他角色令你回复体力或获得牌两类事件。
-            player: ['recoverEnd', 'gainAfter'],
+            player: ['recoverEnd', 'gainAfter', 'bts_resource_add'],
         },
         forced: true,
         filter(event, player, triggername) {
             if (lib.bts.api.getBless(player, 'through')) return false;
+            if (triggername === 'bts_resource_add') {
+                // 其他角色令你获得怒气/附加护盾（祝福不参与寸强）
+                return (
+                    event.from !== player &&
+                    (event.kind === 'angry' || event.kind === 'shield')
+                );
+            }
             if (triggername === 'recoverEnd') {
                 // 其他角色令你回复体力（源 HpRecover: recover.who != player）
                 return !!event.source && event.source !== player;
@@ -204,4 +211,4 @@ export const simpleTranslate = {
     bts_sk_jiyu_info: `出牌阶段，弃1张【杀】对攻击范围内1名角色造成1点伤害；若造成特殊伤害则使其+1层${get.poptip('bts_glossary_abnormal_fossilize_faq')}`,
 };
 
-export const pinyins = { bts_ch_danheng: 'danheng' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

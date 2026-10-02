@@ -6,8 +6,8 @@ import { extensionPath } from '../../../../tool/utils/paths.js';
 export const sort = 'yaliluo';
 export const title = '物理·毁灭·与机械为伴'; // 属性·命途
 export const intro =
-    `${B('克拉拉')}是反击型：${get.poptip('bts_glossary_bisha_faq')}${B('约定')}积攒标记，${B('复仇')}准备阶段弃【杀】追击，${B('家人')}受伤时召唤史瓦罗反击。` +
-    `<li>史瓦罗形态的【杀】会附加${get.poptip('bts_glossary_abnormal_scary_faq')}`;
+    `${B('克拉拉')}是反击型：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yueding'))}积攒标记，${B(get.poptip('bts_sk_fuchou'))}准备阶段弃【杀】追击，${B(get.poptip('bts_sk_jiaren'))}受伤时召唤${get.poptip('bts_ch_shiwaluo')}反击。` +
+    `<li>${get.poptip('bts_ch_shiwaluo')}形态的【杀】会附加${get.poptip('bts_glossary_abnormal_scary_faq')}`;
 
 export const character = {
     bts_ch_kelala: {
@@ -113,7 +113,7 @@ export const skill = {
         async content(event, trigger, player) {
             if (event.cards) await player.discard(event.cards);
 
-            const targets = event.targets.slice().sortBySeat(_status.event.phase);
+            const targets = lib.bts.api.seatOrder(event.targets);
             for (const target of targets) {
                 const result = await target.chooseCard('hes', `被${get.translation(player)}选为了「复仇」目标`, `弃置1张牌，或者选择取消，受到1点伤害并移除1层${get.poptip('bts_glossary_abnormal_scary_faq')}`).set("ai", card => {
                     if (target.hp >= 2 && lib.bts.api.getAbnor(target, 'scary')) return -1;
@@ -220,3 +220,5 @@ export const simpleTranslate = {
     bts_sk_jiaren_info: `锁；受伤时，对来源用杀并令其+1${get.poptip('bts_glossary_abnormal_scary_faq')}`,
     bts_sk_quzhu_info: `锁；用杀指定目标后令其+1${get.poptip('bts_glossary_abnormal_scary_faq')}`,
 };
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

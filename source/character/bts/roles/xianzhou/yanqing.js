@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '冰·巡猎·云骑骁卫'; // 属性·命途
 export const intro =
-    `${B('彦卿')}靠${get.poptip('bts_glossary_hudun_faq')}打架：快雨${get.poptip('bts_glossary_bless_fatal_faq')}、呼剑${get.poptip('bts_glossary_abnormal_freeze_faq')}追击、三尺续盾。`;
+    `${B('彦卿')}靠${get.poptip('bts_glossary_hudun_faq')}打架：${get.poptip('bts_sk_kuaiyu')}${get.poptip('bts_glossary_bless_fatal_faq')}、${get.poptip('bts_sk_hujian')}${get.poptip('bts_glossary_abnormal_freeze_faq')}追击、${get.poptip('bts_sk_sanchi')}续盾。`;
 
 export const character = {
     bts_ch_yanqing: {
@@ -176,4 +176,4 @@ export const simpleTranslate = {
     bts_sk_sanchi_info: `出牌阶段结束可弃杀+1${get.poptip('bts_glossary_hudun_faq')}`,
 };
 
-export const pinyins = { bts_ch_yanqing: 'yanqing' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

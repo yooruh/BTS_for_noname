@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '虚数·巡猎·万物皆流'; // 属性·命途
 export const intro =
-    `${B('真理医生')}是追击控制：${get.poptip('bts_glossary_bisha_faq')}${B('悖论')}令目标附加${get.poptip('bts_glossary_abnormal_duanjian_faq')}并造成伤害，${B('推理')}锁定追击受伤的${get.poptip('bts_glossary_abnormal_duanjian_faq')}目标，${B('助产')}在结束阶段弃【杀】判定追击。` +
+    `${B('真理医生')}是追击控制：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_beilun'))}令目标附加${get.poptip('bts_glossary_abnormal_duanjian_faq')}并造成伤害，${B(get.poptip('bts_sk_tuili'))}锁定追击受伤的${get.poptip('bts_glossary_abnormal_duanjian_faq')}目标，${B(get.poptip('bts_sk_zhuchan'))}在结束阶段弃【杀】判定追击。` +
     `<li>${get.poptip('bts_glossary_abnormal_duanjian_faq')}角色被他人伤害时你会自动对其使用【杀】`;
 
 export const character = {
@@ -167,7 +167,7 @@ export const simpleTranslate = {
         '结束阶段，弃1杀选1名其他角色弃其1手牌，判定点数≤其异常种类数×3则视为对其用杀',
 };
 
-export const pinyins = { bts_ch_zhenliyisheng: 'zhenliyisheng' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_duanjian: {

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>崩铁杀 - 帮助文档</title>
+    <style>
+        /* ── 主题变量（浅色默认；深色由 dialogManager 注入的 data-lit-theme 切换）── */
+        :root {
+            --primary: #2e4a6b;
+            --accent: #b08d4f;
+            --text: #333a42;
+            --text-sub: #6b7681;
+            --bg: #f2f4f7;
+            --surface: #ffffff;
+            --surface-sub: #f7f8fa;
+            --border: #dde2e8;
+            --code-bg: #eef1f4;
+            --note-bg: #fdf6e3;
+            --note-border: #d8b95e;
+            --table-head: #eef2f6;
+            --link: #3b78ad;
+            --link-hover: #2a5c88;
+            --shadow: 0 4px 18px rgba(20, 30, 45, 0.08);
+        }
+
+        html[data-lit-theme="dark"] {
+            --primary: #8fb3d9;
+            --accent: #d4b577;
+            --text: #d7dbe0;
+            --text-sub: #9aa4af;
+            --bg: #1d2126;
+            --surface: #262b31;
+            --surface-sub: #2b3138;
+            --border: #3a4149;
+            --code-bg: #31383f;
+            --note-bg: #3a3526;
+            --note-border: #d8b95e;
+            --table-head: #2f363d;
+            --link: #add8e6;
+            --link-hover: #d3ecf6;
+            --shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+            line-height: 1.65;
+            font-size: 15px;
+        }
+
+        .container {
+            box-sizing: border-box;
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 28px 30px 60px;
+        }
+
+        /* ── 标题 ── */
+        h1 {
+            font-size: 26px;
+            color: var(--primary);
+            margin: 0 0 6px;
+            letter-spacing: 1px;
+        }
+
+        h1 small {
+            font-size: 14px;
+            color: var(--text-sub);
+            font-weight: normal;
+            margin-left: 10px;
+        }
+
+        h2 {
+            font-size: 20px;
+            color: var(--primary);
+            margin: 0 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        h3 {
+            font-size: 16px;
+            margin: 18px 0 8px;
+            color: var(--text);
+        }
+
+        p {
+            margin: 8px 0;
+        }
+
+        ul,
+        ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        b {
+            color: var(--primary);
+        }
+
+        /* ── 超链接（仿叁岛：朴素文字链接 + 下划线） ── */
+        a {
+            color: var(--link);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            cursor: pointer;
+        }
+
+        a:visited {
+            color: var(--link);
+        }
+
+        a:hover {
+            color: var(--link-hover);
+            text-decoration-thickness: 2px;
+        }
+
+        code {
+            background: var(--code-bg);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        /* ── 卡片区块 ── */
+        section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin: 18px 0;
+            padding: 20px 24px;
+        }
+
+        /* ── 目录（胶囊按钮） ── */
+        .toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .toc a,
+        .toc a:visited {
+            display: inline-block;
+            padding: 4px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--surface-sub);
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .toc a:hover {
+            border-color: var(--accent);
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        /* ── 折叠面板（点击展开） ── */
+        details.fold {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface-sub);
+            padding: 0 14px;
+            margin: 10px 0;
+        }
+
+        details.fold summary {
+            cursor: pointer;
+            padding: 10px 2px;
+            font-weight: 600;
+            color: var(--primary);
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        details.fold summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.fold summary::before {
+            content: '▶';
+            font-size: 10px;
+            transition: transform 0.15s;
+        }
+
+        details.fold[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        /* ── 提示块 ── */
+        .note {
+            background: var(--note-bg);
+            border-left: 4px solid var(--note-border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        /* ── 表格 ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--border);
+            padding: 7px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--table-head);
+            color: var(--primary);
+            white-space: nowrap;
+        }
+
+        tr:nth-child(even) td {
+            background: var(--surface-sub);
+        }
+
+        /* ── 属性色点 ── */
+        .dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+            border: 1px solid rgba(0, 0, 0, .2);
+        }
+
+        .footer {
+            color: var(--text-sub);
+            font-size: 13px;
+            text-align: center;
+            margin-top: 26px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>崩铁杀 · 帮助文档<small>版本 {{version}}</small></h1>
+        <p>《崩铁杀》（星穹铁道·三国杀）是《太阳神三国杀 V2 EX》同名扩展的无名杀移植版：80 余名角色分布于 8 大阵营，在无名杀基础规则之上追加了<b>怒气、必杀技、护盾、诅咒、异常、祝福与元素</b>等自定义机制，并附带在线更新、推荐设置、AI 选将等扩展功能。</p>
+        <p>没接触过无名杀也没关系，下一节为新手准备了基础操作说明；玩过三国杀的可以直接从<a href="#mechanics">基础机制</a>读起。</p>
+        <div class="toc">
+            <a href="#start">快速开始</a>
+            <a href="#basics">无名杀基础操作</a>
+            <a href="#mechanics">基础机制</a>
+            <a href="#natures">元素系统</a>
+            <a href="#abnormal">异常状态</a>
+            <a href="#bless">祝福一览</a>
+            <a href="#god">星启 / 忆灵 / 欢愉</a>
+            <a href="#rules">其他全局规则</a>
+            <a href="#faction">势力与角色</a>
+            <a href="#engine">对无名杀底层的扩展</a>
+            <a href="#settings">扩展设置</a>
+            <a href="#update">更新与维护</a>
+        </div>
+
+        <!-- ═══════════════ 快速开始 ═══════════════ -->
+        <section id="start">
+            <h2>快速开始</h2>
+            <ul>
+                <li><b>启用扩展</b>：将「崩铁杀」放入无名杀 <code>resources/app/extension/</code> 目录，在「选项 → 扩展」中启用并重启；已启用过旧版的可在扩展设置中点「在线更新扩展」获取最新版本。</li>
+                <li><b>应用推荐设置</b>：扩展设置 →「应用推荐的无名杀全局设置」，载入适配本扩展的全局配置（Windows/Android 两套，可先备份当前配置）。</li>
+                <li><b>开始游戏</b>：任意模式均可使用本扩展角色；身份模式单机局可额外配置 AI 选将策略与「主公星启」条件。</li>
+                <li><b>疑难查看</b>：选中角色或悬浮标记、词条（带下划线的名词）即可查看解释；本文即完整机制文档。</li>
+            </ul>
+            <div class="note">
+                <b>新手推荐流程</b>：① 启用扩展并应用推荐设置 → ② 在扩展设置中开启「技能详情弹窗宽度加倍」「卡牌上显示出牌信息」（阅读辅助，按需） → ③ 开一局单机身份模式，遇到不认识的术语就悬浮或点击查看词条 → ④ 操作不熟练时先读<a href="#basics">无名杀基础操作</a>。
+            </div>
+        </section>
+
+        <!-- ═══════════════ 无名杀基础操作（新手） ═══════════════ -->
+        <section id="basics">
+            <h2>无名杀基础操作</h2>
+            <p>这一节写给从未玩过无名杀、甚至没玩过三国杀类游戏的玩家。已经熟悉的可以跳过。</p>
+            <details class="fold">
+                <summary>点击展开阅读：从开局到出牌的操作指引</summary>
+                <h3>开始一局</h3>
+                <ol>
+                    <li>主菜单点「开始游戏」，选择模式；初次游玩建议单机「身份模式」（主公/忠臣、反贼、内奸三方对抗）。</li>
+                    <li>进入选将界面后，点击你想要的武将卡选择自己的角色；崩铁杀角色按势力分组，可先在界面里翻找。选好后点「确定」。</li>
+                    <li>对局按座位轮流进行；轮到你的回合时，界面会逐段给出提示与可选按钮。</li>
+                </ol>
+                <h3>回合与出牌</h3>
+                <ul>
+                    <li>一个回合大致按「判定 → 摸牌 → 出牌 → 弃牌 → 结束」推进：开始通常摸两张牌，出牌阶段可以使用牌，手牌超出上限时需弃牌。</li>
+                    <li>点击手牌即可使用或打出；需要选择目标时，点其他角色，再点「确定」——点「取消」可以重选。</li>
+                    <li>基本牌（杀、闪、桃、酒）、锦囊牌与装备牌的使用方式与三国杀一致；本扩展不添加新卡牌，使用无名杀标准牌堆。</li>
+                </ul>
+                <h3>技能与必杀技</h3>
+                <ul>
+                    <li>你的技能按钮就在角色卡旁：满足发动条件时按钮会亮起，点击后按提示选择目标或牌，再点「确定」。</li>
+                    <li>崩铁杀的必杀技平时不会亮，攒足怒气后按钮亮起即可发动；技能描述里的名词（怒气、护盾、异常等）都可以点击查看解释。</li>
+                    <li>不确定点哪里时：悬浮（移动端长按）角色卡与技能按钮可以查看描述。</li>
+                </ul>
+                <h3>界面上的信息</h3>
+                <ul>
+                    <li>角色卡旁的角标就是崩铁杀的状态标记（怒气、护盾、异常、祝福等）；悬浮（移动端长按）可看层数，点击可看完整说明。</li>
+                    <li>屏幕角落的菜单按钮里有「托管」（交给 AI 自动行动，随时可以收回）、投降与退出等选项。</li>
+                </ul>
+                <h3>遇到问题</h3>
+                <ul>
+                    <li>操作被拒绝：通常是不满足使用条件（距离、次数、目标合法性等），说明区会给出原因。</li>
+                    <li>吃不准规则时：先把这一局打完，或退回主菜单重开；崩铁杀的大多数术语都能点击查看解释。</li>
+                </ul>
+            </details>
+        </section>
+
+        <!-- ═══════════════ 基础机制 ═══════════════ -->
+        <section id="mechanics">
+            <h2>基础机制</h2>
+            <p>以下机制适用于崩铁杀角色，由扩展的全局规则与角色技能共同驱动；具体到某个角色是否涉及，以其技能描述为准。</p>
+
+            <h3>怒气</h3>
+            <ul>
+                <li>释放必杀技与部分主动技能的资源。受到伤害后回复等量怒气（受<b>致命伤害</b>时不回复）；造成<b>暴击伤害</b>时来源回复1点怒气；部分技能效果也会回复或消耗怒气。</li>
+                <li>仅拥有「以怒气发动的必杀技」的角色会获得怒气（资源型必杀技角色不显示怒气）；「怒气豁免」可使消耗怒气时优先消耗豁免层数。</li>
+                <li>是否在角色旁显示怒气层数可在扩展设置中开关。</li>
+            </ul>
+
+            <h3>必杀技</h3>
+            <ul>
+                <li>角色的强力技能，<b>消耗怒气</b>（部分角色为火种、残梦等其他资源）发动，<b>无次数限制</b>，仅受资源门槛制约。</li>
+                <li>处于<b>星启</b>状态时，必杀技伤害+1（部分技能另有额外效果）。</li>
+            </ul>
+
+            <h3>护盾</h3>
+            <ul>
+                <li>独立的防御层数，受到伤害时每点护盾可抵挡1点伤害；<b>贯通伤害</b>可无视护盾。</li>
+                <li>这是本扩展自有的机制，与无名杀本体的「护甲」互不相通：护盾只按上述规则抵挡伤害，不参与护甲的获取与回复。</li>
+            </ul>
+
+            <h3>诅咒</h3>
+            <ul>
+                <li>受到伤害时，伤害+诅咒层数，并清空全部诅咒层数；诅咒不会被自然衰减。</li>
+            </ul>
+
+            <h3>伤害性质</h3>
+            <table>
+                <tr>
+                    <th>性质</th>
+                    <th>效果</th>
+                </tr>
+                <tr>
+                    <td>致命伤害</td>
+                    <td>受伤者不会因此回复怒气。</td>
+                </tr>
+                <tr>
+                    <td>贯通伤害</td>
+                    <td>无视护盾（护盾不参与抵挡）。</td>
+                </tr>
+                <tr>
+                    <td>暴击伤害</td>
+                    <td>伤害来源回复1点怒气（受击方被「石化」时受到的伤害视为暴击）。</td>
+                </tr>
+                <tr>
+                    <td>通常伤害</td>
+                    <td>技能标注“通常伤害”的伤害，不被致命/贯通/暴击等祝福改写。</td>
+                </tr>
+            </table>
+            <p>伤害性质的来源：伤害性<b>祝福</b>（致命/贯通/暴击祝福）、技能自带标注、异常状态（石化）。多个性质可以叠加。</p>
+        </section>
+
+        <!-- ═══════════════ 元素系统 ═══════════════ -->
+        <section id="natures">
+            <h2>元素系统</h2>
+            <p>元素共 7 种（显示与崩铁官方命名一致）；技能可为角色<b>附加</b>元素（标记显示为“xx附加”），也可造成<b>带元素</b>的伤害。</p>
+            <table>
+                <tr>
+                    <th>元素</th>
+                    <th>标记名</th>
+                    <th>融合触发</th>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#cecece"></span>物理</td>
+                    <td>物理附加</td>
+                    <td>石化</td>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#e62929"></span>炎</td>
+                    <td>炎附加</td>
+                    <td>烧伤</td>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#4cabde"></span>霜</td>
+                    <td>霜附加</td>
+                    <td>冻结</td>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#b64dd4"></span>电</td>
+                    <td>电附加</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#55c590"></span>风</td>
+                    <td>风附加</td>
+                    <td>中毒</td>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#4f47be"></span>量子</td>
+                    <td>量子附加</td>
+                    <td>睡眠</td>
+                </tr>
+                <tr>
+                    <td><span class="dot" style="background:#f3df32"></span>虚数</td>
+                    <td>虚数附加</td>
+                    <td>麻痹</td>
+                </tr>
+            </table>
+            <h3>规则</h3>
+            <ul>
+                <li><b>附加</b>：对无元素者附加 → 直接挂上元素标记。</li>
+                <li><b>同元素融合</b>：对已附加相同元素者再次附加 → 移除元素并触发融合异常（对应上表；电暂无融合异常）。</li>
+                <li><b>异元素替换</b>：对已附加不同元素者附加 → 回复1点体力，并替换为新元素。</li>
+                <li><b>元素相克</b>：带元素的伤害命中附加了<b>另一</b>元素的角色时，该伤害+1，并移除其元素附加。</li>
+                <li>本扩展元素<b>不参与</b>无名杀本体的铁索连环传导（束缚状态），改为自研的「伤害链」记录。</li>
+            </ul>
+        </section>
+
+        <!-- ═══════════════ 异常状态 ═══════════════ -->
+        <section id="abnormal">
+            <h2>异常状态</h2>
+            <p>由技能效果赋予，以层数计算；<b>回合结束阶段开始时各减1层</b>；回复体力会清除烧伤/麻痹/中毒/冻结/石化/睡眠六种基础异常（一次全部移除）。</p>
+            <table>
+                <tr>
+                    <th>异常</th>
+                    <th>效果</th>
+                </tr>
+                <tr>
+                    <td>麻痹</td>
+                    <td>额定摸牌数-1；摸牌阶段开始时受到1点无来源伤害；引爆时每层造成1点无来源伤害。</td>
+                </tr>
+                <tr>
+                    <td>烧伤</td>
+                    <td>出牌阶段开始时受到1点无来源伤害；攻击范围-1；引爆时每层造成1点无来源伤害。</td>
+                </tr>
+                <tr>
+                    <td>中毒</td>
+                    <td>手牌上限-1；弃牌阶段开始时失去1点体力；引爆时每层使持有者失去1点体力。</td>
+                </tr>
+                <tr>
+                    <td>冻结</td>
+                    <td>造成的伤害基数-1；不能使用装备牌。</td>
+                </tr>
+                <tr>
+                    <td>石化</td>
+                    <td>受到的伤害视为暴击；不能使用锦囊牌。</td>
+                </tr>
+                <tr>
+                    <td>睡眠</td>
+                    <td>不能使用基本牌；其他角色与你距离-1。</td>
+                </tr>
+                <tr>
+                    <td>混乱</td>
+                    <td>造成的伤害无效。</td>
+                </tr>
+                <tr>
+                    <td>恐惧</td>
+                    <td>不能弃置牌。</td>
+                </tr>
+                <tr>
+                    <td>地狱</td>
+                    <td>你的手牌视为【决斗】；使用【决斗】时失去1点体力。</td>
+                </tr>
+                <tr>
+                    <td>螺旋</td>
+                    <td>所有角色不是你使用牌的合法目标（只能使用技能牌）；出牌阶段结束时移除全部。</td>
+                </tr>
+                <tr>
+                    <td>体力上限减少</td>
+                    <td>额外减少等同层数的体力上限（减少上限保底1点）；结束阶段开始时移除1层并回补。</td>
+                </tr>
+            </table>
+            <div class="note">「引爆」为部分角色的专属结算方式（如卡芙卡）；此外还有各角色专属异常（败谢、沉醉、揭露、命定等），可在对应技能与词条中查看。</div>
+        </section>
+
+        <!-- ═══════════════ 祝福 ═══════════════ -->
+        <section id="bless">
+            <h2>祝福一览</h2>
+            <p>附着于角色的状态标记，以层数计算；<b>回合结束阶段开始时各减1层</b>（标记为“常驻”的祝福除外）；部分祝福还会因特定效果被移除层数。</p>
+            <table>
+                <tr>
+                    <th>祝福</th>
+                    <th>效果</th>
+                </tr>
+                <tr>
+                    <td>致命祝福</td>
+                    <td>你造成的伤害视为致命伤害（受伤者无法回复怒气）。</td>
+                </tr>
+                <tr>
+                    <td>贯通祝福</td>
+                    <td>你造成的伤害视为贯通伤害（无视护盾）。</td>
+                </tr>
+                <tr>
+                    <td>暴击祝福</td>
+                    <td>你造成的伤害视为暴击伤害。</td>
+                </tr>
+                <tr>
+                    <td>不死祝福</td>
+                    <td>防止你进入濒死（不消耗层数）；此祝福被移除至0层且体力小于1时，立即进入濒死。</td>
+                </tr>
+                <tr>
+                    <td>体力上限祝福</td>
+                    <td>每层使你的体力上限+1（若场上存在“雨过天晴”则翻倍）；衰减时上限随之下调。</td>
+                </tr>
+                <tr>
+                    <td>星启祝福</td>
+                    <td>视为处于星启状态，部分技能获得额外效果。</td>
+                </tr>
+                <tr>
+                    <td>契约祝福</td>
+                    <td>额定摸牌数+1。</td>
+                </tr>
+                <tr>
+                    <td>治愈祝福</td>
+                    <td>准备阶段开始时回复1点体力；若体力不大于1，每有1名存活且拥有“生机”的角色，回复量+1。</td>
+                </tr>
+                <tr>
+                    <td>增幅祝福</td>
+                    <td>发动必杀技造成的伤害+1；发动必杀技结算完毕后，若拥有至少2层，摸（层数-1）张牌。</td>
+                </tr>
+                <tr>
+                    <td>赐福祝福</td>
+                    <td>使用【杀】造成无属性伤害时，视为虚数属性伤害。</td>
+                </tr>
+                <tr>
+                    <td>欢愉祝福</td>
+                    <td>每层使你的欢愉成功判定成功率+10%。</td>
+                </tr>
+            </table>
+            <div class="note">此外还有各角色专属祝福（神君、生息、热意、雨过天晴、暗、海曲等），可在对应技能与词条中查看。</div>
+        </section>
+
+        <!-- ═══════════════ 星启 / 忆灵 / 欢愉 ═══════════════ -->
+        <section id="god">
+            <h2>星启 · 忆灵 · 欢愉</h2>
+
+            <h3>星启</h3>
+            <ul>
+                <li><b>主公星启</b>：身份模式的主公默认常驻星启（可在扩展设置中调整启用条件：均启用/仅崩铁角色在场/仅崩铁角色为主公/不启用）。</li>
+                <li><b>技能星启</b>：由「星启祝福」层数驱动（视为处于星启状态），随回合结束自然衰减1层。</li>
+                <li><b>效果</b>：部分技能在星启状态下获得额外效果；星启角色发动必杀技时伤害+1。</li>
+                <li>界面上统一显示为「星启」标记：悬浮可查看当前来源（主公/技能），来源可并存。</li>
+            </ul>
+
+            <h3>忆灵</h3>
+            <ul>
+                <li>部分角色（阿格莱雅、遐蝶、风堇、白厄、长夜月等）可召唤<b>忆灵</b>并进入合体形态，体力与上限合并计算。</li>
+                <li><b>生命同步</b>：本体受到伤害/失去体力时忆灵生命等量扣减；回复体力时等量回补（封顶忆灵上限，主公额外+1）。</li>
+                <li><b>离场</b>：忆灵生命归零自动离场并还原形态，同时触发各自的离场效果（如回怒气、摸牌、额外回合）。</li>
+            </ul>
+
+            <h3>欢愉</h3>
+            <ul>
+                <li>与角色“欢愉”技能（<code>*_funny</code>）联动的子系统：欢愉行动结算后获得1枚<b>笑点</b>。</li>
+                <li><b>欢愉时刻</b>：消耗全部笑点换算欢愉层数；每层使欢愉成功判定+10%（部分技能另有特殊联动，如“热意”替换为欢愉）。</li>
+            </ul>
+        </section>
+
+        <!-- ═══════════════ 其他规则 ═══════════════ -->
+        <section id="rules">
+            <h2>其他全局规则</h2>
+            <ul>
+                <li><b>伤害链 / 治疗链</b>：系统自动记录“你伤害过谁（累计值）/为谁回复过体力”，供相关技能判定“伤害过你的角色”“你治疗过的角色”等条件；记录随技能消费或回合清理更新。</li>
+                <li><b>回合计数清理</b>：技能内部“本回合内有效”的计数（如素裳·若水“本回合发动过必杀技”）会在出牌阶段开始 / 回合开始 / 回合结束时自动清理（按各自语义），不会跨回合残留。</li>
+                <li><b>体力上限保底</b>：所有减少体力上限的效果（体力上限祝福衰减、失上限异常、变身还原等）最多扣至 1 点，不会因失上限导致濒死。</li>
+                <li><b>额外回合</b>：部分技能可给予额外回合或额外出牌阶段（如知更鸟·合颂、白厄·燔世波次）。</li>
+                <li><b>标记变更日志</b>：资源/效果类标记的获得与消耗会写战斗日志；纯内部计数不写（不刷屏）。</li>
+            </ul>
+        </section>
+
+        <!-- ═══════════════ 势力 ═══════════════ -->
+        <section id="faction">
+            <h2>势力与角色</h2>
+            <table>
+                <tr>
+                    <th>势力</th>
+                    <th>代表角色</th>
+                </tr>
+                <tr>
+                    <td>星穹列车</td>
+                    <td>开拓者、三月七、丹恒、瓦尔特、姬子</td>
+                </tr>
+                <tr>
+                    <td>星核猎手</td>
+                    <td>卡芙卡、银狼、刃、流萤</td>
+                </tr>
+                <tr>
+                    <td>黑塔空间站</td>
+                    <td>黑塔、大黑塔、艾丝妲、阿兰、阮·梅、真理医生</td>
+                </tr>
+                <tr>
+                    <td>贝洛伯格</td>
+                    <td>希儿、布洛妮娅、杰帕德、克拉拉、卢卡等</td>
+                </tr>
+                <tr>
+                    <td>匹诺康尼</td>
+                    <td>黄泉、砂金、知更鸟、花火、翡翠、星期日等（含联动角色 Archer、Saber）</td>
+                </tr>
+                <tr>
+                    <td>仙舟</td>
+                    <td>景元、镜流、符玄、藿藿、飞霄、灵砂等</td>
+                </tr>
+                <tr>
+                    <td>黄金裔</td>
+                    <td>白厄、万敌、遐蝶、阿格莱雅、那刻夏、昔涟等（含双形态合体）</td>
+                </tr>
+                <tr>
+                    <td>二相乐园</td>
+                    <td>不死途、吉尔伽美什、千冶·刃、远坂凛、姬子·启行、砂金·戏浪、银狼LV999、知更鸟·晴歌</td>
+                </tr>
+            </table>
+            <p>势力颜色用于武将卡标签与选将界面分组；身份模式下可开启「BGM跟随主公」，为主公播放其专属音乐。</p>
+        </section>
+
+        <!-- ═══════════════ 底层扩展 ═══════════════ -->
+        <section id="engine">
+            <h2>对无名杀底层的扩展</h2>
+            <p>除角色内容外，本扩展还在无名杀引擎之上追加/覆写了以下底层功能，它们对所有崩铁杀角色自动生效：有些在界面上一眼可见，有些在后台运行。</p>
+
+            <h3>全局规则技能</h3>
+            <ul>
+                <li><b>伤害规则</b>：伤害开始（星启必杀+1、元素相克判定）与伤害结束（怒气回复、元素附加、伤害链记录、忆灵扣血、暴击回怒）的统一结算。</li>
+                <li><b>回复规则</b>：回复结束（清除基础异常、治疗链记录、忆灵回补）与失去体力结束（忆灵扣减）的统一结算。</li>
+                <li><b>阶段规则</b>：出牌/回合开始/回合结束时的“本回合计数”自动清理。</li>
+                <li><b>衰减规则</b>：回合结束阶段开始时，祝福/异常自然减1层（常驻祝福除外；体力上限祝福先于其他祝福结算，保证“雨过天晴”翻倍的正确性）。</li>
+            </ul>
+
+            <h3>标记生命周期（对标记读写的覆写）</h3>
+            <ul>
+                <li>覆写了玩家标记接口（<code>addMark</code>/<code>removeMark</code>）：标记层数大于 0 时<b>自动挂载</b>对应展示技能（图标/文字角标 + 悬浮说明），归零时<b>自动卸载</b>。</li>
+                <li>统一接管标记变更日志：资源/效果类保留，纯内部计数静默；单个标记可显式覆盖。</li>
+                <li>星启标记由“来源”驱动：主公星启与技能星启并集显示，来源变化时自动重算。</li>
+            </ul>
+
+            <h3>自定义标记事件</h3>
+            <ul>
+                <li>在标记读写完成（存储已变更）后，向全局派发 <code>bts_mark_add</code> / <code>bts_mark_remove</code> 事件，供效果类技能监听“某标记被移除”等时机，替代对引擎内建触发的依赖。</li>
+            </ul>
+
+            <h3>元素与势力注册</h3>
+            <ul>
+                <li>7 种元素注册进引擎元素表（含名称/颜色/排序），并设置<b>不参与铁索连环传导</b>；属性伤害与附加状态均由扩展自管。</li>
+                <li>8 个阵营注册进引擎势力表（含专属颜色与势力图标），选将界面按势力分组。</li>
+            </ul>
+
+            <h3>AI 系统</h3>
+            <ul>
+                <li><b>AI 选将</b>：仅单机·标准身份模式，在引擎选将决策前按策略选出目标角色并放到引擎必读取的位置（不修改模式文件；设置切换后下一局生效）。</li>
+                <li><b>AI 防重试守卫</b>：以“全局操作计数”判断 AI 是否在同一出牌阶段反复空转发动同一技能，命中后跳过该技能，防止卡死。</li>
+            </ul>
+
+            <h3>BGM 跟随主公 / 界面增强</h3>
+            <ul>
+                <li><b>BGM 跟随主公</b>：身份模式开局切换为主公专属 BGM（无专属则随机对战曲），循环播放；非崩铁主公不干预。</li>
+                <li><b>称号图标</b>：角色称号“属性·命途·昵称”渲染为属性/命途图标，点击查看中文名。</li>
+                <li><b>出牌注记</b>：在打出的牌下方显示“xx对xx使用”“xx打出”等一行小字（含录像回放）。</li>
+                <li><b>弹窗宽度加倍</b>：技能/角色详情弹窗宽度按当前布局动态×2（可选设置）。</li>
+                <li><b>势力名排版</b>：武将卡右上角势力标签按字数自动换行。</li>
+                <li><b>词条悬浮</b>：术语（怒气、祝福、异常、元素等）可在技能描述中悬浮/点击查看解释，解释与本文一致。</li>
+            </ul>
+
+            <h3>引擎差异适配</h3>
+            <ul>
+                <li><b>体力上限保底</b>：本体规则在体力上限扣至 0 时直接判定死亡，崩铁杀统一保底至少 1 点。</li>
+                <li><b>出牌阶段中止</b>：以“当前运行中的出牌阶段事件”原生语义终止，避免污染下一回合。</li>
+                <li><b>额外回合/阶段</b>：以阶段插入实现太阳神 Lua 中的额外回合与额外出牌阶段语义。</li>
+                <li><b>形态切换</b>：角色变形（含忆灵合体与还原）时按规则继承体力、体力上限与技能状态。</li>
+            </ul>
+        </section>
+
+        <!-- ═══════════════ 设置 ═══════════════ -->
+        <section id="settings">
+            <h2>扩展设置</h2>
+            <p>位置：菜单 → 选项 → 扩展 → 崩铁杀。</p>
+            <p>其中「技能详情弹窗宽度加倍」与「卡牌上显示出牌信息」属于阅读辅助，建议新手开启；「在线更新扩展」用于保持版本最新。其余各项按喜好调整即可，切换后立即生效。</p>
+            <table>
+                <tr>
+                    <th>设置项</th>
+                    <th>默认</th>
+                    <th>说明</th>
+                </tr>
+                <tr>
+                    <td>在线更新扩展</td>
+                    <td>—</td>
+                    <td>从 GitHub/Gitee 在线获取扩展并更新（支持断点续传、备份回滚与 Token 管理）。</td>
+                </tr>
+                <tr>
+                    <td>应用推荐的无名杀全局设置</td>
+                    <td>—</td>
+                    <td>载入适配本扩展的全局配置（Windows/Android 两套），可先备份当前配置到 files 目录。</td>
+                </tr>
+                <tr>
+                    <td>帮助文档</td>
+                    <td>—</td>
+                    <td>打开本文档。</td>
+                </tr>
+                <tr>
+                    <td>技能详情弹窗宽度加倍</td>
+                    <td>关</td>
+                    <td>角色/技能详情弹窗宽度×2，便于阅读长技能描述。</td>
+                </tr>
+                <tr>
+                    <td>卡牌上显示出牌信息</td>
+                    <td>关</td>
+                    <td>在打出的牌下方显示“xx对xx使用”“xx打出”等注记。</td>
+                </tr>
+                <tr>
+                    <td>显示怒气标记</td>
+                    <td>开</td>
+                    <td>是否在角色旁显示怒气层数。</td>
+                </tr>
+                <tr>
+                    <td>BGM 跟随主公</td>
+                    <td>关</td>
+                    <td>身份模式开局把 BGM 切换为主公的专属音乐。</td>
+                </tr>
+                <tr>
+                    <td>AI 选将逻辑</td>
+                    <td>纯随机</td>
+                    <td>纯随机 / 按评分（太阳神选将权重表）/ 按流派（技能定位标签）；仅单机·标准身份生效。</td>
+                </tr>
+                <tr>
+                    <td>主公星启启用条件</td>
+                    <td>仅崩铁角色在场</td>
+                    <td>均启用 / 仅崩铁角色在场 / 仅崩铁角色为主公 / 不启用；仅影响“主公星启”，技能星启不受影响。</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- ═══════════════ 更新 ═══════════════ -->
+        <section id="update">
+            <h2>更新与维护</h2>
+            <ul>
+                <li><b>在线更新</b>：扩展设置 →「在线更新扩展」，可选择 GitHub/Gitee 源、自动/仅代码/完整覆写模式；更新前后自动校验与备份，支持回滚。</li>
+                <li><b>本地更新</b>：下载新版本压缩包，覆盖 <code>resources/app/extension/崩铁杀/</code> 后重启；角色数据、配置文件互不影响。</li>
+                <li><b>问题反馈</b>：可通过扩展仓库（GitHub/Gitee）提交问题；卡死类问题建议附上调试日志。</li>
+            </ul>
+            <div class="note">本扩展仍在持续更新：新角色、资源与机制会随版本补充；更新完成后建议重启游戏并重开一局，让新内容生效。</div>
+        </section>
+
+        <div class="footer">崩铁杀 · 星穹铁道×三国杀 —— 帮助文档（版本 {{version}}）</div>
+    </div>
+</body>
+
+</html>

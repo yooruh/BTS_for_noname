@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'huangjinyi';
 export const title = '量子·同谐·黄金裔的半神'; // 属性·命途
 export const intro =
-    `${B('缇宝')}给人挂诅咒、发${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}，必杀触发后再补刀。`;
+    `${B('缇宝')}给人挂诅咒、发${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}，${get.poptip('bts_glossary_bisha_faq')}触发后再补刀。`;
 
 export const character = {
     bts_ch_tibao: {
@@ -132,7 +132,7 @@ export const skill = {
         trigger: { global: 'useSkillAfter' },
         filter(event, player) {
             // 源 L7886：其他角色使用 SkillCard 且技能名含 "max_"（必杀技），且其有贯通祝福。
-            // 无名杀以 bts_bisha 标签判定（勿用 includes('st_')，命中所有 bts_st_* 技能）
+            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）
             return (
                 event.player !== player &&
                 lib.skill[event.skill]?.bts_bisha === true &&
@@ -193,4 +193,4 @@ export const simpleTranslate = {
     bts_sk_manglu_info: `锁；他人发动${get.poptip('bts_glossary_bisha_faq')}且有${get.poptip('bts_glossary_guantong_faq')}后可对1名其他角色用杀`,
 };
 
-export const pinyins = { bts_ch_tibao: 'tibao' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

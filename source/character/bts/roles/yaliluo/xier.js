@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '量子·巡猎·惊风击雨之蝶'; // 属性·命途
 export const intro =
-    `${B('希儿')}是收割输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_glossary_abnormal_luandie_faq'))}${get.poptip('bts_glossary_bless_zengfu_faq')}伤害，${B('再现')}击杀后额外摸牌，${B('归刃')}摸牌阶段弃【杀】追击。` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_glossary_abnormal_luandie_faq')}会让目标持续附加${get.poptip('bts_glossary_abnormal_luandie_faq')}`;
+    `${B('希儿')}是收割输出：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_glossary_abnormal_luandie_faq'))}${get.poptip('bts_glossary_bless_zengfu_faq')}伤害，${B(get.poptip('bts_sk_zaixian'))}击杀后额外摸牌，${B(get.poptip('bts_sk_guiren'))}摸牌阶段弃【杀】追击。` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}时，${get.poptip('bts_sk_luandie')}伤害会令目标附加1层${get.poptip('bts_glossary_abnormal_luandie_faq')}`;
 
 export const character = {
     bts_ch_xier: {
@@ -17,7 +17,7 @@ export const character = {
 export const skill = {
     // ── 必杀技·乱蝶（源 st_luandie = SkillCard + ZeroCardViewAsSkill + DamageCaused，L4128-4167）──
     // 出牌阶段，失5怒气并选择一名其他角色（移除其拥有的乱蝶数代替失去等量的怒气），
-    // 你附加1层增幅祝福，对其造成1点伤害；若你为星启，以此法对其造成伤害后，令其附加1层乱蝶。
+    // 你附加2层增幅祝福（平衡改动：源为1），对其造成1点伤害；若你为星启，以此法对其造成伤害前，令其附加1层乱蝶。
     bts_sk_luandie: {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
@@ -54,7 +54,8 @@ export const skill = {
                 lib.bts.api.removeAbnormal(target, 'luandie', x);
             lib.bts.api.loseAngry(player, 5 - x); // 源 L4138：LoseAngry(5-x)
             // 源 L4139：AddBless(player, "@bless_zengfu")
-            await lib.bts.api.addBless(player, 'zengfu');
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            await lib.bts.api.addBless(player, 'zengfu', 2, player);
             // 源 L4140：room:damage
             const damage = target.damage(player, 1, 'nocard');
             damage.reason = 'bts_sk_luandie';
@@ -63,8 +64,12 @@ export const skill = {
         group: ['bts_sk_luandie_nature'],
         subSkill: {
             nature: {
-                // 源 L4163-4165：星启时乱蝶伤害后目标+1乱蝶
-                trigger: { source: 'damageEnd' },
+                // 源 L4163-4165：星启时以乱蝶造成的伤害→目标+1乱蝶（参照本 L4504-4515，
+                // events=DamageCaused L4508、AddAbnormal L4512）。源为伤害造成时（先于受伤者的
+                // 一切受伤事件）；2026-09-28 用户定夺挂 damageBefore（最早钩子：先于 content/
+                // damageBegin1-4、不依赖 priority、unreal 不跳过；《技能开发规范》A13 挂标记类），
+                // 先于乱蝶雪球的 damageEnd「已持有」门控结算；星启打无乱蝶目标：先+1、再雪球+1 = 共2层（与源一致）。
+                trigger: { source: 'damageBefore' },
                 filter(event, player) {
                     return (
                         lib.bts.api.god(player) &&
@@ -73,7 +78,7 @@ export const skill = {
                     );
                 },
                 async content(event, trigger, player) {
-                    lib.bts.api.addAbnormal(trigger.player, 'luandie', 1, player); // 源 L4164：AddAbnormal(damage.to, "@abnormal_luandie")
+                    lib.bts.api.addAbnormal(trigger.player, 'luandie', 1, player); // 源：AddAbnormal(damage.to, "@abnormal_luandie")
                 },
                 ai: { noe: true },
             },
@@ -202,7 +207,7 @@ export const translate = {
     'bts_ch_xier_skin2': '皮肤2',
     bts_ch_xier: '希儿',
     bts_sk_luandie: '乱蝶',
-    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色（移除其拥有的${get.poptip('bts_glossary_abnormal_luandie_faq')}数代替失去等量的${get.poptip('bts_glossary_nuqi_faq')}），你附加1层${get.poptip('bts_glossary_bless_zengfu_faq')}，对其造成1点伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法对其造成伤害后，令其附加1层${get.poptip('bts_glossary_abnormal_luandie_faq')}。`,
+    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色（移除其拥有的${get.poptip('bts_glossary_abnormal_luandie_faq')}数代替失去等量的${get.poptip('bts_glossary_nuqi_faq')}），你附加2层${get.poptip('bts_glossary_bless_zengfu_faq')}，对其造成1点伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法对其造成伤害前，令其附加1层${get.poptip('bts_glossary_abnormal_luandie_faq')}。`,
     bts_sk_zaixian: '再现',
     bts_sk_zaixian_info: `锁定技，当你杀死一名角色后，此回合结束时你进入一个额外的摸牌阶段和一个额外的出牌阶段，并各附加1层${get.poptip('bts_glossary_bless_zengfu_faq')}；若于上述额外出牌阶段中发动${get.poptip('bts_glossary_bisha_faq')}杀死一名角色，则再各进入一个（可连击）。`,
     bts_sk_guiren: '归刃',
@@ -220,25 +225,36 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}（可用目标${get.poptip('bts_glossary_abnormal_luandie_faq')}数抵扣）对1名其他角色造成1点伤害，+1${get.poptip('bts_glossary_bless_zengfu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}令其+1${get.poptip('bts_glossary_abnormal_luandie_faq')}）`,
+    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}（可用目标${get.poptip('bts_glossary_abnormal_luandie_faq')}数抵扣）对1名其他角色造成1点伤害，+2${get.poptip('bts_glossary_bless_zengfu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}造成伤害前令其+1${get.poptip('bts_glossary_abnormal_luandie_faq')}）`,
     bts_sk_zaixian_info: `锁；杀死角色后回合结束进入额外摸牌+出牌阶段各1并+1${get.poptip('bts_glossary_bless_zengfu_faq')}，期间${get.poptip('bts_glossary_bisha_faq')}再杀可连击`,
     bts_sk_guiren_info: '摸牌阶段结束，弃1杀对1名其他角色造成1点伤害并摸1张牌',
 };
 
-export const pinyins = { bts_ch_xier: 'xier' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_abnormal_luandie: {
         markKind: 'abnormal',
         glossaryId: 'bts_glossary_abnormal_luandie_faq',
+        // 源全局 Damaged 分支（参照本 L1390-1391）：已持有乱蝶者受到伤害后，附加等量乱蝶
+        //（源标记文案参照本 L13289「当你受到伤害后，附加等同于伤害值的乱蝶」与代码一致）。
+        // 2026-09-28 用户定夺「按源来」恢复等量雪球；门控按源补「已持有」（GetAbnor 无参数返回 >0），
+        // 修正原实现「任意角色任意伤害 +等量」缺门控的问题。
+        // 获取：星启希儿以【乱蝶】造成伤害前+1层（bts_sk_luandie_nature，damageBefore，先于雪球结算）；
+        // 用途：被指定为【乱蝶】目标时移除层数、等量抵扣怒气消耗（bts_sk_luandie.content）。
         trigger: { player: 'damageEnd' },
         forced: true,
         silent: true,
         filter(event, player) {
-            return event.player === player && event.num > 0;
+            // 门控：已持有乱蝶才附加（if GetAbnor(player, "@abnormal_luandie")）
+            return (
+                event.player === player &&
+                event.num > 0 &&
+                player.countMark('bts_abnormal_luandie') > 0
+            );
         },
         async content(event, trigger, player) {
-            lib.bts.api.addAbnormal(player, 'luandie', trigger.num);
+            lib.bts.api.addAbnormal(player, 'luandie', trigger.num); // AddAbnormal(player, "@abnormal_luandie", damage.damage)
         },
     },
 };
@@ -249,6 +265,7 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_luandie_faq',
         name: '|乱蝶|',
-        info: `异常状态：由${get.poptip('bts_sk_luandie')}赋予（希儿必杀技）；持有者受到伤害后附加等量乱蝶。`,
+        // 语义按源三处：星启必杀伤害前+1（参照本 L4512）、持有者受伤+等量（L1390-1391）、抵扣怒气（L4481-4485）。
+        info: `异常状态：${get.poptip('bts_glossary_xingqi_faq')}希儿以${get.poptip('bts_sk_luandie')}造成伤害前+1层；持有者受到伤害后，附加等量层数；希儿发动${get.poptip('bts_sk_luandie')}指定你为目标时，移除你的${get.poptip('bts_glossary_abnormal_luandie_faq')}层数（至多5层）、等量减少其${get.poptip('bts_glossary_nuqi_faq')}消耗。`,
     },
 ];

@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '物理·毁灭·烛渊将军'; // 属性·命途
 export const intro =
-    `${B('云璃')}受伤后以闪铄反击，并可弃【杀】回复。`;
+    `${B('云璃')}受伤后以${get.poptip('bts_sk_shanshuo')}反击，并可弃【杀】回复。`;
 
 export const character = {
     bts_ch_yunli: {
@@ -30,7 +30,8 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_tianzong');
             lib.bts.api.loseAngry(player, 2); // 源 L6861：LoseAngry(player, 2)
             // 源 L6862：AddBless(player, "@bless_kanpo", 1)
-            await lib.bts.api.addBless(player, 'kanpo', 1, player);
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            await lib.bts.api.addBless(player, 'kanpo', 2, player);
         },
         ai: {
             order(item, player) {
@@ -96,7 +97,7 @@ export const skill = {
 export const translate = {
     bts_ch_yunli: '云璃',
     bts_sk_tianzong: '天宗',
-    bts_sk_tianzong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去2点${get.poptip('bts_glossary_nuqi_faq')}，附加1层${get.poptip('bts_glossary_bless_kanpo_faq')}。`,
+    bts_sk_tianzong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去2点${get.poptip('bts_glossary_nuqi_faq')}，附加2层${get.poptip('bts_glossary_bless_kanpo_faq')}。`,
     bts_sk_shanshuo: '闪铄',
     bts_sk_shanshuo_info: `锁定技，当你受到伤害后，回复1点${get.poptip('bts_glossary_nuqi_faq')}，视为对伤害来源使用【杀】；若无来源，改为对所有其他角色使用【杀】。`,
     bts_sk_feixia: '飞侠',
@@ -113,16 +114,16 @@ export const translate = {
     '$bts_sk_feixia2': "崩——剑——斩！",
     '~bts_ch_yunli': "爷爷……",
     bts_bless_kanpo: '看破祝福',
-    bts_bless_kanpo_info: '来源：天宗赋予；无牌杀结算后接决斗；回合结束自然减少1层',
+    bts_bless_kanpo_info: `来源：${get.poptip('bts_sk_tianzong')}赋予；无牌杀结算后接决斗；回合结束自然减少1层`,
 };
 
 export const simpleTranslate = {
-    bts_sk_tianzong_info: `${get.poptip('bts_glossary_bisha_faq')}；失2${get.poptip('bts_glossary_nuqi_faq')}+1${get.poptip('bts_glossary_bless_kanpo_faq')}`,
+    bts_sk_tianzong_info: `${get.poptip('bts_glossary_bisha_faq')}；失2${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_bless_kanpo_faq')}`,
     bts_sk_shanshuo_info: `锁；受伤后+1${get.poptip('bts_glossary_nuqi_faq')}并杀来源（无来源则杀全体）`,
     bts_sk_feixia_info: '受伤后可弃杀回复1',
 };
 
-export const pinyins = { bts_ch_yunli: 'yunli' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const buffSkills = {
     bts_bless_kanpo: {
@@ -137,7 +138,9 @@ export const buffSkills = {
             return (
                 event.player === player &&
                 card?.name === 'sha' &&
-                !card.cards?.length &&
+                // 源 CardFinished L1082-1084（subcardsLength()==0）→ 统一 get.is.virtualCard
+                //（2026-09-28；待实机复核）。
+                get.is.virtualCard(card) &&
                 lib.bts.api.getBless(player, 'kanpo')
             );
         },
@@ -160,6 +163,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_kanpo_faq',
         name: '看破祝福',
-        info: '当你使用的无牌【杀】指定目标并结算完毕后，视为对其目标使用【决斗】。你的结束阶段开始时，此祝福减少1层。',
+        info: `当你使用的无牌【杀】指定目标并结算完毕后，视为对其目标使用【决斗】。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

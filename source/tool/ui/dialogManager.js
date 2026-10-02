@@ -2,6 +2,34 @@ import { lib, game, ui, get, ai, _status } from '../../../../../noname.js';
 import { extensionPath } from '../utils/paths.js'
 import { themeManager } from './themeManager.js';
 
+// ── 内置 HTML 文档（help.html / update.html 等）经 showDocModal 在 srcdoc
+//    iframe 中打开；该文档 URL 是 about:srcdoc，页内锚点（#xxx）会按“父文档
+//    基准 URL”解析成跨文档导航——浏览器会把整个游戏页面加载进 iframe
+//    （手机 file:// 下则白屏）。2026-09-29：统一拦截文档内链接点击——
+//    页内锚点改为手动滚动定位，其余链接一律阻止 iframe 内导航。
+const installDocLinkHandler = (doc) => {
+    if (!doc || doc.__btsDocLinkHandler) return;
+    doc.__btsDocLinkHandler = true;
+    doc.addEventListener('click', (event) => {
+        const anchor = event.target?.closest?.('a');
+        if (!anchor) return;
+        const href = anchor.getAttribute('href');
+        if (href === null) return; // 无 href（内联 onclick 等）：保持原行为
+        event.preventDefault();
+        if (href.startsWith('#')) {
+            const id = decodeURIComponent(href.slice(1));
+            const target = id ? doc.getElementById(id) : null;
+            if (target && target.scrollIntoView) {
+                // 即时跳转（不用 behavior:'smooth'：后台/隐藏标签页下平滑滚动会被
+                // 节流吃掉，移动端 WebView 表现也不稳）
+                target.scrollIntoView({ block: 'start' });
+            }
+        } else {
+            console.warn('[崩铁杀] 文档内链接已拦截（防止 iframe 内导航）：' + href);
+        }
+    });
+};
+
 /**
  * 样式隔离的对话框组件 - 重构版
  * 公开接口: loading, complexLoading, alert, confirm, choice, input, filesManager, showCountdownDialog, showDocModal, textEditor, closeAll
@@ -1214,6 +1242,9 @@ const DialogManager = (() => {
                         iframe.onload = () => {
                             try {
                                 themeManager.registerDocumentFrame(iframe);
+                            } catch (e) { }
+                            try {
+                                installDocLinkHandler(iframe.contentDocument);
                             } catch (e) { }
                         };
                         iframe.srcdoc = content;

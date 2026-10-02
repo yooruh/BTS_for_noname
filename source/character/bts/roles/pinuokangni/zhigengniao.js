@@ -63,10 +63,12 @@ export const skill = {
                 async content(event, trigger, player) {
                     // 源 L1502-1507：标记于知更鸟下回合 RoundStart 清除（"你下回合开始前"）。
                     // 无名杀以 phaseZhunbeiBegin 近似 RoundStart。
-                    for (const p of game.filterPlayer(
-                        (p) =>
-                            p.hasSkill('bts_sk_diezou_buff') &&
-                            p.storage.bts_diezou_owner === player.playerid,
+                    for (const p of lib.bts.api.seatOrder(
+                        game.filterPlayer(
+                            (p) =>
+                                p.hasSkill('bts_sk_diezou_buff') &&
+                                p.storage.bts_diezou_owner === player.playerid,
+                        ),
                     )) {
                         delete p.storage.bts_diezou_owner;
                         p.removeSkill('bts_sk_diezou_buff');
@@ -252,4 +254,7 @@ export const simpleTranslate = {
     bts_sk_hesong_info: `锁；翻面时额外回合来源伤害为${get.poptip('bts_glossary_bless_fatal_faq')}，自己回1${get.poptip('bts_glossary_nuqi_faq')}`,
 };
 
-export const pinyins = { bts_ch_zhigengniao: 'zhigengniao' };
+// 默认读音有误（更→gēng）：按叁岛式写「中文名 → 带声调拼音数组」覆盖。
+export const pinyins = {
+    '知更鸟': ['zhī', 'gēng', 'niǎo'],
+};

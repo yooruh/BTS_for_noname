@@ -65,11 +65,12 @@ export const skill = {
                 );
             }
             // 源 L8997-9003：星启时对所有拥有护盾的角色 AddBless(@bless_through)
+            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
             if (lib.bts.api.god(player))
-                for (const target of game.filterPlayer((target) =>
-                    lib.bts.api.getShield(target),
+                for (const target of lib.bts.api.seatOrder(
+                    game.filterPlayer((target) => lib.bts.api.getShield(target)),
                 ))
-                    await lib.bts.api.addBless(target, 'through', 1, player);
+                    await lib.bts.api.addBless(target, 'through', 2, player);
         },
         // 源 L9383-9390：max_pishi_slash 设 setSkillName("max_pishi") —— 每刀 reason 含必杀技名，
         // 源 ConfirmDamage L1117/L1124 据此给星启必杀+1 与增幅祝福+1。无名杀 damage() 不自动设
@@ -135,17 +136,16 @@ export const skill = {
     },
 
     // ── 触发技·生德（源 st_shengde = TriggerSkill MarkChanged，L9068-9083）──
-    // 当一名角色获得护盾后，若其拥有异常，你可以移除其一种异常。
+    // 当一名角色失去护盾后，若其拥有异常，你可以移除其一种异常。
     bts_sk_shengde: {
-        // 源 st_shengde（animal.lua L9068-9083）：MarkChanged 中 mark.gain>0（room.cpp
-        // setPlayerMark：gain=新值-旧值，>0 = 附加），即「当一名角色获得护盾后」触发
-        // （源翻译 L13683 写「失去护盾后」，与代码不符，以代码为准）。
-        // 源无 can_trigger → 引擎 triggerable 仅事件焦点持技时触发（skill.cpp L418），
-        // 即只有丹恒自己获得护盾才触发、移除自己的异常；勿用 global（曾致任意角色获盾
-        // 即触发，范围扩大）。同型正确范式：danheng_yinyue.js L108、changyeyue.js L153。
-        trigger: { player: 'bts_mark_add' },
+        // 源 st_shengde（animal.lua L9068-9083）：MarkChanged；源代码作 mark.gain>0（附加）、
+        // 翻译写「失去护盾后」——同族 7 处 gain 方向与描述相反的系统性笔误，
+        // 2026-10-02 用户定夺按描述方向实现：护盾被移除时（bts_mark_remove）触发。
+        // 范围按源描述「一名角色」取 global（源缺 can_trigger 属引擎层限制，作者原意以
+        // 描述＋函数体〔findPlayers loop + mark.who〕为准；原 self 限制随本次定夺解除）。
+        trigger: { global: 'bts_mark_remove' },
         filter(event, player) {
-            // 源 L9076：mark 名为 @shield、gain>0（附加）、目标拥有异常
+            // 源 L9076：mark 名为 @shield、被移除、该角色拥有异常
             return (
                 event.markName === 'bts_shield' &&
                 event.player &&
@@ -182,7 +182,7 @@ export const skill = {
             event.result = { bool: true, cost_data: { control: pick.control } };
         },
         async content(event, trigger, player) {
-            // cost 选择结果在技能事件 event.cost_data（标准约定）；trigger=addMark 事件
+            // cost 选择结果在技能事件 event.cost_data（标准约定）；trigger=removeMark 事件
             const target = trigger.player;
             // 源 L9078：RemoveAbnormal(mark.who, "choice", 1, p) —— 移除所选异常1层
             if (event.cost_data?.control)
@@ -208,11 +208,11 @@ export const translate = {
     'bts_ch_danheng_tenghuang_skin8': '皮肤8',
     bts_ch_danheng_tenghuang: '丹恒·腾荒',
     bts_sk_pishi: '辟世',
-    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名角色，令其获得1点${get.poptip('bts_glossary_hudun_faq')}，然后你可连续两次视为使用【杀】；若你为${get.poptip('bts_glossary_xingqi_faq')}，上述${get.poptip('bts_glossary_hudun_faq')}和【杀】次数翻倍，所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加1层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}；若你拥有${get.poptip('bts_sk_aishi')}，${get.poptip('bts_glossary_hudun_faq')}额外+1。`,
+    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名角色，令其获得1点${get.poptip('bts_glossary_hudun_faq')}，然后你可连续两次视为使用【杀】；若你为${get.poptip('bts_glossary_xingqi_faq')}，上述${get.poptip('bts_glossary_hudun_faq')}和【杀】次数翻倍，所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加2层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}；若你拥有${get.poptip('bts_sk_aishi')}，${get.poptip('bts_glossary_hudun_faq')}额外+1。`,
     bts_sk_bahuang: '八荒',
     bts_sk_bahuang_info: `扣减体力后，你可以弃置一张【杀】，令一名角色获得1点${get.poptip('bts_glossary_hudun_faq')}。`,
     bts_sk_shengde: '生德',
-    bts_sk_shengde_info: `当角色获得${get.poptip('bts_glossary_hudun_faq')}后，若其拥有异常，你可以移除其一种异常。（源翻译写「失去护盾后」，与源码不符，以代码为准）`,
+    bts_sk_shengde_info: `当一名角色失去${get.poptip('bts_glossary_hudun_faq')}后，若其拥有异常，你可以移除其一种异常。`,
 
     '$bts_sk_pishi1': "群龙，依此号令",
     '$bts_sk_pishi2': "烈腾八荒，荡除凶灾，不灭不朽！",
@@ -224,9 +224,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}加${get.poptip('bts_glossary_hudun_faq')}并连续虚拟杀，${get.poptip('bts_glossary_xingqi_faq')}翻倍且有盾者+${get.poptip('bts_glossary_guantong_faq')}`,
+    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}加${get.poptip('bts_glossary_hudun_faq')}并连续虚拟杀，${get.poptip('bts_glossary_xingqi_faq')}翻倍且有盾者各+2${get.poptip('bts_glossary_guantong_faq')}`,
     bts_sk_bahuang_info: `扣血后可弃杀令1名角色+1${get.poptip('bts_glossary_hudun_faq')}`,
-    bts_sk_shengde_info: `角色得${get.poptip('bts_glossary_hudun_faq')}后可移除其一种异常`,
+    bts_sk_shengde_info: `角色失${get.poptip('bts_glossary_hudun_faq')}后可移除其一种异常`,
 };
 
-export const pinyins = { bts_ch_danheng_tenghuang: 'danhengtenghuang' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

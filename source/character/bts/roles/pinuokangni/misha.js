@@ -1,7 +1,7 @@
 // 米沙（源 animal.lua L4533-4632）—— 传冲随机冻结/伤害与充能。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'pinuokangni';
 export const title = '冰·毁灭·逐梦的门童'; // 属性·命途
-export const intro = `${B('米沙')}捡别人弃的【杀】、自己也弃【杀】攒${get.poptip('bts_glossary_st_mengchong_faq')}；传冲多了，对范围内的人多砸几发${get.poptip('bts_glossary_abnormal_freeze_faq')}或伤害。`;
+export const intro = `${B('米沙')}捡别人弃的【杀】、自己也弃【杀】攒${get.poptip('bts_glossary_st_mengchong_faq')}；${get.poptip('bts_glossary_st_mengchong_faq')}多了，对范围内的人多砸几发${get.poptip('bts_glossary_abnormal_freeze_faq')}或伤害。`;
 export const character = {
     bts_ch_misha: {
         sex: 'male',
@@ -166,7 +166,7 @@ export const simpleTranslate = {
     bts_sk_jizong_info: `锁；有人弃【杀】就+1${get.poptip('bts_glossary_st_mengchong_faq')}`,
     bts_sk_fuwu_info: `锁；拿到牌后可弃杀换+1${get.poptip('bts_glossary_st_mengchong_faq')}`,
 };
-export const pinyins = { bts_ch_misha: 'misha' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 // ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
 // 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。

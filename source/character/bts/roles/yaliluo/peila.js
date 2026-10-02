@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yaliluo';
 export const title = '冰·虚无·完全剖析'; // 属性·命途
 export const intro =
-    `${B('佩拉')}是干扰控制：${get.poptip('bts_glossary_bisha_faq')}${B('压制')}附加诅咒，${B('采集')}对异常/诅咒目标回怒，${B('秘策')}弃【杀】移除目标的${get.poptip('bts_glossary_bless_faq')}${get.poptip('bts_glossary_hudun_faq')}。` +
+    `${B('佩拉')}是干扰控制：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yazhi'))}附加诅咒，${B(get.poptip('bts_sk_caiji'))}对异常/诅咒目标回怒，${B(get.poptip('bts_sk_mice'))}弃【杀】移除目标的${get.poptip('bts_glossary_bless_faq')}${get.poptip('bts_glossary_hudun_faq')}。` +
     `<li>对异常或诅咒目标用杀能回复${get.poptip('bts_glossary_nuqi_faq')}`;
 
 export const character = {
@@ -173,4 +173,4 @@ export const simpleTranslate = {
     bts_sk_mice_info: `其他角色回合结束后若其有${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}，可弃1杀移除1层`,
 };
 
-export const pinyins = { bts_ch_peila: 'peila' };
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
