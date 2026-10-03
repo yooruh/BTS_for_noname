@@ -117,8 +117,13 @@ export const skill = {
             // 源 L5903-5905：本回合发动过必杀 → 循环 3 次（每次独立判定/弃牌/受伤）
             const n = player.countMark('bts_mk_skill-clear') > 0 ? 3 : 1;
             for (let i = 0; i < n; i++) {
-                const judge = await player.judge().forResult(), // 源 L5602-5607：判定
-                    type = get.type(judge.card);
+                // 上一轮伤害可能已击倒目标：跨玩家操作前门控（死者不再弃牌/受伤）。
+                if (!target.isAlive()) break;
+                const judge = await player.judge().forResult(); // 源 L5602-5607：判定
+                // 判定「无结果」契约（2026-10-03）：施法者死亡/离场除名/被移除时，事件被引擎拦截
+                //（ContentCompilerBase.isPrevented）→ undefined = 判定未发生，终止后续轮次。
+                if (!judge) return;
+                const type = get.type(judge.card);
                 // 源 L5916：askForCard(target, "Basic|Trick|.|.|hand") —— 目标仅能从手牌弃置
                 const result = await target
                     .chooseToDiscard(

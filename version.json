@@ -2,7 +2,7 @@
   "defaultBranch": "main",
   "versions": [
     {
-      "extensionVersion": "26.10.3.0",
+      "extensionVersion": "26.10.3.1",
       "gameVersion": ">=1.11.2",
       "branch": "main",
       "description": "崩铁杀首个公开测试版本",
@@ -13,11 +13,11 @@
         "完整自定义规则系统：标记、属性反应、异常、祝福、护盾、忆灵/组合角色与形态变换、主公 BGM 跟随。"
       ],
       "zip": {
-        "filename": "26.10.3.0-code.zip",
-        "size": 645543,
-        "md5": "82b2b0a14c58235b1ffa3d7513eace5c",
+        "filename": "26.10.3.1-code.zip",
+        "size": 647731,
+        "md5": "e24350087551165315ae2a7ceef78390",
         "branch": "zips",
-        "tag": "v26.10.3.0-code-zip"
+        "tag": "v26.10.3.1-code-zip"
       }
     }
   ]

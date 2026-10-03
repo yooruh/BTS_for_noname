@@ -40,8 +40,12 @@ export const skill = {
             // 源 L4888：AddAbnormal(targets[1], "@abnormal_scary", 1, player)
             lib.bts.api.addAbnormal(target, 'scary', 1, player);
             // 源 L4889-4894：判定并获 ceil(点数/2) 赌注
+            // 判定「无结果」契约（2026-10-03）：角色死亡（judge() 不设 forceDie）/离场除名/被移除时，
+            // 事件被引擎逐步骤拦截并 finish（ContentCompilerBase.isPrevented）→ forResult() 为
+            // undefined = 判定未发生 → 不获得赌注、不进后续（不以 || 0 伪造成 0 点）。
             const judge = await player.judge().forResult();
-            player.addMark('bts_mk_duzhu', Math.ceil((judge.number || 0) / 2));
+            if (!judge) return;
+            player.addMark('bts_mk_duzhu', Math.ceil(judge.number / 2));
             // 源 L4895-4901：星启时所有拥有护盾的角色各+1护盾
             if (lib.bts.api.god(player))
                 for (const candidate of lib.bts.api.seatOrder(

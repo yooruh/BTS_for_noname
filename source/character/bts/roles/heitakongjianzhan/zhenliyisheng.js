@@ -121,6 +121,8 @@ export const skill = {
         async content(event, t, player) {
             await player.discard(event.cost_data.cards); // 源：弃【杀】移入 content 结算
             const x = event.targets[0]; // event=技能事件（自选弃牌/目标经 cost 拷入）
+            // 目标可能在上一段结算（含弃置触发族）中阵亡：跨玩家操作前门控（死者不再弃牌/判定）。
+            if (!x.isAlive()) return;
             // 源 askForCardChosen + throwCard（目标侧强制弃牌，保留在 content）；
             // 目标无手牌则跳过弃牌仅判定（源 on_use 空手可判定，L3197-3200）
             if (x.countCards('h'))
@@ -130,7 +132,14 @@ export const skill = {
             // 源 L3328：judge.who = targets[1]（判定牌归属目标）；无名杀以目标 x 发起判定等效
             //（定夺 2026-09-12（B-05）由 player.judge 改为目标判定）
             const judge = await x.judge((card) => true).forResult();
-            const num = judge.number ?? 0; // forResult 判定结果：{ card, name, number, suit, color }
+            // 判定「无结果」契约（2026-10-03 根因定案）：判定对象的角色死亡（judge() 不设 forceDie）、
+            // 离场除名（不设 includeOut）、被移除时，引擎对事件逐步骤拦截并 finish
+            //（compilers/ContentCompilerBase.js isPrevented；player.js:9482 judge 方法）
+            // → event.result 永不写入，forResult() 为 undefined = 判定未发生；
+            // 另牌堆+弃牌堆双空时 get.cards() 空返回，亦走 !cardj 早退（get/index.js:3484）。
+            // 以上均须按契约终止后续（不再视为对目标使用【杀】），而非用 ?? 0 伪造点数。
+            if (!judge) return;
+            const num = judge.number; // forResult 判定结果：{ card, name, number, suit, color }
             if (num <= layers * 3) {
                 // 源 judge.pattern "0~layers*3"
                 const use = player.useCard({ name: 'sha', isCard: true }, x); // 视为【杀】

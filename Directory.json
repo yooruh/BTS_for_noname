@@ -3140,12 +3140,12 @@
     "md5": "a79d225b796e8d6f67adc21e47685271"
   },
   "Directory.json": {
-    "size": 165921,
+    "size": 165922,
     "md5": null
   },
   "extension.js": {
     "size": 4149,
-    "md5": "2726c0df602dfc2a035b7cbbf068c08d"
+    "md5": "763a9294960df74f9328c9a60967d4b5"
   },
   "image/character/bts_ch_agelaiya.png": {
     "size": 166670,
@@ -5257,7 +5257,7 @@
   },
   "info.json": {
     "size": 215,
-    "md5": "447aaab38581e142aff8e2cda7e31040"
+    "md5": "0d89f8f64cea2c31086b8c620e177cee"
   },
   "LICENSE": {
     "size": 35147,
@@ -5344,8 +5344,8 @@
     "md5": "8d6469a2a79cdfd126a1096b78292d24"
   },
   "source/character/bts/roles/heitakongjianzhan/zhenliyisheng.js": {
-    "size": 9631,
-    "md5": "6a67f9ba8b3114f76ca841a364842695"
+    "size": 10507,
+    "md5": "ea08472f8759fee4185cf783b7b8a63b"
   },
   "source/character/bts/roles/huangjinyi/agelaiya.js": {
     "size": 15929,
@@ -5444,8 +5444,8 @@
     "md5": "92877a3cbd4299979724a143ec6108de"
   },
   "source/character/bts/roles/pinuokangni/shajin.js": {
-    "size": 11236,
-    "md5": "aad1db1abcc581f5a7b990164e4527ba"
+    "size": 11619,
+    "md5": "8429b4d12f4a3456381caba76cce0d9c"
   },
   "source/character/bts/roles/pinuokangni/tuopa.js": {
     "size": 9187,
@@ -5520,8 +5520,8 @@
     "md5": "c3e392e9adad65d974d5a9e1210474f0"
   },
   "source/character/bts/roles/xianzhou/sushang.js": {
-    "size": 8853,
-    "md5": "960676b31685b14797535e546d981335"
+    "size": 9296,
+    "md5": "f504fd47cfc671ac4de450542ed0df33"
   },
   "source/character/bts/roles/xianzhou/tingyun.js": {
     "size": 6550,
@@ -5616,8 +5616,8 @@
     "md5": "7ad89d3429b8cbb133c6166bb46e7ead"
   },
   "source/character/bts/roles/yaliluo/sangbo.js": {
-    "size": 7619,
-    "md5": "5db078d0ae0f84dac403395eddee78c5"
+    "size": 8077,
+    "md5": "9130a75051b5b3de32addac6363112ef"
   },
   "source/character/bts/roles/yaliluo/xier.js": {
     "size": 16244,
@@ -5664,8 +5664,8 @@
     "md5": "7b340517e1eae3c5e09c1fc7eee8468f"
   },
   "source/rules/index.js": {
-    "size": 23140,
-    "md5": "a0c6ec818b6e1395fdec50d2c2b318e2"
+    "size": 24463,
+    "md5": "2538205ba361a9c18ee5b5d3e899f403"
   },
   "source/rules/markRegistry.js": {
     "size": 12826,
@@ -5676,8 +5676,8 @@
     "md5": "c40082abe5bca4c618eb8652f9c601e5"
   },
   "source/rules/utils.js": {
-    "size": 60103,
-    "md5": "345e1cad7180a6db00b55aaa345b1b85"
+    "size": 60438,
+    "md5": "62169c5213ed163b8c4877020cd012e4"
   },
   "source/tool/ai/aiGuard.js": {
     "size": 3497,
@@ -5748,8 +5748,8 @@
     "md5": "5838f7cc80295c23c190edf469ae0592"
   },
   "source/tool/update/extensionUpdater.js": {
-    "size": 66108,
-    "md5": "c51d38877d56588ac451ef4f95f969bb"
+    "size": 66132,
+    "md5": "797f31dc37f143c41eba12347a5535c8"
   },
   "source/tool/update/index.js": {
     "size": 20422,
@@ -5824,11 +5824,11 @@
     "md5": "c02cf2a2bfac418242786859464b7424"
   },
   "style/nncfg/android_wide11.0.nncfg": {
-    "size": 1872,
-    "md5": "76a9ed85a62907af7ca4b113216169a2"
+    "size": 2340,
+    "md5": "0a508f47c39063446c09e423ee03bb36"
   },
   "style/nncfg/win11.0.nncfg": {
-    "size": 1604,
-    "md5": "0e5906c33fc761cb543cecac0843ab0b"
+    "size": 2068,
+    "md5": "f94f816543c54694251779885799cdf6"
   }
 }

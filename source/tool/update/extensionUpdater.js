@@ -1110,7 +1110,7 @@ class ExtensionUpdater {
         updateLogger.info('版本', `目标版本=${verInfo?.extensionVersion || '未知'}，目标分支=${this.repo.branch}`);
 
         // 阶段二：下载文件清单并建立任务（Directory.json）—— 同样耗时，显示“请稍候”
-        const loadList = await this.ui.showLoading('正在准备更新清单', '正在下载文件清单，请稍候...');
+        const loadList = await this.ui.showLoading('正在准备更新清单', '正在下载文件清单，可能耗时数分钟，请稍候...');
         let prepared;
         try {
             prepared = await this.prepareFileList(undefined, verInfo);

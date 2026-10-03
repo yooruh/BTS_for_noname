@@ -176,7 +176,11 @@ export function installMarkSourceTrack() {
         forced: true,
         silent: true,
         async content(event, trigger, player) {
-            if (player !== game.me) return; // 全局技能每人触发一次，本地只执行一次
+            // 全局技能对每名玩家各触发一次 → 本实例只执行一次。
+            // 联机下内容在主机结算：game.me 为主机座位，主机无座位（旁观开房）时回退
+            // 首个玩家，保证同步仍恰好执行一次（旧守卫在无座位实例上会永不执行）。
+            const anchor = game.me ?? game.players[0];
+            if (player !== anchor) return;
             for (const p of game.players) lib.bts.api?.godSync?.(p);
         },
     };
@@ -198,6 +202,10 @@ export function installMarkSourceTrack() {
 // 注意2：content 必须是 async——引擎 StepCompiler 会把同步 content 字符串化重编译
 // （新函数只能访问 _status/lib/game/ui/get/ai 全局），模块变量（如 extensionPath）
 // 在重编译后不可见会抛 ReferenceError；async content 不参与重编译，闭包保留。
+// 注意3（联机，2026-10-03）：ui.backgroundMusic 是各端本地媒体，切换/回滚须经
+// game.broadcastAll 广播到所有客户端（引擎约定：载荷函数禁引用模块作用域变量，
+// 只用引擎全局与入参）；执行锚点 game.me ?? game.players[0]（主机无座位时旧
+// game.me 守卫会漏跑，BGM 则任何一端都切不了）。
 export function installBgmFollow() {
     if (lib.skill.bts_bgm_follow) return;
     lib.skill.bts_bgm_follow = {
@@ -208,13 +216,19 @@ export function installBgmFollow() {
             if (get.mode() !== 'identity') return;
             if (!game.getExtensionConfig('崩铁杀', 'bts_bgm_follow_zhu'))
                 return;
-            if (player !== game.me) return; // 全局技能每人触发一次，本地只执行一次
+            // 全局技能对每名玩家各触发一次 → 本实例只执行一次；联机下内容在主机结算，
+            // 主机无座位时回退首个玩家（保证仍触发一次）。
+            const anchor = game.me ?? game.players[0];
+            if (player !== anchor) return;
             const zhu = game.zhu;
             if (!zhu) return;
             const id = zhu.name;
             if (!id || !id.startsWith('bts_') || !lib.character[id]) {
                 // 非崩铁杀主公：恢复引擎默认行为（ended → game.playBackgroundMusic 换曲）。
-                ui.backgroundMusic.loop = false;
+                // 各端本地媒体：经 broadcastAll 广播（单机时等价本地执行）。
+                game.broadcastAll(() => {
+                    ui.backgroundMusic.loop = false;
+                });
                 return;
             }
             const file = BGM_LIST.has(id)
@@ -223,22 +237,25 @@ export function installBgmFollow() {
             // 循环播放：引擎的 backgroundMusic 不设 loop，而是监听 ended 调
             // game.playBackgroundMusic() 按配置重设 src（会覆盖主公 BGM，导致
             // 播一遍就没了）；loop 为 true 时 ended 事件不触发，换曲监听随之失效。
-            ui.backgroundMusic.loop = true;
             // 与引擎 playBackgroundMusic 的 ext: 分支一致（lib.assetURL + extension/<目录名>/）。
-            // 目录名用字面量（与 getExtensionConfig('崩铁杀', …) 同款，保证全局可解析）。
             // 兜底：极端情况下（如 duel 曲也被删除）加载失败时恢复原 BGM，避免音乐中断。
             const url = `${lib.assetURL}extension/崩铁杀/audio/bgm/${file}.mp3`;
-            const prev = ui.backgroundMusic.src;
-            const onError = () => {
-                ui.backgroundMusic.onerror = null;
-                if (ui.backgroundMusic.src !== prev) {
-                    // 恢复原 BGM 时同步恢复引擎默认的循环行为（loop 关闭）。
-                    ui.backgroundMusic.loop = false;
-                    ui.backgroundMusic.src = prev;
-                }
-            };
-            ui.backgroundMusic.onerror = onError;
-            ui.backgroundMusic.src = url;
+            // 联机：ui.backgroundMusic 是各端本地 <audio>，须经 broadcastAll 同步执行
+            //（引擎约定：载荷函数禁引用模块作用域变量，只用引擎全局与入参；
+            // 错误回滚在各端就地读取 prev、就地回滚，跨端自洽）。
+            game.broadcastAll((bgmUrl) => {
+                ui.backgroundMusic.loop = true;
+                const prev = ui.backgroundMusic.src;
+                ui.backgroundMusic.onerror = () => {
+                    ui.backgroundMusic.onerror = null;
+                    if (ui.backgroundMusic.src !== prev) {
+                        // 恢复原 BGM 时同步恢复引擎默认的循环行为（loop 关闭）。
+                        ui.backgroundMusic.loop = false;
+                        ui.backgroundMusic.src = prev;
+                    }
+                };
+                ui.backgroundMusic.src = bgmUrl;
+            }, url);
         },
     };
     game.addGlobalSkill('bts_bgm_follow');

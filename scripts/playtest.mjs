@@ -31,6 +31,20 @@
  *   node scripts/playtest.mjs stop              停止服务器
  *   node scripts/playtest.mjs restore [--force] 恢复配置数据（缺失自动补缺；--force 强制覆盖）
  *   node scripts/playtest.mjs seed              制作配置种子快照（灾难回退基准）
+ *   node scripts/playtest.mjs clean [--dry] [--all]
+ *       一键删除测试数据（对局事件流 / persist 日志 / 待注入记录 / 标签报告 / 旧残留）→ 统计与审计从零开始。
+ *       永不触碰配置备份（persist.json / persist.prev.json / persist.shrunk-*.json / seeds/——防丢数据铁律）；
+ *       pending.json 仅清空 sets（保留 ls 启动项）。--dry=只预览；--all=连同 archive/ 历史归档与
+ *       data/_tmp_* 临时输出一并清除。服务器运行中亦可执行（文件即时重建；内存计数需重启归零）。
+ *   node scripts/playtest.mjs engine [key|seed] [--force] [--from <key>]
+ *       查看/切换「服务器版本（引擎）」：noname（缺省；端口 8931 / 数据目录 data/）或 noname - 新版
+ *       （key=new，别名 新版；端口 8932 / 数据目录 data-new/）。端口即浏览器同源隔离：两版本的
+ *       IndexedDB/localStorage 与服务器测试数据（persist 备份/事件流/日志/队列/seeds/归档）全部
+ *       相互分离、可同时运行；各命令只面向「当前配置版本」（切换只影响之后启动的服务器）。
+ *       可选列表由 dev-config.local.json 的 installed 派生；所选版本存其 playtest.engine（本机配置）。
+ *       engine seed（--force 覆盖已有；--from 指定来源）手动把其它版本的配置备份播种到当前版本；
+ *       首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种——保证空容器页面
+ *       也能像旧版一样「自动导入配置」（2026-10-03 实测：无播种时无备份可导、dev=false 卡 boot）。
  *   node scripts/playtest.mjs fg                前台启动（Ctrl+C 停止；关闭自动游玩、日志直出）
  *   node scripts/playtest.mjs                   交互菜单（仅人类；AI 勿无参调用，会等待输入）
  *
@@ -48,8 +62,8 @@
  * 脚本调起 vscode://bts-debug.playtest-helper/open?url=… → 扩展内执行 simpleBrowser.show。
  * （vscode://command 形式不存在，勿用；细节见 helper-ext/README.md 与《调试与自动化测试手册》§2.3。）
  *
- * 实现本体在 _others/debug/：server.mjs（静态服务 + 注入 + /__playtest/* 端点）、
- * playtest_client.js（页面侧状态机）、persist_client.js（页面侧备份/恢复/设置注入）。
+ * 实现本体在 _others/debug/：server.mjs（静态服务 + 注入 + /__playtest/* 端点；服务器根与数据目录
+ * 由本脚本按「服务器版本」传入）、playtest_client.js（页面侧状态机）、persist_client.js（页面侧备份/恢复/设置注入）。
  * 页面生命周期（2026-09-29）：open/auto 打开新页时，辅助扩展会先关闭「标题匹配调试页」的旧浏览器标签
  * （同名多开 = 多个游戏实例竞争写同一 IndexedDB；见《调试与自动化测试手册》§2.3）。AI 接管页面的推荐
  * 姿势：在浏览器工具中导航/打开目标 URL（复用一个已共享页面），而不是依赖脚本打开的未共享新页。
@@ -57,29 +71,145 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './lib/shared.mjs';
 import { menu, confirm, closeInteractive } from './lib/interactive.mjs';
+import { installed } from './lib/dev-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SELF_PATH = fileURLToPath(import.meta.url);
 const debugDir = resolve(__dirname, '..', '..', '_others', 'debug');
 const serverFile = join(debugDir, 'server.mjs');
-const playtestLog = join(debugDir, 'data', 'playtest.jsonl');
 const helperSrcDir = join(debugDir, 'helper-ext');
-const persistFile = join(debugDir, 'data', 'persist.json');
-const persistLogFile = join(debugDir, 'data', 'persist-log.jsonl');
-const seedDir = join(debugDir, 'data', 'seeds');
-const seedFile = join(seedDir, 'persist.seed.json');
+const serverOverlayDir = join(debugDir, '..', '_tmp_overlay');
 const nncfgDir = resolve(__dirname, '..', 'style', 'nncfg');
 const nncfgDefaultFile = join(nncfgDir, 'win11.0.nncfg');
 const HELPER_ID = 'bts-debug.playtest-helper';
 
-const PORT = 8931;
+// ---------- 服务器版本（引擎）配置 ----------
+// 可选版本由本机配置 scripts/lib/dev-config.local.json 的 installed 派生：
+// 安装路径形如 <引擎>/resources/app/extension/崩铁杀 → 服务器根 = <引擎>/resources/app。
+// 所选版本存 playtest.engine（缺省 noname）；两版本测试数据目录相互分离（data / data-<key>）。
+const engineConfigFile = join(__dirname, 'lib', 'dev-config.local.json');
+const defaultEngineRoot = resolve(debugDir, '..', '..', '..', '..', 'noname', 'resources', 'app');
+// 端口按版本分配（noname=8931；其余版本按列表序 8932 起）——端口即浏览器同源隔离：
+// 两个版本的 IndexedDB/localStorage 与服务端数据目录均相互独立（2026-10-03 实测教训：
+// 同端口时新版引擎会向共享 DB 写入自身资源并重置配置，必须分端口）。
+const PORT_BASE = 8931;
+
+/** 引擎名 → 版本 key（noname | new | 其余按名字 slug） */
+function engineKeyFromName(name) {
+    if (name === 'noname') return 'noname';
+    if (/新版/.test(name)) return 'new';
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'engine';
+}
+
+/** 列出可选服务器版本；installed 为空/不可解析时回退为单引擎（noname 默认根） */
+function listEngines() {
+    const out = [];
+    const seenRoot = new Set();
+    const usedKeys = new Set();
+    for (const p of installed) {
+        const norm = String(p).replace(/\\/g, '/');
+        const m = norm.match(/^(.*)\/extension\/[^/]+$/);
+        if (!m) continue;
+        const root = resolve(m[1]);
+        if (seenRoot.has(root.toLowerCase())) continue;
+        seenRoot.add(root.toLowerCase());
+        const parts = m[1].split('/');
+        const name =
+            /\/resources\/app$/.test(m[1]) && parts.length >= 3
+                ? parts[parts.length - 3]
+                : parts[parts.length - 1] || m[1];
+        let key = engineKeyFromName(name);
+        if (usedKeys.has(key)) {
+            let i = 2;
+            while (usedKeys.has(`${key}-${i}`)) i++;
+            key = `${key}-${i}`;
+        }
+        usedKeys.add(key);
+        out.push({ key, label: name, root });
+    }
+    if (!out.length) out.push({ key: 'noname', label: 'noname', root: defaultEngineRoot });
+    out.sort((a, b) => {
+        if (a.key === 'noname' && b.key !== 'noname') return -1;
+        if (b.key === 'noname' && a.key !== 'noname') return 1;
+        return a.label.localeCompare(b.label, 'zh');
+    });
+    out.forEach((e, i) => (e.port = PORT_BASE + i));
+    return out;
+}
+
+const engines = listEngines();
+
+/** 读取本机配置中所选版本 key（缺失/不可读返回 null） */
+function readEngineSelection() {
+    try {
+        const j = JSON.parse(readFileSync(engineConfigFile, 'utf-8'));
+        const k = j && j.playtest && j.playtest.engine;
+        return typeof k === 'string' && k ? k : null;
+    } catch {
+        return null;
+    }
+}
+
+/** 写入所选版本（保留 installed 等其余字段） */
+function saveEngineSelection(key) {
+    let obj = {};
+    try {
+        const j = JSON.parse(readFileSync(engineConfigFile, 'utf-8'));
+        if (j && typeof j === 'object') obj = j;
+    } catch {
+        /* 新建 */
+    }
+    if (!obj.playtest || typeof obj.playtest !== 'object') obj.playtest = {};
+    obj.playtest.engine = key;
+    mkdirSync(dirname(engineConfigFile), { recursive: true });
+    writeFileSync(engineConfigFile, JSON.stringify(obj, null, 2) + '\n');
+}
+
+/** 版本 key → 数据目录（测试数据按版本分离；noname 沿用既有 data/） */
+const dataDirFor = (e) => join(debugDir, e.key === 'noname' ? 'data' : `data-${e.key}`);
+
+/** 路径等同（Windows 大小写不敏感） */
+const samePath = (a, b) => resolve(String(a)).toLowerCase() === resolve(String(b)).toLowerCase();
+
+/** 按根目录找版本（找不到返回 null） */
+const findEngineByRoot = (root) => engines.find((e) => samePath(e.root, root)) || null;
+
+/** 解析用户输入 → 版本（支持 key / 全名 / 别名 新版=new；歧义或不命中返回 null） */
+function matchEngine(query) {
+    const q = String(query).trim().toLowerCase();
+    if (!q) return null;
+    const byKey = engines.find((e) => e.key.toLowerCase() === q);
+    if (byKey) return byKey;
+    const byLabel = engines.find((e) => e.label.toLowerCase() === q);
+    if (byLabel) return byLabel;
+    if (['new', '新版', 'noname-new', 'noname - 新版'].includes(q)) {
+        const hit = engines.find((e) => e.key === 'new');
+        if (hit) return hit;
+    }
+    const subs = engines.filter((e) => e.label.toLowerCase().includes(q) || e.key.includes(q));
+    return subs.length === 1 ? subs[0] : null;
+}
+
+const currentEngine =
+    engines.find((e) => e.key === readEngineSelection()) ||
+    engines.find((e) => e.key === 'noname') ||
+    engines[0];
+const engineRoot = currentEngine.root;
+const dataDir = dataDirFor(currentEngine);
+const playtestLog = join(dataDir, 'playtest.jsonl');
+const persistFile = join(dataDir, 'persist.json');
+const persistLogFile = join(dataDir, 'persist-log.jsonl');
+const seedDir = join(dataDir, 'seeds');
+const seedFile = join(seedDir, 'persist.seed.json');
+
+const PORT = currentEngine.port;
 const URL_BASE = `http://127.0.0.1:${PORT}/`;
 const DEFAULT_AUTOSKIP_MS = 15000;
 
@@ -277,10 +407,22 @@ function buildPageUrl({
     return u.toString();
 }
 
-/** 读取服务器 env 摘要（stats.env；旧版服务器无此字段时返回 null） */
-async function readServerEnv() {
+/** 读取服务器信息（stats.data 的 env/root；旧版服务器缺字段时相应为 null） */
+async function readServerInfo() {
     const stats = await getJson(URL_BASE + '__playtest/stats');
-    return stats && stats.data ? (stats.data.env ?? null) : null;
+    const d = stats && stats.data;
+    if (!d) return null;
+    return { env: d.env ?? null, root: typeof d.root === 'string' && d.root ? d.root : null };
+}
+
+/** 探测除当前版本外仍在运行的版本实例（端口独立；供 status/engine 展示） */
+async function probeOtherEngines() {
+    const out = [];
+    for (const e of engines) {
+        if (e.port === PORT) continue;
+        if ((await get(`http://127.0.0.1:${e.port}/`, 800)) !== null) out.push(e);
+    }
+    return out;
 }
 
 /**
@@ -325,7 +467,7 @@ function parseArgs(argv) {
                 (name === 'set' ? sets : queries).push(t.value);
                 continue;
             }
-            if (name === 'char' || name === 'restore' || name === 'file' || name === 'tail' || name === 'type') {
+            if (name === 'char' || name === 'restore' || name === 'file' || name === 'tail' || name === 'type' || name === 'from') {
                 const t = take(name, inline);
                 if (t.error) return { error: t.error };
                 values[name] = t.value;
@@ -383,7 +525,7 @@ async function openBrowser(url, { waitMs = 15000, keep = false } = {}) {
     const stats0 = await getJson(URL_BASE + '__playtest/stats');
     const loads0 =
         stats0 && stats0.data && typeof stats0.data.pageLoads === 'number' ? stats0.data.pageLoads : null;
-    const dumpFile = join(debugDir, 'data', 'helper-tabs.json');
+    const dumpFile = join(dataDir, 'helper-tabs.json');
     const uri =
         `vscode://${HELPER_ID}/open?url=${encodeURIComponent(url)}` +
         `&dump=${encodeURIComponent(dumpFile)}` +
@@ -422,9 +564,10 @@ async function restoreConfig({ force = false } = {}) {
         log.warn('服务器未运行——先执行「无人值守启动」。');
         return false;
     }
+    ensureEngineSeed(); // 首次启用/备份丢失：先从其它版本播种（播种后即有「备份可导」）
     if (!existsSync(persistFile)) {
         if (existsSync(seedFile)) {
-            mkdirSync(join(debugDir, 'data'), { recursive: true });
+            mkdirSync(dataDir, { recursive: true });
             copyFileSync(seedFile, persistFile);
             log.ok('服务端无备份 → 已用种子快照回填 persist.json');
         } else {
@@ -488,6 +631,105 @@ function snapshotSeed() {
     console.log('  用途：服务端备份丢失时，restore 会自动用它回填（含 dev/武将池/扩展/速度等关键配置）。');
 }
 
+/**
+ * 配置播种（2026-10-03 修复「新版首次打开无法自动导入配置」）：
+ * noname 有长年备份可导，而新版本数据目录（data-<key>）为空 → 页面「服务器端没有备份文件」
+ * → 空容器永远导入不了配置（dev=false 卡 boot）。首次启用时自动从「其它版本」播种一份
+ * 配置级备份（非录像；仅 persist.json，与「测试数据按版本分离」原则一致），此后各版本独立演进。
+ */
+function seedEngineConfig(target, { candidates = null } = {}) {
+    const dstFile = join(dataDirFor(target), 'persist.json');
+    const list = candidates || defaultSeedCandidates(target);
+    for (const src of list) {
+        if (!existsSync(src)) continue;
+        try {
+            let raw = readFileSync(src, 'utf-8');
+            let stripped = false;
+            // 配置级原则：源若带 video 录像（如旧种子快照），播种前剔除
+            if (raw.length <= 8 * 1024 * 1024 && raw.includes('"video":')) {
+                try {
+                    const obj = JSON.parse(raw);
+                    const db = obj && obj.dbs && obj.dbs['noname_0.9_data'];
+                    if (db && db.stores && db.stores.video) {
+                        delete db.stores.video;
+                        raw = JSON.stringify(obj);
+                        stripped = true;
+                    }
+                } catch {
+                    /* 解析失败则原样复制 */
+                }
+            }
+            mkdirSync(dirname(dstFile), { recursive: true });
+            writeFileSync(dstFile, raw);
+            const rel = (p) => p.replace(debugDir, '').replace(/^[\\/]+/, '');
+            log.ok(
+                `已播种配置备份：${rel(src)} → ${rel(dstFile)}（${(raw.length / 1024).toFixed(1)} KB${stripped ? '，已剔除录像' : ''}）`,
+            );
+            return { ok: true, from: src, bytes: raw.length, stripped };
+        } catch (e) {
+            log.warn(`播种失败（${src}）：${(e && e.message) || e}`);
+        }
+    }
+    return { ok: false };
+}
+
+/** 播种来源优先级：本版本 seeds（仅 noname）→ 其它版本 persist.json（noname 优先）→ 本版本 seeds → 其它版本 seeds */
+function defaultSeedCandidates(target) {
+    const others = engines.filter((e) => e.key !== target.key);
+    const ordered = [others.find((e) => e.key === 'noname'), ...others].filter(Boolean);
+    const list = [];
+    if (target.key === 'noname') list.push(join(dataDirFor(target), 'seeds', 'persist.seed.json'));
+    for (const e of ordered) list.push(join(dataDirFor(e), 'persist.json'));
+    if (target.key !== 'noname') list.push(join(dataDirFor(target), 'seeds', 'persist.seed.json'));
+    for (const e of ordered) list.push(join(dataDirFor(e), 'seeds', 'persist.seed.json'));
+    return list;
+}
+
+/** 首次启用（开页前调用）：数据目录无配置备份时自动播种；返回结果 / null（已有或无可播种来源） */
+function ensureEngineSeed(target = currentEngine) {
+    const dstFile = join(dataDirFor(target), 'persist.json');
+    if (existsSync(dstFile)) return null;
+    log.info(`「${target.label}」首次启用且尚无配置备份 → 自动播种（首次导入配置）…`);
+    const r = seedEngineConfig(target);
+    if (!r.ok) {
+        log.warn('未找到可播种来源——首次打开将以默认配置运行（可 apply-nncfg / set 注入，或 engine seed 手动播种）。');
+        return null;
+    }
+    return r;
+}
+
+/** engine seed：手动把其它版本（或 --from 指定版本）的配置备份播种到当前版本 */
+async function seedForCurrentEngine(opts = {}) {
+    const force = !!(opts.flags && opts.flags.has && opts.flags.has('force'));
+    const fromQuery = opts.values && opts.values.from;
+    if (existsSync(persistFile) && !force) {
+        log.info(`「${currentEngine.label}」已有配置备份（${persistFile}）——用其它版本覆盖请加 --force。`);
+        return;
+    }
+    let candidates = null;
+    if (fromQuery) {
+        const src = matchEngine(fromQuery);
+        if (!src) {
+            log.error(`未知来源版本：「${fromQuery}」（可选：${engines.map((e) => e.key).join(' / ')}）`);
+            process.exitCode = 1;
+            return;
+        }
+        if (src.key === currentEngine.key) {
+            log.error('来源版本与当前版本相同——engine seed 是把「其它版本」的配置播种到当前版本。');
+            process.exitCode = 1;
+            return;
+        }
+        candidates = [join(dataDirFor(src), 'persist.json'), join(dataDirFor(src), 'seeds', 'persist.seed.json')];
+    }
+    const r = seedEngineConfig(currentEngine, { candidates });
+    if (!r.ok) {
+        log.error('未找到可用的播种来源（来源版本尚无 persist.json / seeds 快照）。');
+        process.exitCode = 1;
+        return;
+    }
+    console.log('  页面已打开时：刷新一次即按新备份补缺导入（仅补缺失键）。');
+}
+
 function ensureServerFile() {
     if (existsSync(serverFile)) return true;
     log.error(`未找到调试服务器：${serverFile}`);
@@ -495,13 +737,13 @@ function ensureServerFile() {
 }
 
 /** 按端口停止调试服务器（等价 stop-debug-server.cmd，跨 shell 安全） */
-function stopServer() {
+function stopServer(port = PORT) {
     if (process.platform !== 'win32') {
         log.warn('停止逻辑目前仅实现 Windows（按端口杀进程）；请手动结束 server.mjs。');
         return;
     }
     const ps =
-        `Get-NetTCPConnection -LocalPort ${PORT} -State Listen -ErrorAction SilentlyContinue | ` +
+        `Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ` +
         'Select-Object -ExpandProperty OwningProcess -Unique | ' +
         'ForEach-Object { Stop-Process -Id $_ -Force; "killed PID $_" }';
     const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], {
@@ -509,8 +751,13 @@ function stopServer() {
         windowsHide: true,
     });
     const out = (r.stdout || '').trim();
-    if (out) log.ok('已停止：' + out.split(/\r?\n/).join('；'));
-    else log.info(`端口 ${PORT} 未在运行。`);
+    if (out) log.ok(`已停止（端口 ${port}）：` + out.split(/\r?\n/).join('；'));
+    else log.info(`端口 ${port} 未在运行。`);
+}
+
+/** 停止全部版本的调试服务器（各版本端口独立） */
+function stopAllServers() {
+    for (const e of engines) stopServer(e.port);
 }
 
 /**
@@ -530,9 +777,17 @@ async function startDetached({
     keep = false,
 } = {}) {
     if (!ensureServerFile()) process.exit(1);
+    if (!existsSync(join(engineRoot, 'index.html'))) {
+        log.error(`所选服务器版本根目录无效（缺 index.html）：${engineRoot}`);
+        console.log(`  当前配置：${currentEngine.key}；用 engine 命令切换，或检查 dev-config.local.json 的 installed。`);
+        process.exit(1);
+    }
+    ensureEngineSeed(); // 首次启用新版本：先播种配置备份再拉起/打开（否则空目录无备份可导，2026-10-03）
     let reuse = false; // 沿用现有实例（不重启）——2026-09-29：沿用也继续走「打开页面」而非直接 return
     if (await isRunning()) {
         log.warn(`服务器已在运行（${URL_BASE}）。`);
+        const info = await readServerInfo();
+        const env = info ? info.env : null;
         let needRestart = false;
         if (allowRestart) {
             needRestart = await confirm('是否停止后按新参数重启？', { defaultYes: false });
@@ -541,7 +796,6 @@ async function startDetached({
                 reuse = true;
             }
         } else {
-            const env = await readServerEnv();
             const curOff = env ? !!env.off : null;
             const curSkip = env ? env.autoskip || '' : null;
             const wantSkip = off || !autoskipMs ? '' : String(autoskipMs);
@@ -565,7 +819,7 @@ async function startDetached({
         }
     }
     if (!reuse) {
-        const child = spawn(process.execPath, ['server.mjs'], {
+        const child = spawn(process.execPath, ['server.mjs', engineRoot, String(PORT), serverOverlayDir, dataDir], {
             cwd: debugDir,
             detached: true,
             stdio: 'ignore',
@@ -599,6 +853,7 @@ async function startDetached({
         }
         log.ok(`已在后台启动（${off ? '手动模式：不自动游玩' : '无人值守'}）：`);
         console.log(`  地址：${URL_BASE}`);
+        console.log(`  版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
         console.log(
             off
                 ? '  配置：playtest=关闭自动游玩（页面刷新后仅手动/直测）'
@@ -618,6 +873,11 @@ async function startDetached({
  */
 async function startForeground({ allowRestart = false } = {}) {
     if (!ensureServerFile()) process.exit(1);
+    if (!existsSync(join(engineRoot, 'index.html'))) {
+        log.error(`所选服务器版本根目录无效（缺 index.html）：${engineRoot}`);
+        console.log(`  当前配置：${currentEngine.key}；用 engine 命令切换，或检查 dev-config.local.json 的 installed。`);
+        process.exit(1);
+    }
     if (await isRunning()) {
         log.warn(`服务器已在运行（${URL_BASE}）。`);
         if (allowRestart) {
@@ -638,10 +898,11 @@ async function startForeground({ allowRestart = false } = {}) {
     log.info(
         '前台启动（Ctrl+C 停止）：已注入「关闭自动游玩」（页面刷新后生效）；需要自动游玩请用「无人值守启动」。',
     );
+    console.log(`  版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
     const env = { ...process.env, BTS_PLAYTEST_OFF: '1' };
     delete env.BTS_PLAYTEST;
     delete env.BTS_AUTOSKIP_MS;
-    const child = spawn(process.execPath, ['server.mjs'], {
+    const child = spawn(process.execPath, ['server.mjs', engineRoot, String(PORT), serverOverlayDir, dataDir], {
         cwd: debugDir,
         stdio: 'inherit',
         env,
@@ -654,6 +915,7 @@ async function showStatus({ json = false } = {}) {
     const running = await isRunning();
     const stats = running ? await getJson(URL_BASE + '__playtest/stats') : null;
     const d = stats && stats.data;
+    const others = await probeOtherEngines();
     const fileInfo = (f) => {
         try {
             if (!existsSync(f)) return null;
@@ -671,6 +933,16 @@ async function showStatus({ json = false } = {}) {
                 {
                     running,
                     url: URL_BASE,
+                    engine: { key: currentEngine.key, label: currentEngine.label, root: engineRoot, dataDir, port: PORT },
+                    runningEngine:
+                        d && typeof d.root === 'string' && d.root
+                            ? {
+                                  root: d.root,
+                                  label: (findEngineByRoot(d.root) || {}).label ?? null,
+                                  match: samePath(d.root, engineRoot),
+                              }
+                            : null,
+                    othersRunning: others.map((e) => ({ key: e.key, label: e.label, port: e.port })),
                     env: d ? (d.env ?? null) : null,
                     stats: d ?? null,
                     playtestLog: logInfo,
@@ -686,9 +958,22 @@ async function showStatus({ json = false } = {}) {
         log.info(
             `服务器未运行（${URL_BASE}）——用「无人值守启动」拉起（node scripts/playtest.mjs auto）。`,
         );
+        console.log(`  配置服务器版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
+        if (others.length)
+            console.log(`  其他版本实例：${others.map((e) => `${e.label}（${e.port}，运行中）`).join('、')}`);
         return;
     }
     log.ok(`服务器运行中：${URL_BASE}`);
+    console.log(`  服务器版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
+    if (others.length)
+        console.log(`  其他版本实例：${others.map((e) => `${e.label}（${e.port}，运行中）`).join('、')}`);
+    if (d && typeof d.root === 'string' && d.root) {
+        const same = samePath(d.root, engineRoot);
+        const from = findEngineByRoot(d.root);
+        console.log(
+            `  运行实例：${from ? from.label : d.root}${same ? '（与配置一致）' : '（与配置不一致——auto/fg/open/set 会自动切换，或先 stop）'}`,
+        );
+    }
     if (d && d.env) {
         console.log(
             `  服务器模式：${d.env.off ? '手动（不自动游玩）' : '无人值守'}；自动跳过=${d.env.autoskip || '关闭'}`,
@@ -709,9 +994,8 @@ async function showStatus({ json = false } = {}) {
         );
     }
     if (pLogInfo) {
-        console.log(
-            `  持久化日志：data/persist-log.jsonl（${(pLogInfo.bytes / 1024).toFixed(1)} KB；页面侧备份/恢复 trace）`,
-        );
+        const rel = pLogInfo.path.slice(debugDir.length).replace(/^[\\/]+/, '');
+        console.log(`  持久化日志：${rel}（${(pLogInfo.bytes / 1024).toFixed(1)} KB；页面侧备份/恢复 trace）`);
     }
 }
 
@@ -813,6 +1097,156 @@ async function showEvents(opts) {
     console.log(`（共 ${picked.length} 条；完整事件流：${playtestLog}）`);
 }
 
+/**
+ * clean 子命令：一键删除测试运行数据（对局事件流 / persist 日志 / 待注入记录 / 标签报告 / 旧残留），
+ * 让后续统计与审计从零开始。**永不触碰配置备份**（persist.json / persist.prev.json /
+ * persist.shrunk-*.json / seeds/ —— 防丢数据铁律）；pending.json 仅清空一次性 sets，
+ * 保留 ls 启动项（localStorage 直入对局等持续配置）。--dry=只预览；--all=连同 archive/ 历史归档
+ * 与 data/_tmp_* 临时调试输出一并清除。服务器运行中亦可执行：文件被删后由下一次写入即时重建
+ * （内存统计 / stats 计数需重启服务器才归零）。
+ */
+async function cmdClean({ dry = false, all = false } = {}) {
+    if (!existsSync(dataDir)) {
+        log.info(`无数据目录（${dataDir}；服务器版本 ${currentEngine.label}），无需清理。`);
+        return;
+    }
+    console.log(`服务器版本：${currentEngine.label}（数据目录：${dataDir}）`);
+    const fmtBytes = (n) => {
+        if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(2)} MB`;
+        if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
+        return `${n} B`;
+    };
+    const sizeOf = (p) => {
+        try {
+            const st = statSync(p);
+            if (st.isFile()) return st.size;
+            if (st.isDirectory()) return readdirSync(p).reduce((s, n) => s + sizeOf(join(p, n)), 0);
+        } catch {
+            /* ignore */
+        }
+        return 0;
+    };
+    // 核心测试数据（对局事件流 / 页面 trace / 队列记录 / 标签报告 / 旧残留）
+    const CORE = [
+        ['playtest.jsonl', '对局事件流'],
+        ['playtest.prev.jsonl', '事件流轮转备份'],
+        ['persist-log.jsonl', '页面备份/恢复 trace'],
+        ['persist-log.jsonl.prev', 'trace 轮转备份'],
+        ['pending-taken.json', '待注入取走记录'],
+        ['helper-tabs.json', '内置浏览器标签报告'],
+        ['last_gametail.txt', '早期战报残留'],
+    ];
+    const targets = [];
+    for (const [name, label] of CORE) {
+        const f = join(dataDir, name);
+        if (existsSync(f)) targets.push({ path: f, name, label, bytes: sizeOf(f) });
+    }
+    // pending.json：仅清空一次性待注入 sets；ls（localStorage 启动项）属持续配置，保留
+    let pendingSets = 0;
+    let pendingLs = 0;
+    let pendingExists = false;
+    try {
+        pendingExists = existsSync(join(dataDir, 'pending.json'));
+        if (pendingExists) {
+            const j = JSON.parse(readFileSync(join(dataDir, 'pending.json'), 'utf-8'));
+            pendingSets = j && j.sets ? Object.keys(j.sets).length : 0;
+            pendingLs = j && j.ls ? Object.keys(j.ls).length : 0;
+        }
+    } catch {
+        /* 不可读：跳过重置 */
+    }
+    if (all) {
+        try {
+            const archDir = join(dataDir, 'archive');
+            if (existsSync(archDir)) {
+                for (const n of readdirSync(archDir)) {
+                    const f = join(archDir, n);
+                    targets.push({ path: f, name: `archive/${n}`, label: '历史归档', bytes: sizeOf(f) });
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        try {
+            for (const n of readdirSync(dataDir)) {
+                if (!n.startsWith('_tmp_')) continue;
+                const f = join(dataDir, n);
+                targets.push({ path: f, name: n, label: '临时调试输出', bytes: sizeOf(f) });
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+    const totalBytes = targets.reduce((s, t) => s + t.bytes, 0);
+    if (targets.length) {
+        console.log(`将删除 ${targets.length} 项测试数据（共 ${fmtBytes(totalBytes)}）：`);
+        for (const t of targets) console.log(`  · ${t.name}（${t.label}，${fmtBytes(t.bytes)}）`);
+    } else {
+        console.log('核心测试数据已为空（无文件可删）。');
+    }
+    if (pendingSets) console.log(`  · pending.json：清空 ${pendingSets} 项待注入 sets（保留 ${pendingLs} 项 ls 启动项）`);
+    else if (pendingExists && pendingLs) console.log(`  · pending.json：无需清空（sets 已空；保留 ${pendingLs} 项 ls 启动项）`);
+    if (!all) {
+        let archCount = 0;
+        let tmpCount = 0;
+        try {
+            archCount = readdirSync(join(dataDir, 'archive')).length;
+        } catch {
+            /* ignore */
+        }
+        try {
+            tmpCount = readdirSync(dataDir).filter((n) => n.startsWith('_tmp_')).length;
+        } catch {
+            /* ignore */
+        }
+        if (archCount || tmpCount)
+            console.log(`  另有 archive/ 归档 ${archCount} 项、_tmp_* 临时输出 ${tmpCount} 项未处理（--all 一并清除）。`);
+    }
+    const keeps = [
+        'persist.json',
+        'persist.prev.json',
+        ...readdirSync(dataDir).filter((n) => /^persist\.shrunk-/.test(n)),
+        'seeds/',
+    ];
+    console.log(`  保留（配置备份，防丢数据铁律）：${keeps.join('、')}`);
+    if (dry) {
+        log.info('--dry 预演：未删除任何文件。');
+        return;
+    }
+    let deleted = 0;
+    let failed = 0;
+    let pendingCleared = false;
+    for (const t of targets) {
+        try {
+            rmSync(t.path, { recursive: true, force: true });
+            deleted++;
+        } catch (e) {
+            failed++;
+            log.warn(`删除失败：${t.name}（${(e && e.message) || e}）`);
+        }
+    }
+    if (pendingSets) {
+        try {
+            const pf = join(dataDir, 'pending.json');
+            const j = JSON.parse(readFileSync(pf, 'utf-8'));
+            j.sets = {};
+            writeFileSync(pf, JSON.stringify(j));
+            pendingCleared = true;
+        } catch (e) {
+            failed++;
+            log.warn('pending.json 清空失败：' + ((e && e.message) || e));
+        }
+    }
+    log.ok(
+        `已删除 ${deleted} 项测试数据（${fmtBytes(totalBytes)}）` +
+            (pendingCleared ? '，并清空 pending.json 待注入 sets' : '') +
+            `${failed ? `；${failed} 项失败` : ''}。`,
+    );
+    if (await isRunning())
+        console.log('  服务器运行中：新事件将写入重建后的文件（内存计数 / stats 需重启服务器归零）。');
+    if (failed) process.exitCode = 1;
+}
+
 function printUsage() {
     console.log(`用法（AI/自动化一律带子命令与参数直用；无参=人类交互菜单）:
   node scripts/playtest.mjs auto [ms] [--no-auto] [--no-open] [--keep] [--char <id>] [--test] [--set k=v]... [--query k=v]...
@@ -824,6 +1258,8 @@ function printUsage() {
   node scripts/playtest.mjs stop
   node scripts/playtest.mjs restore [--force]
   node scripts/playtest.mjs seed
+  node scripts/playtest.mjs clean [--dry] [--all]
+  node scripts/playtest.mjs engine [key|seed] [--force] [--from <key>]
   node scripts/playtest.mjs fg
 
 说明:
@@ -836,7 +1272,17 @@ function printUsage() {
         未运行则手动模式拉起；页面写库后自动重载）
   apply-nncfg  批量注入 nncfg 配置（缺省 zip/style/nncfg/win11.0.nncfg：全崩铁武将池/开发者模式/界面
         样式等整包设置；--dry 只解码打印；单键调整仍用 set）
-  status --json  机器可读（含服务器 env 与页面计数，供 AI 解析）
+  clean  一键删除测试数据（对局事件流 / persist 日志 / 待注入记录 / 标签报告 / 旧残留），统计从零开始；
+        永不触碰配置备份（persist*/seeds——防丢数据铁律）；--dry 只预览；--all 连同 archive/ 归档与
+        _tmp_* 临时输出一并清除（作用于当前配置的服务器版本）
+  engine  查看/切换服务器版本：noname（缺省；端口 8931/数据目录 data）或 noname - 新版（key=new，
+        别名 新版；端口 8932/数据目录 data-new）。端口即同源隔离——浏览器存储与测试数据全部按版本
+        分离、两版本可同时运行；stop 释放全部版本端口。配置存 scripts/lib/dev-config.local.json 的
+        playtest.engine（本机配置）
+  engine seed  把其它版本的配置备份播种到当前版本（--force 覆盖已有；--from <key> 指定来源）；
+        首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种——空容器页面即可
+        自动导入配置（否则无备份可导、dev=false 卡 boot；2026-10-03 实测修复）
+  status --json  机器可读（含服务器 env、引擎与页面计数，供 AI 解析）
 （npm 传参写法：npm run playtest -- auto 30000）`);
 }
 
@@ -852,9 +1298,11 @@ async function runInteractive() {
                     label: '应用 nncfg 配置（win11.0：全崩铁武将池 / 开发者模式 / 界面样式）',
                     value: 'nncfg',
                 },
+                { label: `切换服务器版本（当前：${currentEngine.label}@${currentEngine.port}；端口/数据按版本独立）`, value: 'engine' },
                 { label: '恢复配置数据（缺失自动补缺；可选强制覆盖）', value: 'restore' },
                 { label: '制作配置种子快照（把当前健康备份固定为回退基准）', value: 'seed' },
-                { label: '停止服务器（释放 8931 端口）', value: 'stop' },
+                { label: '清理测试数据（删除事件流/日志/队列记录；保留配置备份）', value: 'clean' },
+                { label: `停止服务器（释放 ${engines.map((e) => e.port).join('/')} 端口）`, value: 'stop' },
                 { label: '查看运行状态 / 统计', value: 'status' },
             ],
             { cancelLabel: '退出' },
@@ -872,6 +1320,20 @@ async function runInteractive() {
             await openBrowser(URL_BASE);
         } else if (value === 'nncfg') {
             await applyNncfg({ flags: new Set(), values: {}, sets: [], queries: [], positional: [] });
+        } else if (value === 'engine') {
+            const picked = await menu(
+                '选择要启动的服务器版本（测试数据按版本分离）：',
+                engines.map((e) => ({
+                    label: `${e.label}（${e.key}）${samePath(e.root, currentEngine.root) ? ' ← 当前' : ''}`,
+                    value: e.key,
+                })),
+                { cancelLabel: '不切换' },
+            );
+            if (!picked) {
+                log.info('已取消。');
+                return;
+            }
+            await cmdEngine(typeof picked === 'string' ? picked : picked.value);
         } else if (value === 'restore') {
             const force = await confirm('是否强制覆盖恢复（--force）？默认普通补缺（仅补缺失键）', {
                 defaultYes: false,
@@ -879,13 +1341,87 @@ async function runInteractive() {
             await restoreConfig({ force });
         } else if (value === 'seed') {
             snapshotSeed();
+        } else if (value === 'clean') {
+            if (!(await confirm('删除测试数据（保留配置备份 persist*/seeds）？', { defaultYes: false }))) {
+                log.info('已取消。');
+                return;
+            }
+            const all = await confirm('是否连同 archive/ 历史归档与 _tmp_* 临时输出一并清除？', { defaultYes: false });
+            await cmdClean({ all });
         } else if (value === 'stop') {
-            stopServer();
+            stopAllServers();
         } else if (value === 'status') {
             await showStatus();
         }
     } finally {
         closeInteractive();
+    }
+}
+
+/**
+ * engine 子命令：查看 / 切换「服务器版本（引擎）」——noname（缺省）或 noname - 新版（key=new）。
+ * 配置持久化在 scripts/lib/dev-config.local.json 的 playtest.engine（本机配置，不入库）；
+ * 可选列表由同文件 installed 派生。两版本测试数据目录相互分离（data / data-<key>）。
+ * 用法：node scripts/playtest.mjs engine [noname|new|新版]
+ */
+async function cmdEngine(arg, opts = { flags: new Set(), values: {} }) {
+    if (arg === 'seed' || arg === '播种') {
+        await seedForCurrentEngine(opts);
+        return;
+    }
+    const saved = readEngineSelection();
+    if (saved && !engines.some((e) => e.key === saved))
+        log.warn(`本机配置的版本「${saved}」不在可选列表（installed 已变化）→ 已回退「${currentEngine.label}」。`);
+    if (!arg) {
+        log.ok(`当前服务器版本：${currentEngine.label}（key=${currentEngine.key}，端口 ${PORT}）；数据目录：${dataDir}`);
+        console.log('  可选（由 dev-config.local.json 的 installed 派生）：');
+        for (const e of engines) {
+            const marks = [];
+            if (samePath(e.root, currentEngine.root)) marks.push('当前');
+            if (!existsSync(join(e.root, 'index.html'))) marks.push('⚠ 缺 index.html，不可用');
+            console.log(`  · ${e.key}｜${e.label}${marks.length ? `（${marks.join('；')}）` : ''}`);
+            console.log(`      端口：${e.port}；根目录：${e.root}`);
+            console.log(`      数据目录：${dataDirFor(e)}`);
+        }
+        console.log('  切换：npm run playtest -- engine <noname|new|新版>');
+        return;
+    }
+    const target = matchEngine(arg);
+    if (!target) {
+        log.error(`未知服务器版本：「${arg}」（可选：${engines.map((e) => e.key).join(' / ')}；别名：新版 = noname - 新版）`);
+        process.exitCode = 1;
+        return;
+    }
+    if (!existsSync(join(target.root, 'index.html'))) {
+        log.error(`「${target.label}」网页根目录不完整（缺 index.html）：${target.root}`);
+        process.exitCode = 1;
+        return;
+    }
+    if (samePath(target.root, currentEngine.root)) {
+        log.info(`服务器版本已是「${currentEngine.label}」（数据目录：${dataDir}），无需切换。`);
+        return;
+    }
+    saveEngineSelection(target.key);
+    log.ok(`服务器版本已切换：${currentEngine.label}（${currentEngine.port}） → ${target.label}（${target.port}）`);
+    console.log(`  根目录：${target.root}`);
+    console.log(`  数据目录：${dataDirFor(target)}（端口与数据均按版本独立）`);
+    if (!existsSync(join(dataDirFor(target), 'persist.json')))
+        log.info(
+            '该版本尚无配置备份（首次使用）——打开页面时自动从其它版本播种（首次导入配置）；也可手动：engine seed',
+        );
+    // 各版本服务器端口独立、可同时运行；切换只影响之后启动的实例
+    const running = [];
+    for (const e of engines) {
+        if ((await get(`http://127.0.0.1:${e.port}/`, 800)) !== null) running.push(e);
+    }
+    if (running.length) {
+        const same = running.find((e) => samePath(e.root, target.root));
+        const others = running.filter((e) => !samePath(e.root, target.root));
+        if (same) log.info(`「${target.label}」已在运行（http://127.0.0.1:${target.port}/）——start/open 将直接沿用。`);
+        if (others.length)
+            log.info(
+                `其他版本实例仍在运行（${others.map((e) => `${e.label}@${e.port}`).join('、')}）——端口/数据互不影响；如需全部停止：npm run playtest -- stop。`,
+            );
     }
 }
 
@@ -895,6 +1431,7 @@ async function cmdOpen(opts) {
         log.info('服务器未运行 → 先以默认模式（无人值守）后台拉起…');
         await startDetached({ autoskipMs: DEFAULT_AUTOSKIP_MS, off: false, openUrl: '' });
     }
+    ensureEngineSeed(); // 沿用运行中实例时也要保证「有备份可导」（服务器按请求读盘，补上即对下次加载生效）
     const url = buildPageUrl({
         urlArg: opts.positional[0] || '',
         test: opts.flags.has('test'),
@@ -1184,8 +1721,12 @@ async function main() {
             await restoreConfig({ force: opts.flags.has('force') });
         } else if (cmd === 'seed') {
             snapshotSeed();
+        } else if (cmd === 'clean') {
+            await cmdClean({ dry: opts.flags.has('dry'), all: opts.flags.has('all') });
+        } else if (cmd === 'engine') {
+            await cmdEngine(opts.positional[0], opts);
         } else if (cmd === 'stop') {
-            stopServer();
+            stopAllServers();
         } else if (cmd === 'events') {
             await showEvents(opts);
         } else if (cmd === 'status') {

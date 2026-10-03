@@ -53,6 +53,9 @@ export const skill = {
         }, // 无属性伤害
         async content(event, trigger, player) {
             const judge = await player.judge((card) => true).forResult();
+            // 判定「无结果」契约（2026-10-03）：死亡/离场除名/被移除时事件被引擎逐步骤拦截
+            //（ContentCompilerBase.isPrevented）→ undefined = 判定未发生，不改伤害属性。
+            if (!judge) return;
             if (judge.color === 'black')
                 lib.bts.api.setDamageNature(trigger, 'wind'); // 判定黑色加风
         },
@@ -93,6 +96,8 @@ export const skill = {
                 ),
             )) {
                 const judge = await p.judge((card) => true).forResult(); // 源 judge.who = p（各被判定者）
+                // 无结果契约（2026-10-03）：该角色已死亡/离场除名/被移除 → 其判定未发生，跳过（不中断其余角色）。
+                if (!judge) continue;
                 if (judge.suit === 'spade')
                     lib.bts.api.addAbnormal(p, 'poison', 1, player);
             }

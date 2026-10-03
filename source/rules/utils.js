@@ -730,40 +730,46 @@ export const bts = {
             .map((key) => key.slice('bts_abnormal_'.length));
     },
 
-    // 技能选择界面（左慈化身式：直接列出技能、带描述，非幻化之战模式窗口）——从异常内部名中选一个。
-    // 无名杀 chooseSkill 仅接受角色技能表，此处按 chooseSkill 同款展示（【异常名】+描述点击项），
-    // 由 picker（玲可/被移除者）直接点击选择，返回所选异常内部名（AI/观战缺省取首个，同源缺省）。
+    // 技能选择界面（左慈化身式：直接列出技能、带描述）——从异常内部名中选一个。
+    // 联机适配（2026-10-03）：改用引擎 chooseButton + createDialog（选项对 [键, 展示html]，
+    // 经 tdnodes 预设渲染为可点击技能项）。旧实现为本地自绘对话框 + Promise/点击监听，
+    // 未走引擎交互事件：联机时远程玩家的实例拿不到该对话框，`!isMine()` 分支被静默代选首个。
+    // chooseButton 对远程玩家由引擎经 event.send() 发到其客户端执行（本机为主机时非本端
+    // 事件本地隐藏对话框）；选项数据全为字符串/数组等可序列化原语，可安全跨端重建——
+    // 无需任何回调（filterButton 默认放行全部、ai 默认取序首，均与旧 AI 行为一致）。
     async chooseAbnormal(picker, names, prompt) {
-        if (!picker.isMine()) return names[0]; // AI 缺省取首个（源 askForChoice 默认）
-        const { promise, resolve } = Promise.withResolvers();
-        const dialog = ui.create.dialog('forcebutton');
-        dialog.add(prompt || '请选择移除一种异常');
-        let shown = 0;
+        // 同 chooseSkill：仅列出有描述的技能（全无描述 → 按旧行为缺省首个）。
+        const options = [];
         for (const name of names) {
             const key = `bts_abnormal_${name}`;
             const desc =
                 (lib.skill[key]?.glossaryId &&
                     lib.translate[lib.skill[key].glossaryId + '_info']) ||
                 lib.translate[key + '_info'];
-            if (!desc) continue; // 同 chooseSkill：仅列出有描述的技能
-            const item = dialog.add(
-                '<div class="popup pointerdiv" style="width:80%;display:inline-block">' +
-                    `<div class="skill">【${get.translation(key)}】</div><div>${desc}</div></div>`,
-            );
-            item.firstChild.addEventListener('click', () => resolve(name));
-            item.firstChild.link = name;
-            shown++;
+            if (!desc) continue;
+            options.push([
+                key,
+                `<div class="skill">【${get.translation(key)}】</div><div>${desc}</div>`,
+            ]);
         }
-        if (!shown) {
-            dialog.close();
-            return names[0];
-        }
-        dialog.add(ui.create.div('.placeholder'));
-        _status.imchoosing = true;
-        const result = await promise;
-        _status.imchoosing = false;
-        dialog.close();
-        return result;
+        if (!options.length) return names[0];
+        const result = await picker
+            .chooseButton({
+                createDialog: [
+                    prompt || '请选择移除一种异常',
+                    [options, 'tdnodes'],
+                ],
+                selectButton: 1,
+                forced: true,
+            })
+            .forResult();
+        const link =
+            result?.links?.[0] ??
+            result?.buttons?.[0]?.link ??
+            result?.button?.[0]?.link;
+        return typeof link === 'string' && link.startsWith('bts_abnormal_')
+            ? link.slice('bts_abnormal_'.length)
+            : names[0];
     },
 
     // ── 无名杀特化：移除体力上限保底 1 ─────────────────────────────────────
