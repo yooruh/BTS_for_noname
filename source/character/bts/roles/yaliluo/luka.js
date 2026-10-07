@@ -38,12 +38,37 @@ export const skill = {
             await lib.bts.api.addBless(player, 'zhisheng', 3); // 源 L3763：AddBless(@bless_zhisheng, 3)
         },
         ai: {
+            // AI 口径：怒气≥3 且有敌方（诅咒须挂敌方）时发动；收益=3层制胜（下次【杀】视为【决斗】并锁目标手牌）
+            // +1层诅咒（目标下次受伤+1）；手上留有【杀】可当回合兑现则加分，已就绪（≥3层）本次为续层略降
+            //（源 animal.lua L3755-3775；制胜结算见本文件 buffSkills，诅咒见 rules/globalBuffs.js bts_curse）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhisheng')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zhisheng')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1;
+                let best = 0; // 敌方目标估值（诅咒挂友方为负收益，不选）
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    let v = 1.2; // 诅咒+1：下次受伤伤害+1（bts_curse damageBegin4，层数全部消耗）
+                    if (target.hp <= 2) v += 0.4; // 残血：加伤更易兑现为濒死
+                    best = Math.max(best, v);
+                }
+                if (!best) return -1;
+                let value = 2.5 + best; // 3层制胜≈1次【杀】→【决斗】+锁目标手牌（近必中1伤+手牌干扰）
+                if (player.getCards('h').some((card) => get.name(card) === 'sha'))
+                    value += 1; // 手牌有【杀】：本回合即可兑现祝福
+                if (lib.bts.api.getBless(player, 'zhisheng', -1) >= 3)
+                    value -= 0.5; // 已就绪：本次为续层（结束阶段自然衰减）
+                return value >= 4.5 ? 7 : value >= 3.5 ? 5 : 3;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                // 施动方：3层制胜（1次【杀】转【决斗】并锁目标手牌）；有【杀】可立即兑现
+                player: (player) =>
+                    player.getCards('h').some((card) => get.name(card) === 'sha')
+                        ? 3
+                        : 2.5,
+                // 受动方：1层诅咒（下次受伤+1）；残血目标加伤威胁更大
+                target: (player, target) => (target.hp <= 2 ? -1.6 : -1.2),
+            },
         },
     },
 
@@ -63,7 +88,6 @@ export const skill = {
         async content(event, trigger, player) {
             await lib.bts.api.addBless(player, 'zhisheng', 2); // 源 L3786/L3793：AddBless(@bless_zhisheng, 2)
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·裂拳（源 st_liequan = TriggerSkill Damage，L3800-3813）──
@@ -88,6 +112,12 @@ export const skill = {
                         get.translation(trigger.player) +
                         '失去1点体力？',
                 )
+                // AI 口径：仅对敌方弃【杀】——失去1体力无视防具/护盾（源 L3800-3813）
+                .set('ai', () => {
+                    const target = trigger.player;
+                    if (!target || !target.isAlive()) return false;
+                    return get.attitude(player, target) < 0;
+                })
                 .forResult();
             if (!result.bool) {
                 event.result = { bool: false };
@@ -99,6 +129,11 @@ export const skill = {
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
                 )
+                // AI 口径：候选已过滤为【杀】，弃价值最低者
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    return -get.value(card);
+                })
                 .forResult();
             if (!cards.bool) {
                 event.result = { bool: false };
@@ -112,7 +147,12 @@ export const skill = {
             if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
             await trigger.player.loseHp(1); // 源 L3810：room:loseHp(damage.to)
         },
-        ai: { result: { player: 1, target: -1 } },
+        ai: {
+            // 供跨技能估值查询（发动决策在 cost 内联 ai）：目标失去1体力无视防具/护盾≈-1.5，残血可逼濒死
+            result: {
+                target: (player, target) => (target.hp <= 1 ? -2 : -1.5),
+            },
+        },
     },
 };
 
@@ -158,7 +198,7 @@ export const buffSkills = {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_zhisheng_faq',
         // 制胜锁手（源 animal.lua L1041-1061）：使用【杀】/【决斗】时视为【决斗】并锁定
-        // 目标手牌（置于其武将牌），结算完毕/取消后归还（resolver useCard 迁入，2026-09-04）。
+        // 目标手牌（置于其武将牌），结算完毕/取消后归还（自 resolver 迁入）。
         trigger: { player: ['useCard', 'useCardAfter', 'useCardCancelled'] },
         forced: true,
         silent: true,
@@ -225,8 +265,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_zhisheng_faq',

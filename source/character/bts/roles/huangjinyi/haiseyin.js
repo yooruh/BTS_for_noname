@@ -38,26 +38,41 @@ export const skill = {
             );
         },
         ai: {
+            // AI 口径：怒气≥5（filter 同门）才可发动；收益=3层绝海祝福（爱诗5层）——祝福期间海瑟音
+            // 造成/受到伤害即结算并移除全场麻痹/烧伤/中毒（每层各=1点伤害或失去体力）；敌方异常层越多
+            // 即时引爆收益越高，无异常时仅是铺场（源 animal.lua L8487-8508；源 AI max_haiqu 估值 8）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_haiqu')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_haiqu')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 怒气<5 且无额外怒气上限：不可用
+                let value = 6; // 3层祝福底值（下次由海瑟音触发全场结算）
+                if (player.hasSkill('bts_sk_aishi')) value += 1; // 组合形态『律法』诗：5层
+                let burst = 0; // 敌方异常层合计：引爆即转化为即时伤害
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    burst +=
+                        lib.bts.api.getAbnor(target, 'numb', -1) +
+                        lib.bts.api.getAbnor(target, 'burn', -1) +
+                        lib.bts.api.getAbnor(target, 'poison', -1);
+                }
+                value += Math.min(2, burst * 0.5); // 引爆收益封顶 +2
+                return Math.min(8, value);
             },
             result: { player: 2 },
         },
     },
 
-    // ── 触发技·海妖（源 st_haiyao = TriggerSkill global EventPhaseStart/Damage，L8555-8576）──
-    // 其他角色出牌阶段开始时，其可以弃置一张手牌令你摸一张牌；
-    // 其以此法弃牌后首次受到伤害时，此效果对其失效（源为动态挂摘 "_give" 子技能，无名杀以标记近似）。
+    // ── 触发技·海妖（源 st_haiyao = TriggerSkill EventPhaseStart/Damage，L8555-8576）──
+    // 其他角色出牌阶段开始时，其可弃一张手牌令你摸一张牌；其以此法弃牌后首次受伤时效果失效
+    //（源为动态挂摘 "_give" 子技能，无名杀以标记近似）。
     bts_sk_haiyao: {
         trigger: { global: 'phaseUseBegin' },
         filter(event, player) {
             // 源 L8561-8565：其他角色进入出牌阶段，且未失效（give_lose==0）
             const target = event.player;
             if (target === player) return false;
-            // 源 enabled_at_play 用 hasUsed("#st_haiyao_give") 按回合限一次、每回合重新武装；
-            // 无名杀以 bts_mk_haiyao_used 标记近似，故每次出牌阶段开始时清除上轮使用记录（等效重挂）。
+            // 源按回合限一次、每回合重新武装（hasUsed("#st_haiyao_give")）；以 bts_mk_haiyao_used
+            // 近似——每次出牌阶段开始清除上轮记录（等效重挂）。
             if (target.getStorage('bts_mk_haiyao_used', false)) {
                 target.setStorage('bts_mk_haiyao_used', false, true);
             }
@@ -67,14 +82,19 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L8510-8522（st_haiyao_giveCard）：由出牌者（trigger.player）选一张手牌作代价
-            // cost 只做选择；出牌者取消则技能干净不触发，避免「看似触发却没弃牌」
+            // 源 L8510-8522：由出牌者选一张手牌作代价；cost 只做选择——取消则技能干净不触发
+            //（避免「看似触发却没弃牌」）。
             const target = trigger.player;
             event.result = await target
                 .chooseCard(
                     'h',
                     (card) => lib.filter.cardDiscardable(card, target),
                     `海妖：是否弃置一张手牌？`,
+                )
+                // AI 口径：出牌者视角——弃一摸一（净换牌），出分值最低的手牌；垫底也≥6分则放弃
+                //（最高分≤0→引擎取消，同风堇·虹光 ai1 范式）
+                .set('ai', (card) =>
+                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
                 )
                 .forResult();
         },
@@ -86,6 +106,8 @@ export const skill = {
                 .chooseBool(
                     `海妖：是否同意${get.translation(target)}弃置一张手牌并摸一张牌？`,
                 )
+                // AI 口径：弃一摸一全部归出牌者，海瑟音自身无收益——只在友方或中立时同意
+                //（源 AI st_haiyao_give=asFriend(self,data,true)=isFriend 或非 isEnemy，StarRail-ai.lua L1367）
                 .set('ai', () => get.attitude(player, target) >= 0)
                 .forResult();
             if (!consent.bool) return; // 海瑟音拒绝：不弃牌不摸
@@ -111,10 +133,8 @@ export const skill = {
                 async content(event, trigger, player) {
                     trigger.player.setStorage('bts_mk_haiyao_lose', true, true); // trigger=damageEnd 事件
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·泛音（源 st_fanyin = TriggerSkill CardsMoveOneTime，L8578-8597）──
@@ -132,20 +152,23 @@ export const skill = {
                 lost?.hs?.some((card) => get.name(card) === 'sha')
             );
         },
-        async content(event, trigger, player) {
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             const target = trigger.player; // trigger=loseAfter 事件
-            // 源 L8591：AddBless(target, "@bless_haiyao", 1, p)（海妖祝福）
-            const result = await player
+            event.result = await player
                 .chooseBool(
                     `泛音：是否令${get.translation(target)}获得1层海妖祝福？`,
                 )
+                // AI 口径：只送友方（海妖祝福把「造成伤害」转为给受害方附加异常，交给敌方攻击者
+                // 反而替受害目标上异常）（源 AI st_fanyin=asFriend(self,data)=严格友方，StarRail-ai.lua L1371）
                 .set('ai', () => get.attitude(player, target) > 0)
                 .forResult();
-            if (result.bool) {
-                await lib.bts.api.addBless(target, 'haiyao', 1, player);
-            }
         },
-        ai: { noe: true },
+        async content(event, trigger, player) {
+            const target = trigger.player; // trigger=loseAfter 事件
+            // 源 L8591：AddBless(target, "@bless_haiyao", 1, p)。
+            await lib.bts.api.addBless(target, 'haiyao', 1, player);
+        },
     },
 };
 
@@ -160,13 +183,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_haiseyin_skin1': '皮肤1',
-    'bts_ch_haiseyin_skin2': '皮肤2',
-    'bts_ch_haiseyin_skin3': '皮肤3',
-    'bts_ch_haiseyin_skin4': '皮肤4',
-    'bts_ch_haiseyin_skin5': '皮肤5',
-    'bts_ch_haiseyin_skin6': '皮肤6',
-    'bts_ch_haiseyin_skin7': '皮肤7',
     'bts_ch_haiseyin_skin1': '皮肤1',
     'bts_ch_haiseyin_skin2': '皮肤2',
     'bts_ch_haiseyin_skin3': '皮肤3',
@@ -247,8 +263,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_haiqu_faq',

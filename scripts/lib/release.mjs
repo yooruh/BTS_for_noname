@@ -159,8 +159,8 @@ export function patchVersionJsonZip(version, zipInfo) {
 
 /**
  * 生成 source/content.js 的 updateContent（扩展更新弹窗数据）。
- * 数组格式：可选 players 角色卡展示 + text 正文；正文支持 `{{poptip:arg|label}}`
- * 标记，运行时经 get.poptip() 渲染为可点击词条（与叁岛一致）。
+ * 数组格式：可选 players 角色卡 + text 正文；正文支持 `{{poptip:arg|label}}`，
+ * 运行时经 get.poptip() 渲染为可点击词条。
  */
 export function renderUpdateContent(manifest) {
     const latest = getLatestRelease(manifest);

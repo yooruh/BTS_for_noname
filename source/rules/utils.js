@@ -20,21 +20,14 @@ function allMarks(player, prefix) {
     );
 }
 
-// 已迁移：角色技能特化方法已移出本对象，按叁岛 util 字段范式挂载到对应技能的 util
-//（bts_sk_fanshi.util：fanshiOthers/issueFanshiTurn/advanceFanshiChain/pushFanshiEvent/stealFanshi/settleFanshi/endFanshi；
-//  bts_sk_mosuo.util：kafuka；bts_sk_canmeng.util：canmengActive；2026-09-02 TODO 整改，
-//  白厄延后层（波次/收尾）重构 2026-09-26）。
-// 本对象只保留通用规则 API（怒气/祝福/护盾/诅咒/异常/元素/回合/变形等）。
+// 本对象只保留通用规则 API（怒气/祝福/护盾/诅咒/异常/元素/回合/变形等）；角色技能特化方法
+// 按叁岛范式挂到对应技能的 util 字段（如 bts_sk_fanshi.util / bts_sk_canmeng.util）。
 export const bts = {
     /**
-     * 派发崩铁杀自定义事件（2026-10-02 技能效果自注册重构的基建）。
-     * 范式与 bts_mark_add/bts_mark_remove 一致：构造 content='emptyEvent' 的子事件
-     *（emptyEvent → event.trigger(event.name) 裸名派发），技能侧以
-     * `trigger: { player/global: '<事件名>' }` 监听；事件名须在安装期登记
-     * lib.hookmap（rules/index.js installCustomEventHooks），否则引擎门禁直接吞掉。
-     * 时序：不 await 时监听者在「下一泵点」（当前同步段结束后）执行；需要
-     *「监听者先于调用点后续代码完成」时 await 返回的事件（await 子事件会泵父
-     * 事件队列——引擎 gameEvent.js then()/waitNext()，无死锁）。
+     * 派发崩铁杀自定义事件（技能效果自注册的基建）：以 content='emptyEvent' 的子事件裸名派发，
+     * 技能侧以 `trigger: { player/global: '<事件名>' }` 监听；事件名须经 rules/index.js
+     * installCustomEventHooks 登记 lib.hookmap，否则被引擎门禁吞掉。
+     * 时序：不 await → 监听者下一泵点执行；需监听者先于后续代码完成时 await（无死锁）。
      * @param {string} name 事件名（bts_ 前缀）
      * @param {object} fields 事件字段（如 { player, pet, repeated }）
      * @returns {object} 事件本体（可 await；forceDie/includeOut 保证死者/离场者照发）
@@ -49,12 +42,8 @@ export const bts = {
     },
 
     /**
-     * 全场结算遍历顺序（2026-09-29 用户定夺统一）：从当前回合角色（_status.currentPhase）
-     * 起按座次展开，参照「属性杀触发铁索连环的结算顺序」。
-     * 依据：源版 getAllPlayers() 从当前回合角色开始逐座次取全体；无名杀引擎同款实现——
-     * `_lianhuan`（铁索连环传导）`lib.tempSortSeat = _status.currentPhase || player`、
-     * useCard 目标排序 `targets.sortBySeat(_status.currentPhase || player)`。
-     * 本扩展所有「对全体/多名角色的依次结算遍历」一律经本函数排序，不再从固定 1 号位开始。
+     * 全场结算遍历顺序（定夺统一）：从当前回合角色（_status.currentPhase）起按座次展开
+     *（对齐源 getAllPlayers() 与引擎 sortBySeat 惯例）；全体/多名角色的依次结算一律经此排序。
      * @param {Player[]} list 待排序玩家集合（不修改原数组）
      * @returns {Player[]} 从当前回合角色起按座次展开的新数组
      */
@@ -63,44 +52,33 @@ export const bts = {
     },
 
     /**
-     * 额外回合（额外出牌机会）工具集
-     *
-     * 无名杀的回合模型：一个回合 = 一个 name === "phase" 的 GameEvent，
-     * 实际排队在它的父事件（通常是 phaseLoop 根事件）的 .next 队列里。
-     *   - 正常回合：由 event.player.phase() 生成，不带 .skill
-     *   - 额外回合：由 player.insertPhase() 生成，"一定"带 .skill
-     *     （insertPhase 内 next.skill = skill || _status.event.name）
-     * 因此 .skill 就是"额外回合"的天然判别标记，本文件围绕它封装三件事：
-     *   当前是否额外回合 / 额外回合由谁发动 / 队列里还剩几个回合。
+     * 额外回合工具集。无名杀回合 = name==='phase' 的 GameEvent，排在父事件（通常 phaseLoop）的 .next：
+     * 正常回合由 event.player.phase() 生成（无 .skill）；额外回合由 insertPhase() 生成（必带 .skill）。
+     * 故 .skill 是额外回合的判别标记；本工具集据此判「是否额外回合 / 谁发动 / 队列剩几个」。
      */
 
     /** 
-     * 额外回合
+     * 额外回合：插入 count 个额外回合（turnName 建议填技能名 event.name）；count<=0 不入队。
      * @param player 执行额外回合的玩家
-     * @param turnName 额外回合的名字，建议填技能名event.name
-     * @param count 插入的额外回合数量，默认为1
+     * @param turnName 额外回合的名字
+     * @param count 插入数量，默认 1
      */
     extraTurn(player, turnName, count = 1) {
-        // 修：原首行误判未定义的 value → 永远 return，extraTurn 即成空操作（白厄续回合被吞）。
         if (count <= 0) return;
         for (let i = 0; i < count; i++) player.insertPhase(turnName);
     },
-    // 已迁移：原兼容别名 grantExtraTurn（= extraTurn(player,'bts_extra_turn')）的调用方已全部
-    // 改为显式 extraTurn(player, 'bts_extra_turn')，别名已删除（2026-09-02 TODO 整改）。
-    // 历史注：合颂改走 inExtraTurn() 判伤害来源是否正处额外回合后，旧 storage
-    // bts_extra_turn_granted 与 resolver 的清理一并删除（见 resolver.js phaseZhunbeiBegin 注释）。
     /** 
-     * 额外阶段
+     * 额外阶段：传入 trigger 时在其所在回合内插入阶段，否则插入新回合后执行。
      * @param player 执行额外阶段的玩家
-     * @param phases 可传阶段字符串名，也可传数组生成多个阶段
-     * @param trigger 调用处所在的时机对象，传入时在trigger对应的“回合内”执行额外阶段，否则插入一个新回合执行额外阶段
-     * @param turnName 额外阶段或回合的名字，建议填技能名event.name
+     * @param phases 阶段名或阶段名数组
+     * @param trigger 调用处的时机对象；传入 → 拼入其回合的 phaseList
+     * @param turnName 阶段/回合的名字，建议填技能名 event.name
      */
     extraPhase(player, phases, trigger, turnName) {
         phases = Array.isArray(phases) ? phases : [phases];
         turnName = turnName ? turnName : _status.event.name
 
-        if (trigger) { // 处理在回合内进行的额外回合
+        if (trigger) { // 回合内：拼入当前回合的 phaseList
             phases.reverse();
             for (const ph of phases) {
                 trigger.phaseList.splice(trigger.num, 0, turnName ? `${ph}|${turnName}` : ph);
@@ -117,9 +95,7 @@ export const bts = {
         return ph;
     },
 
-    // 已迁移：知更鸟·合颂 inExtraTurn(event.source)、星期日·恩赐 inExtraTurn(player)、
-    // 希儿·再现 getExtraSkill()==='bts_sk_zaixian' 等与额外回合判断的相关技能均改用本家族方法
-    //（2026-09-02 TODO 整改）；判别统一基于「额外回合 = phase 事件带 .skill」。
+    // 合颂/恩赐/再现等技能的额外回合判断均走本家族方法（判别统一基于「额外回合 = phase 事件带 .skill」）。
     /** 当前回合是否是额外回合 */
     isExtraTurn() {
         const phaseEvent = _status.event?.getParent("phase");
@@ -127,11 +103,8 @@ export const bts = {
     },
 
     /**
-     * 指定角色是否正处在其自身的额外回合内。
-     * 对应源 @extra_turn 标记语义（内核 gamerule.cpp：额外回合 TurnStart 置 1、回合结束清 0，
-     * 即"整个额外回合期间为 1"）；无名杀额外回合由 insertPhase 生成、phase 事件带 .skill，
-     * 当前运行的 phase 事件之 player 即正在行使回合的角色。供知更鸟·合颂等
-     * "伤害来源是否处于额外回合"判定使用（较 isExtraTurn() 多核对该 phase 的归属者）。
+     * 指定角色是否处在其自身的额外回合内（源 @extra_turn 语义）：较 isExtraTurn() 多核对归属者；
+     * 供合颂等「伤害来源是否处于额外回合」判定使用。
      */
     inExtraTurn(player) {
         const phaseEvent = _status.event?.getParent("phase");
@@ -157,11 +130,8 @@ export const bts = {
     },
 
     /**
-     * 统计"从当前回合起、从头到尾"的回合数量。
-     * 默认【包含当前回合】；明确排除才不计入（includeCurrent: false）。
-     * 当前回合需要单独判一次因为它不在自己的 .next 队列里；
-     * 其余回合通过向上遍历所有祖先事件的 .next 队列统计（覆盖嵌套插回合的场景）。
-     *
+     * 统计从当前回合起的排队回合数（默认含当前；「只剩之后几个」用 includeCurrent: false）。
+     * 当前回合单独判一次（不在自己的 .next 里），其余向上遍历各祖先事件的 .next 队列。
      * @param {object}  [opts]
      * @param {object}  [opts.player=null]      只统计该玩家的回合；不传为所有人
      * @param {boolean} [opts.extra]            true=只算额外回合；false=只算正常回合；不传=都算
@@ -186,31 +156,8 @@ export const bts = {
         return n;
     },
 
-    // —— 快捷封装示例 ——
-    // // 含当前：#current 额外回合总数
-    // countExtraRounds(opts = {}) {
-    //     return this.countPendingPhases({ ...opts, extra: true });
-    // },
-    // // 不含当前：当前回合结束后还没打的额外回合数（"还剩几次机会"）
-    // countRemainingExtraRounds(opts = {}) {
-    //     return this.countPendingPhases({ ...opts, extra: true, includeCurrent: false });
-    // },
-    // // 含当前：#正常回合总数
-    // countNormalRounds(opts = {}) {
-    //     return this.countPendingPhases({ ...opts, extra: false });
-    // },
-    // // 不含当前：#正常回合剩余数
-    // countRemainingNormalRounds(opts = {}) {
-    //     return this.countPendingPhases({ ...opts, extra: false, includeCurrent: false });
-    // },
-    // // 含当前：#总回合数
-    // countRounds(opts = {}) {
-    //     return this.countPendingPhases(opts);
-    // },
-    // // 不含当前：#总回合剩余数
-    // countRemainingRounds(opts = {}) {
-    //     return this.countPendingPhases({ ...opts, includeCurrent: false });
-    // },
+    // 常用口径直接传参：额外回合总数 = { extra: true }；「当前结束后还剩几次」再加 includeCurrent: false；
+    // 正常回合 = { extra: false }。
 
     getAngry(player, amount, maxskill = true) {
         const value = player.countMark(MARKS.ANGRY);
@@ -219,11 +166,9 @@ export const bts = {
             : (maxskill && player.countMark(MARKS.EXTRA_MAX) > 0) ||
             value >= amount;
     },
-    // ── 怒气获取门控（2026-09-26 用户定夺）────────────────────────────────────
-    // 仅拥有「以怒气发动的必杀技」的角色获得怒气：
-    //  ① 无任何 bts_bisha 技能 → 不获得（怒气对其无用，避免 UI/日志噪声）；
-    //  ② 必杀技不以怒气发动者（资源型必杀：白厄·燔世/黄泉·残梦/飞霄·凿荒/昔涟·誓约/
-    //     霞蝶·亡哮/银狼999·无启）→ 不获得——这些必杀在技能对象上标 bts_bisha_angry: false。
+    // ── 怒气获取门控（定夺）：仅拥有「以怒气发动的必杀技」的角色获得怒气 ——
+    //  ① 无任何 bts_bisha 技能 → 不获得（怒气无用，免 UI/日志噪声）；
+    //  ② 资源型必杀（燔世/残梦/凿荒/誓约/亡哮/无启等）标 bts_bisha_angry: false → 不获得。
     hasAngryBisha(player) {
         const skills = player.getSkills(null, false).slice();
         game.expandSkills(skills);
@@ -235,9 +180,7 @@ export const bts = {
     addAngry(player, amount = 1, from = player) {
         if (!this.hasAngryBisha(player)) return 0;
         player.addMark(MARKS.ANGRY, amount);
-        // 2026-10-02 自注册重构：他人令你获得怒气/祝福/护盾（源身炬/寸强描述含此法；
-        // 源代码未实现，按用户定夺补）统一广播 bts_resource_add，由身炬/寸强等技能
-        // 监听自注册结算（原按 hasSkill 内联代执行的挂钩已删除）。
+        // 他人令你获得怒气 → 广播 bts_resource_add（身炬/寸强等监听结算；按定夺补源描述含此法）。
         this.emit('bts_resource_add', {
             player,
             from,
@@ -254,8 +197,6 @@ export const bts = {
         return amount;
     },
 
-    // 通用标记读写（原 getOther/addOther/loseOther，2026-09-02 改名为更规范合理的 getMark/addMark/removeMark，
-    // 与 getAngry/getBless/getShield/getCurse/getAbnor 家族命名对齐）。
     getMark(player, mark, amount, maxskill = false) {
         const value = player.countMark(mark);
         return amount == null
@@ -274,13 +215,10 @@ export const bts = {
         return amount;
     },
 
-    // 主公星启启用条件已在 config.js 设定（bts_god_condition：均启用/仅崩铁在场/仅崩铁为主公/不启用），
-    // 由 isLordGodEnabled()（markRegistry.js）门控本方法 isZhu 分支（2026-09-02 TODO 整改）。
+    // 星启（源 God = isLord() or @bless_god）：主公以 isZhu 判断（身份模式）且受 bts_god_condition 门控
+    //（isLordGodEnabled，见 markRegistry.js）；技能星启（bless_god 层数）不受门控。
     god(player) {
-        // 星启（源 God = isLord() or @bless_god）：无名杀没有 isLord() 方法，
-        // 主公以 isZhu 属性判断（身份模式）；并防御非 Player 对象（如技能按钮评估期）传入。
-        // 主公星启（isZhu 分支）按 config bts_god_condition 门控（isLordGodEnabled，见 markRegistry.js）；
-        // 技能星启（bless_god 层数）不受 config 影响。
+        // 防御非 Player 对象传入（如技能按钮评估期）。
         if (!player || typeof player.countMark !== 'function') return false;
         return (
             (player.isZhu === true && isLordGodEnabled()) ||
@@ -288,17 +226,14 @@ export const bts = {
         );
     },
 
-    // 统一标记来源同步（星启来源维护的具体注册见 markRegistry.js SOURCE_TRACKABLE_MARKS，
-    // 含主公星启/技能星启并集、来源耗尽归空等规则）。其它标记如启用来源只需在
-    // SOURCE_TRACKABLE_MARKS 注册并在 markIntro 传 trackSource。这里保留 godSync 命名
-    // 供 content.js 的增删层钩子调用，实际逻辑委托给 markRegistry.js 的通用 syncMarkSources。
+    // 统一标记来源同步（规则见 markRegistry.js SOURCE_TRACKABLE_MARKS：来源并集、耗尽归空；
+    // 其它标记启用来源只需注册并传 trackSource）。保留 godSync 命名供 content.js 钩子调用。
     godSync(player) {
         syncMarkSources(player);
     },
 
     getBless(player, name, amount) {
-        // 残梦结算期间所有祝福无效（源 GetBless 返回 false/0）。
-        // canmengActive 已移出本对象，挂载在黄泉 bts_sk_canmeng.util（角色技能特化方法）。
+        // 残梦结算期间所有祝福无效（源 GetBless 返回 false/0；canmengActive 挂 bts_sk_canmeng.util）。
         if (lib.skill['bts_sk_canmeng']?.util?.canmengActive?.())
             return amount === -1 ? 0 : false;
         const mark = markName(name, 'bless');
@@ -312,9 +247,8 @@ export const bts = {
     blessCount(player) {
         return allMarks(player, 'bts_bless_').length;
     },
-    // 雨过天晴全场快门（源 AddBless/RemoveBless 的 st_qingkong 快照）：任一存活角色持有即全场
-    // 生效（残梦结算期间 getBless 全局返回 false → 自动视为无）。体力上限祝福的翻倍判定
-    // 与首入补差/末出补收均以此为准。
+    // 雨过天晴「快门」（源 st_qingkong 快照）：任一存活角色持有即全场生效（残梦期间 getBless 恒 false）；
+    // 体力上限祝福的翻倍与首入补差/末出补收均以此为准。
     yuguotianqingActive() {
         return game.hasPlayer(
             (target) =>
@@ -326,8 +260,7 @@ export const bts = {
         // 快照须在标记变更前取（源 AddBless：先算 st_qingkong 再 addPlayerMark）
         const qingkong = this.yuguotianqingActive();
         player.addMark(mark, amount);
-        // 2026-10-02 自注册重构：他人令你附加祝福（源身炬描述含此法）广播 bts_resource_add，
-        // 由身炬等技能监听自注册结算（原按 hasSkill 内联代执行的挂钩已删除）。
+        // 他人令你附加祝福 → 广播 bts_resource_add，由身炬等技能监听结算（源身炬描述含此法）。
         this.emit('bts_resource_add', {
             player,
             from,
@@ -340,8 +273,7 @@ export const bts = {
             await this.gainMaxHp(player, amount * (qingkong ? 2 : 1));
         }
         if (mark === MARKS.bless('yuguotianqing')) {
-            // 源 AddBless L431-437：全场首个雨过天晴入场（添加前无人持有、且自己是首个
-            // 持有者——添加后层数恰为本次量）→ 为所有持有体力上限祝福者补足翻倍差额
+            // 源 AddBless L431-437：全场首个雨过天晴入场 → 为持有体力上限祝福者补足翻倍差额
             if (
                 !qingkong &&
                 this.getBless(player, 'yuguotianqing', -1) === amount
@@ -361,16 +293,15 @@ export const bts = {
             }
         }
         if (mark === MARKS.bless('reyi')) {
-            // 源 AddBless（animal.lua L436-438）：热意祝福加层同时附赠等量笑点（欢愉子系统）。
+            // 源 L436-438：热意祝福加层同时附赠等量笑点（欢愉子系统）。
             player.addMark('bts_mk_funnypoint', amount);
         }
         return amount;
     },
     async removeBless(player, name, amount = 1, from = player) {
         if (name === 'allbless') {
-            // 源 allbless（L534-546）：先移除 maxhp——自己同时持有雨过天晴与体力上限祝福时，
-            // 其移除须拿到含雨过天晴的快照（×2 结算）；随后顺序移除其余祝福。
-            // 不可并发（原 Promise.all）：翻倍快照依赖“前一项标记已移除”的确定次序。
+            // 源 allbless（L534-546）：先移除 maxhp（自持雨过天晴+上限祝福时须先取 ×2 快照，再顺序
+            // 移除其余；不可并发——翻倍快照依赖前项已移除的次序）。
             let maxhpCleared = false;
             if (
                 player.countMark(MARKS.bless('yuguotianqing')) > 0 &&
@@ -433,9 +364,9 @@ export const bts = {
                 }
             }
         }
-        // 不死祝福归零且体力<1 → 立即进入濒死（源 MarkChanged animal.lua L570-571）。
-        // 放本处而非 busi 技能内：busi 层数归零时其技能已被生命周期卸载，收不到自身
-        // bts_mark_remove 事件；此钩子覆盖衰减/倏忽等全部移除路径（倏忽移除前已先回血，hp>0 不触发）。
+        // 不死祝福归零且体力<1 → 立即濒死（源 MarkChanged L570-571）。放本处而非 busi 技能内：
+        // 层数归零时其技能已卸载、收不到 bts_mark_remove；覆盖衰减/倏忽等全部移除路径
+        //（倏忽移除前已先回血，hp>0 不触发）。
         if (
             mark === MARKS.bless('busi') &&
             removed &&
@@ -447,9 +378,8 @@ export const bts = {
         return removed;
     },
 
-    // 护盾：崩铁杀特殊护盾（与无名杀本体护甲不同），以 shield 标记层数实现，
-    // 抵扣逻辑在 resolver.damageBegin2（贯通伤害不抵扣）。
-    // 残梦期间护盾无效（源 GetShield L725-733 含 max_canmeng 检查；2026-10-02 补齐）。
+    // 崩铁杀护盾（异于本体护甲）：shield 标记层数；抵扣在 rules/globalBuffs.js bts_shield
+    //（damageBegin4；贯通不抵扣）；残梦期间无效（源 GetShield L725-733）。
     getShield(player, amount) {
         if (lib.skill['bts_sk_canmeng']?.util?.canmengActive?.()) {
             return amount == null ? 0 : false;
@@ -459,9 +389,7 @@ export const bts = {
     },
     addShield(player, amount = 1, from = player) {
         player.addMark(MARKS.SHIELD, amount);
-        // 2026-10-02 自注册重构：他人令你附加护盾（源身炬/寸强描述含此法）广播
-        // bts_resource_add，由身炬/寸强等技能监听自注册结算
-        //（原按 hasSkill 内联代执行的挂钩已删除）。
+        // 他人令你附加护盾 → 广播 bts_resource_add，由身炬/寸强等技能监听结算（源身炬/寸强描述含此法）。
         this.emit('bts_resource_add', {
             player,
             from,
@@ -477,11 +405,9 @@ export const bts = {
         return removed;
     },
 
-    // 「不可被其他角色指定为目标」状态判定（2026-10-01；貊泽·掠袭·潜行，源 alive=false 语义）。
-    // 三处封锁共用本判据（rules/index.js installUntargetableGuard）：
-    //   ① 卡牌选目标：moze.js 的 targetEnabled mod（引擎 canUse/chooseToUse 默认过滤器）；
-    //   ② 技能选目标：候选守卫（Check.processSelection，UI 与 AI 名单同源）；
-    //   ③ 自动「视为使用」：useCard 内容首步（技能固定目标直发，如黑塔·效率）。
+    // 「不可被其他角色指定为目标」状态（貊泽·掠袭·潜行，源 alive=false 语义）。三处封锁共用：
+    // ① 卡牌选目标 targetEnabled mod；② 技能选目标候选守卫（Check.processSelection）；
+    // ③ 自动「视为使用」useCard 首步（见 rules/index.js installUntargetableGuard）。
     untargetable(target) {
         return Boolean(
             target?.hasSkill?.('bts_sk_lvexi') &&
@@ -489,9 +415,7 @@ export const bts = {
         );
     },
 
-    // 存活角色数（掠袭退出条件「全场仅剩2人」判据，2026-10-02 用户定夺恢复源版条件。
-    // 源为 room:getAllPlayers(true):length()==2；计数口径同视界等既有实现：
-    // game.players 中 isAlive() 者）。
+    // 存活角色数（掠袭「全场仅剩2人」退出判据，定夺恢复源版条件；源 getAllPlayers(true) 口径）。
     alivePlayerCount() {
         return game.players.filter((p) => p.isAlive()).length;
     },
@@ -528,10 +452,8 @@ export const bts = {
     },
     async addAbnormal(player, name, amount = 1, from = player) {
         const mark = markName(name, 'abnormal');
-        // 无名杀特化：体力上限减少异常保底 1——只施加实际可扣的层数（源 L8192 注释代码即
-        // 此思路：min(原上限, 上限-1)）；未生效层不入账，移除时按入账层数回补（见
-        // removeAbnormal），账目自洽。引擎 loseMaxHp 在 maxHp≤0 时直接令玩家死亡
-        //（content.js loseMaxHp），源 sgs 建属性、允许扣至低值——特化差异点。
+        // 无名杀特化：体力上限减少异常保底 1——只施加实际可扣层数（源 L8192 同思路）；未生效层
+        // 不入账、移除按入账回补（账目自洽）。引擎 loseMaxHp 在 maxHp≤0 时直接令玩家死亡（content.js）。
         if (mark === MARKS.abnormal('losemaxhp')) {
             amount = this.maxHpDeductable(player, amount);
             if (!amount) return 0;
@@ -542,8 +464,7 @@ export const bts = {
             const damage = player.damage(1, 'nosource');
             damage.reason = 'bts_gamerule_bts_reason_fatal';
         }
-        // await 驱动（无名杀事件惯例）：无父事件时主动执行（GameEvent.then→start），
-        // 有父事件时随链执行；不可 fire-and-forget（孤事件在链停摆时延迟/不执行）。
+        // await 驱动（无名杀惯例）：有父事件随链执行，无父事件主动执行（then→start）；不可 fire-and-forget。
         if (mark === MARKS.abnormal('losemaxhp'))
             await this.loseMaxHpGuarded(player, amount);
         return amount;
@@ -560,8 +481,7 @@ export const bts = {
                 ? player.countMark(mark)
                 : Math.min(amount, player.countMark(mark));
         player.removeMark(mark, removed);
-        // 层数=实际扣除量（add 侧保底后入账），按层回补即对称（账目自洽）；await 驱动
-        // 回补事件（同 addAbnormal：不可 fire-and-forget）。
+        // 按入账层数对称回补（账目自洽）；await 原因同 addAbnormal（不可 fire-and-forget）。
         if (mark === MARKS.abnormal('losemaxhp') && removed)
             await this.gainMaxHp(player, removed);
         return removed;
@@ -623,11 +543,9 @@ export const bts = {
         }
     },
 
-    // 定夺 2026-09-12（#2）：伤害 reason 后缀为崩铁杀特有，统一命名空间为
-    // `_bts_reason_<tag>`（_common/_fatal/_critical/_through/_nature），避免与
-    // 无名杀本体/其他扩展的 reason 字符串（如 _critical）经 includes 误撞。
-    // API 仍收短标签（'_fatal' 等），内部映射；元素名后缀（_frost 等）为技能基名
-    // 一部分（bts_sk_* 已命名空间化）不在此列。
+    // 伤害 reason 后缀为崩铁杀特有，统一命名空间 _bts_reason_<tag>
+    //（_common/_fatal/_critical/_through/_nature），避免与本体/其他扩展 reason 经 includes 误撞（定夺 #2）。
+    // API 收短标签（'_fatal' 等）并在内部映射；元素名后缀（_frost 等）属技能基名，不在此列。
     markDamage(damage, suffix) {
         if (!damage) return damage;
         const tag = `_bts_reason_${suffix.replace(/^_/, '')}`;
@@ -650,9 +568,8 @@ export const bts = {
         return damage;
     },
     isSpecialDamage(damage, suffix) {
-        // 无 reason（无名杀本体/其他扩展伤害）按源 getReason() 语义视为非 common：
-        // 空 reason 无特殊后缀，走正常后缀判定自然为 false，不做提前排除
-        //（用户定夺 2026-09-12 回退；仅显式 _bts_reason_common 豁免）。
+        // 空 reason（本体/其他扩展伤害）不提前排除（源 getReason 语义；无后缀自然判 false）；
+        // 仅显式 _bts_reason_common 豁免（定夺）。
         if (!damage || damage.reason?.includes('_bts_reason_common'))
             return false;
         if (suffix === '_allspecial')
@@ -666,10 +583,8 @@ export const bts = {
         );
     },
 
-    // 伤害原因串是否为必杀技（终结技）伤害。源 AddNew(damage,"max_") 语义 = reason 含
-    // 必杀技技能名；无名杀以 bts_bisha 标签判定：reason 从尾向前往剥 "_后缀"，
-    // 命中某必杀技技能对象（lib.skill[id]?.bts_bisha）即为真。兼容
-    // markDamage 追加的 _bts_reason_fatal/_critical/_nature 等多级后缀（逐段剥回技能基名）。
+    // 伤害原因串是否必杀技伤害（源 AddNew(damage,"max_")）：以 bts_bisha 标签判定——从尾往前逐段
+    // 剥 "_后缀"，命中 lib.skill[id]?.bts_bisha 即真（兼容 markDamage 追加的多级后缀）。
     isBishaReason(reason) {
         if (typeof reason !== 'string' || !reason) return false;
         let base = reason;
@@ -680,12 +595,9 @@ export const bts = {
         return false;
     },
 
-    // 本次体力净变化量：正=恢复、负=丢失（伤害/直接失去体力/失去体力上限所致的当前
-    // 体力扣减/changeHp 净变化）。对齐叁岛 hupan.js shichou filter 的符号约定
-    // （changeHp→event.num、loseMaxHp→-event.loseHp）：changeHp/recover 的 num 本身
-    // 即净变化（负=失去/正=恢复）；damage/loseHp 的 num 与 loseMaxHp 的 loseHp 均为
-    // 正失量（失上限所致的当前体力扣减），取负得净变化。事件名取基名——event.name
-    // 为基名，触发点后缀在 triggername（参见 baie.js 注释），勿再写 'damageEnd'/'loseHpEnd'。
+    // 本次体力净变化量：正=恢复、负=丢失（changeHp/recover 的 num 即净变化；damage/loseHp 的 num 与
+    // loseMaxHp 的 loseHp 为正失量取负；符号对齐叁岛 hupan.js）。事件名取基名（event.name），
+    // 后缀在 triggername——勿写 'damageEnd'/'loseHpEnd'。
     getChangedHp(event) {
         if (!event) return 0;
         const name = event.name;
@@ -703,9 +615,8 @@ export const bts = {
     },
 
     async removeAbnormalChoice(player, chooser) {
-        // 源 RemoveAbnormal(player, "choice", 1, chooser)：由 chooser（默认被移除者自己）
-        // 选择移除一种异常各1层。定夺 2026-09-12（F-05）：改用技能选择界面（左慈化身式，
-        // 直接列出异常技能、带描述），弃用 chooseControl 列表/自动取首键（对象键序近似随机）。
+        // 源 RemoveAbnormal(player,"choice",1,chooser)：由 chooser（默认被移除者）任选一种异常移除
+        // 1 层；选面用技能选择界面（弃用 chooseControl——键序不稳定，定夺 F-05）。
         const names = this.abnormalNames(player);
         if (!names.length) return;
         if (names.length === 1) {
@@ -730,13 +641,9 @@ export const bts = {
             .map((key) => key.slice('bts_abnormal_'.length));
     },
 
-    // 技能选择界面（左慈化身式：直接列出技能、带描述）——从异常内部名中选一个。
-    // 联机适配（2026-10-03）：改用引擎 chooseButton + createDialog（选项对 [键, 展示html]，
-    // 经 tdnodes 预设渲染为可点击技能项）。旧实现为本地自绘对话框 + Promise/点击监听，
-    // 未走引擎交互事件：联机时远程玩家的实例拿不到该对话框，`!isMine()` 分支被静默代选首个。
-    // chooseButton 对远程玩家由引擎经 event.send() 发到其客户端执行（本机为主机时非本端
-    // 事件本地隐藏对话框）；选项数据全为字符串/数组等可序列化原语，可安全跨端重建——
-    // 无需任何回调（filterButton 默认放行全部、ai 默认取序首，均与旧 AI 行为一致）。
+    // 技能选择界面（左慈化身式：列出技能、带描述）——从异常内部名中选一个。
+    // 联机适配：chooseButton + createDialog（选项 [键, html]，tdnodes 渲染）；远程玩家经 event.send()
+    // 到其客户端执行——选项全为可序列化原语、无需回调（filterButton/ai 用默认）。
     async chooseAbnormal(picker, names, prompt) {
         // 同 chooseSkill：仅列出有描述的技能（全无描述 → 按旧行为缺省首个）。
         const options = [];
@@ -773,17 +680,15 @@ export const bts = {
     },
 
     // ── 无名杀特化：移除体力上限保底 1 ─────────────────────────────────────
-    // 引擎 loseMaxHp 在 maxHp≤0 时直接令玩家死亡（content.js loseMaxHp：`if (player.maxHp <= 0)
-    // await player.die(event)`），源 sgs 仅改属性、允许扣至低值；故崩铁杀所有“移除体力上限”
-    // （体力上限祝福扣减、失上限异常、燔世变身还原等）统一保底：最多扣到 1 点，不会扣死。
-    // 注：可扣量按调用时刻的 maxHp 计算（同刻连扣需调用方自行顺序化）。
+    // 引擎 loseMaxHp 在 maxHp≤0 时直接令玩家死亡（content.js），源 sgs 允许扣至低值；
+    // 故所有「移除体力上限」统一保底：最多扣到 1 点（按调用时刻 maxHp 计算；同刻连扣由调用方顺序化）。
     maxHpDeductable(player, amount) {
         return Math.min(
             Math.max(amount, 0),
             Math.max(0, player.maxHp - 1),
         );
     },
-    // 保底扣除：返回生成的 loseMaxHp 事件（可 await）；已到保底（无点可扣）时返回 null。
+    // 保底扣除：返回 loseMaxHp 事件（可 await）；无点可扣时返回 null。
     loseMaxHpGuarded(player, amount) {
         const dec = this.maxHpDeductable(player, amount);
         return dec > 0 ? player.loseMaxHp(dec) : null;
@@ -799,20 +704,18 @@ export const bts = {
         from ??= player.name1 || player.name;
         if (!lib.character[from])
             throw new Error(`无法变形：未找到当前武将 ${from}`);
-        // 雨桐↔钟雨桐法（源 animal.lua ChangeHero L125-149）：
-        // 保留「额外上限」(当前maxHp−本将默认上限) 跨形态沿续；hp=min(新上限,旧hp)。
-        // 忆灵召唤/消失不走本方法（见 changePetForm），其血量按忆灵体系规范单独计算。
-        // reinit 第三参传 [hp,maxHp] 数组可同时显式设体力与上限，
-        // 规避无名杀 reinit 传 null 只调上限不动体力的默认行为。
+        // 换将（源 ChangeHero L125-149）：保留「额外上限」(当前 maxHp − 本将默认上限) 沿续；
+        // hp = min(新上限, 旧hp)。忆灵召唤/消失不走本方法（见 changePetForm）。
+        // reinit 第三参 [hp,maxHp] 可显式设体力与上限（null 只调上限、不动体力）。
         const oldHp = player.hp;
         const fromDef = get.infoMaxHp(lib.character[from][2]);
         const toDef = get.infoMaxHp(lib.character[to][2]);
         const newMaxHp = toDef + (player.maxHp - fromDef);
         if (Array.isArray(maxHp)) {
-            // 调用方显式 [hp, maxHp]，原样透传
+            // 显式 [hp, maxHp]：原样透传
             player.reinit(from, to, maxHp);
         } else if (maxHp != null) {
-            // 调用方给数字 = 指定目标上限，hp 取原体力与上限较小者（源 Math.min）
+            // 数字 = 指定目标上限；hp 取原体力与上限较小者（源 Math.min）
             player.reinit(from, to, [Math.min(maxHp, oldHp), maxHp]);
         } else {
             player.reinit(from, to, [Math.min(newMaxHp, oldHp), newMaxHp]);
@@ -820,13 +723,11 @@ export const bts = {
         game.log(`#b【${lib.translate[from] || from}】`, '变为了', `#b【${lib.translate[to] || to}】`);
         return player;
     },
-    // 忆灵换卡（A↔C 组合形态），遵循忆灵体系规范（用户定夺 2026-09-02，源 ChangeHero L125-149）：
-    //   ① 召唤 A→C：C_h = A_h*+B_h、C_m = A_m*+B_m（主公再 +1，源 L132-137 组合主公额外+1）
-    //   ② 消失 C→A：A_h = Min(C_h*, A_m*)、A_m* = C_m*-B_m（主公再 -1，源 L134-135 离开组合主公-1）
-    // 技能迁移：经 player.reinit 换卡——reinit 内部对基础技能逐个 removeSkill/addSkill
-    //   （不触发 changeSkills/changeSkill 时机），移除 from 基础技能、补 to 基础技能；
-    //   A_s* 超出基础的部分（临时/授予技能）天然保留，storage（含 temp_ban_* 的 ban 状态）
-    //   不被清除 → 自动继承。与通用 changeHero 区分（卡厄斯兰那换角色不继承技能、但继承血量，走 changeHero）。
+    // 忆灵换卡（A↔C 组合形态；源 ChangeHero L125-149，定夺统一）：
+    //   ① 召唤 A→C：C_h = A_h*+B_h、C_m = A_m*+B_m（主公 +1，源 L132-137）
+    //   ② 消失 C→A：A_h = Min(C_h*, A_m*)、A_m* = C_m*-B_m（主公 -1，源 L134-135）
+    // reinit 换卡：基础技能逐个移除/补上（不触发 changeSkills）；超出基础的临时/授予技能与 storage 天然保留。
+    // 与 changeHero 区分：卡厄斯兰那换角色走 changeHero（不继承技能、继承血量）。
     changePetForm(player, to, { from, pet, petMaxHp, petHp } = {}) {
         if (!player || !lib.character[to] || !lib.character[from])
             throw new Error(`忆灵换卡失败：缺少武将 ${from}/${to}`);
@@ -848,26 +749,21 @@ export const bts = {
         game.log(player, '变形为', `#g【${lib.translate[to] || to}】`);
         return player;
     },
-    // 忆灵/组合形态生命周期。组合角色由角色模块以 transformCharacter 注册，
-    // 宠物标记作为唯一状态源，基础角色 ID 写入 storage 以保证变形后可准确还原。
-    // opts 可省略：base 取当前武将名，combined 按 `bts_ch_<base>_and_<pet>` 约定派生，
-    // petHp 取 `bts_ch_<pet>` 角色体力（调用方可显式覆盖）。
+    // 忆灵/组合形态生命周期：组合角色经 transformCharacter 注册；宠物标记为唯一状态源，基础角色 ID 写入
+    // storage 以便还原。opts 可省略：base 取当前武将名，combined 按 bts_ch_<base>_and_<pet> 派生，
+    // petHp 取 bts_ch_<pet> 体力（可显式覆盖）。
     getPet(player, pet) {
         return player.countMark(MARKS.pet(pet)) > 0;
     },
-    // 2026-10-02 用户定夺：登场/重复召唤结算按源代码全量对齐（animal.lua AddPet/RemovePet）——
-    //   首次召唤：小伊卡 +1怒气、乐手 +1怒气；重复召唤（已在场再召）：长夜 +1体力、
-    //   乐手 +6气氛、小伊卡 +1怒气（源尾块对每次召唤都结算）；重复召唤退回 false 不重复变形。
-    // 2026-10-02 自注册重构：本函数只广播 bts_pet_add（字段 player/pet/repeated），上述效果由
-    //   各忆灵形态技能（漆黑/心跳/展落）监听自注册结算；await 保证监听者先于调用点后续代码完成。
+    // 召唤忆灵（源 AddPet/RemovePet 全量对齐，定夺）：小伊卡每次 +1 怒气、乐手首召 +1 怒气/重召 +6
+    // 气氛、长夜重召 +1 体力——由各形态技能（漆黑/心跳/展落）监听 bts_pet_add（repeated）结算；
+    // await 保证监听者先于后续代码完成。重复召唤不变形、返回 false。
     async addPet(player, pet, { base, combined, petHp } = {}) {
         if (!player) throw new Error(`无法召唤忆灵 ${pet}`);
-        // 2026-09-28 修复（咒礼召唤链·死者 hp=1 非法态）：召唤走 changePetForm 重算体力
-        // （newHp = hp + petHp），若调用方先失体致死（咒礼 loseHp）后代码继续执行，会把
-        // 尸体重算成 hp=1。死人不获得忆灵——语义门（离场侧忆灵技能 filter 亦有 isAlive 门）。
-        // 实机 4 局：09-27 15:44 j2hlar / 17:55 co0tzs / 19:24 454yak / 23:06 2ggxef。
+        // 死人不获得忆灵：changePetForm 按 hp+petHp 重算体力，先失体致死（咒礼 loseHp）后继续执行
+        // 会把尸体 hp 重算为 1；离场侧忆灵技能 filter 亦有 isAlive 门。
         if (!player.isAlive()) return false;
-        // 重复召唤（源 AddPet else 分支 + 尾块）：忆灵已在场时不变形，广播 bts_pet_add 由各技能结算
+        // 重复召唤（源 AddPet else + 尾块）：已在场不变形，广播 bts_pet_add 由各技能结算
         if (this.getPet(player, pet)) {
             await this.emit('bts_pet_add', { player, pet, repeated: true });
             return false;
@@ -897,8 +793,7 @@ export const bts = {
         const petLordBonus =
             player.isLord?.() || player.isZhu === true ? 1 : 0;
         player.setMark(MARKS.pet(pet), petHp + petLordBonus);
-        // 首次登场结算（源 AddPet 首起分支 + 尾块）：乐手/小伊卡 +1怒气——由忆灵形态技能
-        // 监听 bts_pet_add 自注册结算。原「此前召唤过→+6」近似口径已废弃。
+        // 首次登场结算（源 AddPet 首起分支 + 尾块）：乐手/小伊卡 +1 怒气——由形态技能监听结算。
         await this.emit('bts_pet_add', { player, pet, repeated: false });
         return true;
     },
@@ -908,9 +803,8 @@ export const bts = {
         base ??= record?.base;
         if (!base || !lib.character[base])
             throw new Error(`忆灵 ${pet} 缺少可还原的基础角色`);
-        // 2026-10-02 自注册重构：先广播 bts_pet_remove（此刻忆灵形态技能仍挂载、忆灵标记仍在场），
-        // 各忆灵技能（晚风/展落/晦翼）据此自注册结算离场效果；再变形还原 + 清标记。
-        //（原内联效果在还原之后结算、不经技能；重构后必须前置到还原之前，触发器才能命中。）
+        // 先广播 bts_pet_remove（此刻形态技能仍挂载、标记仍在场，离场技能才能命中），再变形还原 +
+        // 清标记——须前置，置于还原之后触发器收不到。
         await this.emit('bts_pet_remove', { player, pet });
         const from = player.name1 || player.name;
         this.changePetForm(player, base, {
@@ -924,8 +818,8 @@ export const bts = {
         if (pet === 'yijiang' && player.isAlive()) lib.bts.api.addAngry(player);
         return true;
     },
-    // 忆灵生命池（源全局 HpChanged L1354-1396，用户定夺 2026-09-02 统一实现）：
-    // 组合形态受伤等量扣忆灵生命、回复等量回补（封顶 GetPetMaxHp），归零自动 RemovePet。
+    // 忆灵生命池（源 HpChanged L1354-1396，定夺统一）：受伤等量扣、回复等量回补（封顶 GetPetMaxHp），
+    // 归零自动 RemovePet。
     getPetLostHp(player, pet) {
         // 源 GetPetLostHp（L884-888）= 忆灵上限 − 当前忆灵生命（主公 +1 补偿初值 +1）
         const petInfo = lib.character[`bts_ch_${pet}`];
@@ -952,8 +846,8 @@ export const bts = {
                 const dec = Math.min(cur, -delta);
                 const remaining = cur - dec;
                 if (remaining < 1) {
-                    // 归零：交 removePet 统一处理（其内部清零标记 + 变形还原 + 离场结算），
-                    // 勿先 removeMark 清零，否则 removePet 的 getPet 前置检查会直接 return false
+                    // 归零：交 removePet 统一处理（清零标记 + 变形还原 + 离场结算）；勿先清零——
+                    // 否则 removePet 的前置 getPet 检查直接 return false。
                     await this.removePet(player, pet);
                 } else {
                     player.removeMark(mark, dec);
@@ -962,17 +856,14 @@ export const bts = {
         }
     },
 
-    // ── 欢愉子系统（源 animal.lua L11072-11205）──────────────────────────────
-    // 欢愉行动（FunnyAct）：按持有者技能对象上的 bts_funny 注册表泛化派发（2026-10-02 自注册
-    // 重构，原按技能 id 硬编码 if 链）；欢愉时刻（FunnyTime）令全场各执行一次欢愉行动；
+    // ── 欢愉子系统（源 L11072-11205）────────────────────────────────────
+    // 欢愉行动（FunnyAct）：按技能 bts_funny 注册表泛化派发；欢愉时刻令全场各执行一次；
     // 笑点（bts_mk_funnypoint）与欢愉祝福（bts_bless_funny）决定层数/概率。
 
-    /** 是否拥有欢愉技能（源 FunnyPlayer L11072-11074；2026-09-29 阿哈（原创）亦计入） */
+    /** 是否拥有欢愉技能（源 FunnyPlayer L11072-11074） */
     funnyPlayer(player) {
-        // 2026-09-28 修复：原查 `bts_st_${name}_funny` 恒 false（实际技能命名 bts_sk_*_funny，
-        // 见 huohua/shajin_xilang/yinlang_lv999）→ 欢愉时刻授予祝福、afterFunnyAct 笑点链路从未触发。
-        // 2026-09-29：阿哈（原创角色）拥有欢愉行动（使用/视为使用【无中生有】或【欢愉万相】），
-        // 计入源术语「拥有欢愉行动的角色」（伤害约束、欢愉升格、“鉴映”类计数同此判定）。
+        // 技能命名 bts_sk_*_funny（花火/砂金·熙郎/银狼999）；阿哈（原创）亦视为拥有欢愉行动
+        //（使用/视为使用【无中生有】或【欢愉万相】），计入源术语「拥有欢愉行动的角色」判定。
         return (
             player &&
             (player.hasSkill('bts_sk_aha') ||
@@ -1011,8 +902,8 @@ export const bts = {
         }
     },
 
-    /** 欢愉行动后置（源 AfterFunnyAct L11137-11192）：+1 笑点；花手弃牌由其技能监听
-     * bts_funny_act_after 自注册结算（本函数只广播，不再按 hasSkill 代执行）。 */
+    /** 欢愉行动后置（源 AfterFunnyAct L11137-11192）：+1 笑点并广播 bts_funny_act_after；
+     * 花手弃牌等效果由各技能监听该事件结算。 */
     afterFunnyAct(player) {
         player.addMark('bts_mk_funnypoint', 1);
         this.emit('bts_funny_act_after', { player });
@@ -1037,19 +928,15 @@ export const bts = {
 
     /**
      * 欢愉行动（源 FunnyAct L11079-11136）：funny 为层数/类型，target 为行动对象（默认自身）。
-     * 2026-10-02 自注册重构：不再按技能 id 硬编码 if 链——各欢愉技能在技能对象上声明
-     * `bts_funny: { order, act(ctx), late? }`，本函数泛化收集（getSkills 过滤，尊重封锁）并执行：
-     *   act 阶段（late 非真，按 order 升序）→ 欢愉祝福步（funnytime）→ late 阶段（爆射）
-     *   → 收束（ctx.after → afterFunnyAct 广播 bts_funny_act_after）。
-     * ctx = { player, target, funny, funnytime, after, done, aborted }；执行顺序与旧 if 链
-     * 1:1（阿哈→连线→抛注→…→祝福→爆射→收束），各 act 内对 ctx.funny/after 的改写语义不变。
-     * 日志：行动技能 ≠ initiator（发起技能，其日志由引擎自动记录）时补 logSkill
-     *（2026-10-02 用户定夺：欢愉时刻等非技能驱动路径的日志/音频归因完整）。
+     * 各技能声明 `bts_funny: { order, act(ctx), late? }`，按 order 泛化执行：
+     * act 阶段 → 欢愉祝福步（funnytime）→ late 阶段（爆射）→ 收束（afterFunnyAct 广播）。
+     * ctx = { player, target, funny, funnytime, after, done, aborted }；act 可改写 ctx.funny/after。
+     * 日志：行动技能 ≠ initiator（发起技能由引擎自动记）时补 logSkill，保证日志/音频归因完整。
      * @param {object} player 执行欢愉行动的角色
      * @param {number|null} funny 层数/类型（null=自发行动）
      * @param {object} [target] 行动对象（默认 player 自身）
-     * @param {string} [initiator] 发起技能 id（重复日志豁免；缺省=无发起技能，全部执行者记日志）
-     * @returns {boolean} done（旧 if 链返回值语义）
+     * @param {string} [initiator] 发起技能 id（重复日志豁免；缺省=全部执行者记日志）
+     * @returns {boolean} done（ctx.done；任一步 aborted 时为 false）
      */
     async funnyAct(player, funny, target, initiator) {
         if (target == null) target = player;
@@ -1103,8 +990,7 @@ export const bts = {
         return ctx.done;
     },
 
-    /** 视为使用【欢愉万相】（2026-09-29 阿哈·原创）：万相为 bts_cd 包衍生物牌
-     *（效果见 lib.card 定义——摸牌结构与「欢愉升格」授予）。阿哈体系统一入口。 */
+    /** 视为使用【欢愉万相】（阿哈·原创）：万相为 bts_cd 包衍生物牌（效果见 lib.card 定义）。 */
     async useHuanjuWanxiang(player) {
         await player.useCard(
             { name: 'bts_cd_huanju_wanxiang', isCard: false },
@@ -1144,8 +1030,7 @@ export const bts = {
             'geju', 'zidian', 'lvexi', 'longli', 'yingyue', 'ciwen', 'quxu',
             'zoukai', 'zhouli', 'fengwang', 'fennu', 'yuanzheng',
         ];
-        // 2026-09-28 修复：原查 bts_st_ 前缀恒 false（实际技能命名 bts_sk_*，同类于 funnyPlayer）；
-        // 列表中含未移植技能者，经 hasSkill 自然返回 false，不受影响。
+        // 技能命名 bts_sk_*；列表未移植者经 hasSkill 自然返回 false，不影响已移植部分。
         for (const name of maxSkills)
             if (player.hasSkill(`bts_sk_${name}`) && this.getAngry(player, 5))
                 return true;
@@ -1155,19 +1040,12 @@ export const bts = {
     },
 
     /**
-     * 结束出牌阶段（源 Global_PlayPhaseTerminated）。
-     * 无名杀中出牌阶段已开始后（phaseUse 事件运行中）调用 player.skip('phaseUse') 无效：
-     * checkSkipped 只在阶段事件创建前检查 skipList（gameEvent.js loop 起始），且残留标记会
-     * 致下一回合出牌阶段被误跳。正确做法：找到**当前运行中的 phaseUse 事件**设 skipped=true，
-     * phaseUse content 据此不再 goto(3)（content.js「if (result.bool && !event.skipped)」；
-     * 官方主动技同款写法，如 character/collab/skill.js oldingbao）。
-     * 查找策略（2026-09-26 加固，二段）：
-     *   ① 首选直接扫描事件管理器执行栈（eventStack）自顶向下找未完成的 phaseUse——
-     *      权威且不依赖 parent 链（getParent 找不到时返回空对象 {}，旧写法 `if (evt)` 因 {}
-     *      恒真而静默失效；官方近年写法亦皆以 `phase?.name == 'phaseUse'` 防御）；
-     *   ② 兜底 getParent('phaseUse', true)（forced=true，找不到返回 undefined）。
-     * 返回是否成功设置；失败时不设置任何残留标记（避免 skipList 误跳下回合）。
-     * 仅用于出牌中/出牌后的技能结算内；准备阶段等提前跳出不适用（彼时应直接 skip()）。
+     * 结束出牌阶段（源 Global_PlayPhaseTerminated）。phaseUse 运行中 player.skip('phaseUse') 无效
+     *（checkSkipped 只在阶段事件创建前查 skipList，且残留标记会误跳下一回合）；正确做法是给当前
+     * 运行中的 phaseUse 事件设 skipped=true（content.js 的 `!event.skipped` 判断）。
+     * 查找：① 扫 eventManager.eventStack 找未完成 phaseUse（权威、不依赖 parent 链——getParent
+     * 找不到时返回 {}，`if (evt)` 恒真）；② 兜底 getParent('phaseUse', true)。
+     * 失败不设残留标记；仅用于出牌中/出牌后的技能结算（准备阶段等提前跳出不适用）。
      */
     endPlayPhase(player) {
         const stack = _status.eventManager?.eventStack;

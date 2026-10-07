@@ -31,7 +31,7 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_wuqi');
             player.removeMark('bts_mk_fenshu', 60); // 源 L11329：LoseOther(@fenshu, 60)
             // 源 L11330：Global_PlayPhaseTerminated（结束出牌阶段）
-            // 2026-09-28 修复：原 `trigger.getParent && …` 在主动技（trigger=null）读 null 属性即崩
+            // 修复：原 `trigger.getParent && …` 在主动技（trigger=null）读 null 属性即崩
             // （同 yuanbanlin「明心」族）；改用 _status.event 链（与 liuying 火萤同款），trigger 仅作回退。
             const phase =
                 trigger?.getParent?.('phaseUse') || _status.event.getParent('phaseUse');
@@ -63,12 +63,15 @@ export const skill = {
                     }
                     lib.bts.api.extraTurn(player, 'bts_extra_turn'); // 源 L11331：extra_turn_max_wuqi
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：分数≥60 即积极发动（源 AI max_wuqi value 9/priority 3，StarRail-ai.lua）——消耗60分数
+            // 结束出牌阶段，换整回合+99.9%转狼尊（源 animal.lua L11314-11344）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_wuqi') ? -1 : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_wuqi')) return -1;
+                if (player.countMark('bts_mk_fenshu') < 60) return -1; // filter 同门
+                return 9;
             },
             result: { player: 2 },
         },
@@ -90,6 +93,12 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '爆射：是否弃置一张【杀】获得5枚笑点？',
                 )
+                // AI 口径：弃1【杀】换5笑点，顺风同额转分数（冲无启60分≈1/12额外回合）；分数未满更积极
+                //（源 animal.lua L11334-11344）
+                .set('ai', (card) => {
+                    const need = player.countMark('bts_mk_fenshu') < 60;
+                    return (need ? 6 : 4) - get.value(card);
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -152,12 +161,11 @@ export const skill = {
                 player.removeMark('bts_mk_dianchi', player.countMark('bts_mk_dianchi'));
             }
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·顺风（源 st_shunfeng = TriggerSkill Compulsory MarkChanged，L11405-11423）──
     // 当一名角色获得笑点后，你获得等量分数（源代码作笑点减少方向，翻译写「获得笑点」——
-    // 同族 7 处 gain 方向与描述相反的系统性笔误，2026-10-02 用户定夺按描述方向实现）。
+    // 同族 7 处 gain 方向与描述相反的系统性笔误，定夺按描述方向实现）。
     bts_sk_shunfeng: {
         trigger: { global: 'bts_mark_add' },
         forced: true,
@@ -167,7 +175,6 @@ export const skill = {
         async content(event, trigger, player) {
             player.addMark('bts_mk_fenshu', trigger.num);
         },
-        ai: { noe: true },
     },
 };
 

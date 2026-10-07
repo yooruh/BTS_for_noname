@@ -65,19 +65,37 @@ export const skill = {
             if (curse > 0) lib.bts.api.addCurse(target, curse);
         },
         ai: {
+            // AI 口径：怒气≥5 且攻击范围内有带牌目标（filter 同门）；收益=视为【顺手牵羊】夺1张＋
+            // 弃全部欺诈换诅咒（每4层1枚、星启3层1枚；诅咒=目标下次受伤追加等量并清空）
+            //（源 animal.lua L8112-8139；源 AI max_jingshang=Snatch+2，StarRail-ai.lua L979-1002）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_jingshang')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_jingshang')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 怒气<5 且无额外怒气上限：不可用
+                const fraud = player.countMark('bts_mk_qizha');
+                const curse = Math.floor(
+                    fraud / (lib.bts.api.god(player) ? 3 : 4),
+                );
+                let value = 6; // 顺手牵羊：夺1张牌（约2~4分）
+                value += Math.min(2, curse * 0.8); // 诅咒：每枚≈下次受伤+1（延迟收益）
+                return Math.min(9, value);
             },
-            result: { target: -2 },
+            result: {
+                player: 1, // 夺得1张牌入己手
+                // 目标受损：失1张牌＋诅咒（下次受伤追加等量）
+                target: (player, target) => {
+                    const fraud = player.countMark('bts_mk_qizha');
+                    const curse = Math.floor(
+                        fraud / (lib.bts.api.god(player) ? 3 : 4),
+                    );
+                    return -(1.6 + Math.min(2, curse * 0.8));
+                },
+            },
         },
     },
 
     // ── 锁定技·热情（源 st_reqing = TriggerSkill Compulsory TargetSpecified/Damaged，L8141-8173）──
-    // 当你使用【顺手牵羊】指定唯一目标后，其获得1枚主顾标记，其他角色失去全部主顾标记；
-    // 当拥有主顾标记的角色受到伤害时，你获得等同伤害值的欺诈标记，
-    // 然后若伤害来源不为你，你可以视为对其使用【杀】（每回合限一次）。
+    // 你用【顺手牵羊】指定唯一目标后：其获得1枚主顾标记，其他角色失去全部主顾标记；
+    // 主顾受伤时你获得等量欺诈，若伤害来源不为你，可视为对其使用【杀】（每回合限一次）。
     bts_sk_reqing: {
         trigger: { player: 'useCard', global: 'damageEnd' },
         forced: true,
@@ -119,7 +137,12 @@ export const skill = {
                 .chooseBool(
                     `热情：是否视为对${get.translation(target)}使用【杀】？`,
                 )
-                .set('ai', () => get.attitude(player, target) < 0)
+                // AI 口径：只追击存活敌方，且【杀】须能作用于目标（含距离限制；避免白耗每回合限次）
+                .set('ai', () => {
+                    if (!target.isAlive()) return false;
+                    if (get.attitude(player, target) >= 0) return false;
+                    return player.canUse({ name: 'sha', isCard: true }, target);
+                })
                 .forResult();
             if (!choice.bool) return;
             // 源 L8162-8164：非组合形态时标记本回合已用（组合形态不限次）
@@ -130,7 +153,6 @@ export const skill = {
                 target,
             );
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·套银（源 st_taoyin = TriggerSkill EventPhaseStart Finish + OneCardViewAsSkill，L8175-8221）──
@@ -166,7 +188,15 @@ export const skill = {
                         target.countCards('hej') > 0,
                     selectTarget: 1,
                     ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => -get.attitude(player, target),
+                    // AI 口径：只选敌方；视为【顺手牵羊】夺1张＋附1层混乱（其造成的伤害无效），
+                    // 区域牌多者被夺价值高；全 ≤0 → 取消
+                    ai2: (target) => {
+                        if (target === player) return -1;
+                        if (get.attitude(player, target) >= 0) return -1;
+                        let s = 2.5; // 顺手牵羊≈2＋混乱≈0.5
+                        s += Math.min(1, target.countCards('hej') * 0.2); // 牌多优先
+                        return s;
+                    },
                 })
                 .forResult();
         },
@@ -186,7 +216,11 @@ export const skill = {
             // 源 L8187：AddAbnormal(targets[1], "@abnormal_confuse", 1, player)
             lib.bts.api.addAbnormal(target, 'confuse', 1, player);
         },
-        ai: { result: { target: -1 } },
+        ai: {
+            // 发动决策在 cost 内联（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值——
+            // 代价=弃1张【杀】；目标失1张牌＋附1层混乱（伤害无效）（源 animal.lua L8175-8221）
+            result: { player: -1, target: -2 },
+        },
     },
 };
 
@@ -206,15 +240,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_saifeier_skin1': '皮肤1',
-    'bts_ch_saifeier_skin2': '皮肤2',
-    'bts_ch_saifeier_skin3': '皮肤3',
-    'bts_ch_saifeier_skin4': '皮肤4',
-    'bts_ch_saifeier_skin5': '皮肤5',
-    'bts_ch_saifeier_skin6': '皮肤6',
-    'bts_ch_saifeier_skin7': '皮肤7',
-    'bts_ch_saifeier_skin8': '皮肤8',
-    'bts_ch_saifeier_skin9': '皮肤9',
     'bts_ch_saifeier_skin1': '皮肤1',
     'bts_ch_saifeier_skin2': '皮肤2',
     'bts_ch_saifeier_skin3': '皮肤3',
@@ -253,8 +278,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_zhugu_faq',

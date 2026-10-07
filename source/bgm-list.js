@@ -70,5 +70,6 @@ export const BGM_LIST = new Set([
     'bts_ch_yunli',
     'bts_ch_zhenliyisheng',
     'bts_ch_zhigengniao',
+    'bts_ch_zhigengniao_qingge',
     'due30'
 ]);

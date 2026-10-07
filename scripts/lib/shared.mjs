@@ -1,7 +1,4 @@
-/**
- * 崩铁杀构建脚本共享工具。
- * 仅使用 Node.js 内置模块，不引入运行时依赖。
- */
+/** 崩铁杀构建脚本共享工具：仅用 Node.js 内置模块，无运行时依赖。 */
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';

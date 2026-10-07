@@ -37,21 +37,39 @@ export const skill = {
             if (lib.bts.api.god(player)) lib.bts.api.addAngry(player, 1); // 源 L1975
         },
         ai: {
+            // AI 口径：3 怒多目标冻结（禁装备牌+冻结者造成伤害-1，控制敌方输出）；星启施放后回 1 怒
+            // （源 L1975）。敌人越多/越接近击杀窗口越积极。（源 animal.lua L1961-1978）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_bingjian')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_bingjian'))
+                    return -1;
+                let n = 0;
+                let low = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    n += 1;
+                    if (t.hp <= 2) low += 1;
+                }
+                if (!n) return -1;
+                return 3 + n + (low ? 0.5 : 0); // 每敌≈1 层控制；残血目标冻结临近击杀
             },
             threaten: 2,
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 目标受损：1 层冻结（禁装备/伤害-1）；残血目标被冻结更接近失去行动窗口
+                target: (player, target) => {
+                    let v = -1;
+                    if (target.hp <= 2) v -= 0.5;
+                    return v;
+                },
+            },
         },
     },
 
     // ── 特权（源 st_tequan）──
     // 锁定技，当一名角色因受到伤害而移除护盾后，你可以视为对来源使用【杀】。
-    // 触发点：rules/globalBuffs.js bts_shield 抵扣后派发 bts_shield_removed
-    //（源：RemoveShield 后 findPlayersBySkillName("st_tequan") → ViewAsCardOnly）；
-    // 效果在本技能自注册（自动日志 + 音频由此接通）。
+    // 触发点：rules/globalBuffs.js 护盾抵扣后派发 bts_shield_removed（源：RemoveShield 后
+    // findPlayersBySkillName("st_tequan") → ViewAsCardOnly）；效果经技能自注册接通日志/音频。
     bts_sk_tequan: {
         trigger: { global: 'bts_shield_removed' },
         forced: true,
@@ -63,7 +81,14 @@ export const skill = {
                 .chooseBool(
                     `特权：是否视为对${get.translation(trigger.source)}使用【杀】？`,
                 )
-                .set('ai', () => get.attitude(player, trigger.source) < 0)
+                // AI 口径：只对存活敌方来源反击（态度<0）；来源即自己/友方时不发动
+                .set(
+                    'ai',
+                    () =>
+                        trigger.source !== player &&
+                        trigger.source.isAlive() &&
+                        get.attitude(player, trigger.source) < 0,
+                )
                 .forResult();
             if (choice.bool)
                 await player.useCard(
@@ -75,7 +100,6 @@ export const skill = {
                     trigger.source,
                 );
         },
-        ai: { noe: true },
     },
 
     // ── 可爱（源 st_keai = OneCardViewAsSkill + filter_pattern Slash，L1997-2028）──
@@ -99,40 +123,38 @@ export const skill = {
             lib.bts.api.addShield(target, 1, player); // 源 AddAShield(target, player)
         },
         ai: {
+            // AI 口径：弃 1 张【杀】给 1 层护盾；己方（含自己）有残血成员时防斩杀价值更高。
+            // （源 animal.lua L1997-2028）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_keai') ? -1 : 3;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_keai')) return -1;
+                let val = 3;
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            get.attitude(player, t) > 0 &&
+                            t.hp <= 2,
+                    )
+                )
+                    val += 1; // 残血友军/自己的护盾防斩杀
+                return val;
             },
             useful: 1,
             value: 3,
-            result: { target: 1 },
+            result: {
+                // 目标获益：1 层护盾≈抵消 1 点伤害；残血目标收益更高
+                target: (player, target) => {
+                    let v = 1;
+                    if (target.hp <= 2) v += 0.5;
+                    return v;
+                },
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_sanyueqi_skin1': '皮肤1',
-    'bts_ch_sanyueqi_skin10': '皮肤10',
-    'bts_ch_sanyueqi_skin11': '皮肤11',
-    'bts_ch_sanyueqi_skin12': '皮肤12',
-    'bts_ch_sanyueqi_skin13': '皮肤13',
-    'bts_ch_sanyueqi_skin14': '皮肤14',
-    'bts_ch_sanyueqi_skin15': '皮肤15',
-    'bts_ch_sanyueqi_skin16': '皮肤16',
-    'bts_ch_sanyueqi_skin17': '皮肤17',
-    'bts_ch_sanyueqi_skin18': '皮肤18',
-    'bts_ch_sanyueqi_skin19': '皮肤19',
-    'bts_ch_sanyueqi_skin2': '皮肤2',
-    'bts_ch_sanyueqi_skin20': '皮肤20',
-    'bts_ch_sanyueqi_skin21': '皮肤21',
-    'bts_ch_sanyueqi_skin22': '皮肤22',
-    'bts_ch_sanyueqi_skin3': '皮肤3',
-    'bts_ch_sanyueqi_skin4': '皮肤4',
-    'bts_ch_sanyueqi_skin5': '皮肤5',
-    'bts_ch_sanyueqi_skin6': '皮肤6',
-    'bts_ch_sanyueqi_skin7': '皮肤7',
-    'bts_ch_sanyueqi_skin8': '皮肤8',
-    'bts_ch_sanyueqi_skin9': '皮肤9',
     'bts_ch_sanyueqi_skin1': '皮肤1',
     'bts_ch_sanyueqi_skin10': '皮肤10',
     'bts_ch_sanyueqi_skin11': '皮肤11',

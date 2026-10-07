@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * 崩铁杀 代码/素材一致性检查（只读，不写文件）。
- *
- * 合并自 check-invisible / audit-module-refs / audit-logskill / audit-choosetarget / verify-skins。
- * 均为只读检查；`--invisible --fix` 例外——invisible 检查可带 --fix 清理 BOM 与不可见字符。
- * 任一处检查发现违规，脚本以退出码 1 结束（供提交前 / CI 使用）。
- * 无参数时进入交互菜单选择要运行的检查项。
+ * 崩铁杀 代码/素材一致性检查（只读；`--invisible --fix` 才会写盘清理 BOM 与不可见字符）。
+ * 任一处违规即以退出码 1 结束（供提交前 / CI）；无参数时进入交互菜单选择检查项。
  *
  * 用法:
- *   node scripts/check.mjs --invisible [--fix]    BOM/零宽/控制字符检查（--fix 才清理写盘，否则只读）
+ *   node scripts/check.mjs --invisible [--fix]    BOM/零宽/控制字符检查
  *   node scripts/check.mjs --globals              角色包级标识符是否被技能引用
  *   node scripts/check.mjs --logskill             logSkill 重复 + cost 结算约定检查
  *   node scripts/check.mjs --choosetarget         active 技能 content 选目标时机检查
@@ -319,14 +315,12 @@ function logskillCheck() {
     return real.length > 0;
 }
 
-// ── skill-embed：技能效果自注册纪律（2026-10-02 自注册重构配套）────────────
-// 规则 A（角色文件）：永不触发占位滤器（无参 `filter() { return false; }`）——
-//   技能效果必须挂在技能自身上（trigger/content 或欢愉 bts_funny 注册字段），
-//   不得留空壳占位、由 rules API 按 hasSkill 代执行。
-// 规则 B（rules 层）：`logSkill('bts_…')` 跨技能代执行——日志与效果应回到技能本体，
-//   API 层只广播自定义事件（bts_mark_add/bts_pet_* 等），由技能监听后自行 logSkill；
-//   确需在 API 层记日志的用 `audit-skill-embed: skip` 注释豁免。
-// 豁免：违规行或紧邻上一行（注释）含 `audit-skill-embed: skip`；规则 A 可在技能块内注释豁免。
+// ── skill-embed：技能效果自注册纪律 ────────────
+// 规则 A（角色文件）：禁用无参占位滤器 `filter() { return false; }`——技能效果必须挂在
+//   技能自身（trigger/content 或欢愉 bts_funny 注册字段），不得由 rules API 按 hasSkill 代执行。
+// 规则 B（rules 层）：`logSkill('bts_…')` 不得跨技能代执行——日志与效果回到技能本体，
+//   API 层只广播自定义事件（bts_mark_add/bts_pet_* 等）；确需者用 skip 注释豁免。
+// 豁免：违规行或紧邻上一行含 `audit-skill-embed: skip`；规则 A 可在技能块内注释豁免。
 const SKILL_EMBED_SKIP_RE = /audit-skill-embed\s*:\s*skip/;
 function skillEmbedCheck() {
     const violations = [];

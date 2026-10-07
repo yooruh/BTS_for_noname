@@ -1,5 +1,5 @@
 // 克拉拉（源 animal.lua L4035-4126）—— 约定必杀技标记、复仇准备阶段追击、家人变形史瓦罗反击。
-// 史瓦罗（shiwaluo）不是真正的克拉拉变形态，而仅仅是换了个角色皮肤而已，其驱逐技能应归于克拉拉。
+// 史瓦罗（shiwaluo）非真实变形态、仅为换肤；其「驱逐」技能应归克拉拉。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 import { extensionPath } from '../../../../tool/utils/paths.js';
 
@@ -60,8 +60,8 @@ export const skill = {
                     return event.card.name === "sha";
                 },
                 async content(event, trigger, player) {
-                    // 触发事件是 useCardToPlayered 步骤事件：其 directHit 在创建时复制自 useCard 事件
-                    // 的同一数组（本体转数组之后才创建该步骤），故 getParent().directHit 已是数组、直接写即可。
+                    // useCardToPlayered 步骤事件的 directHit 复制自 useCard 事件同一数组（本体已转数组），
+                    // 故 getParent().directHit 已是数组、直接 add 即可。
                     trigger.getParent().directHit.add(trigger.target);
                     let count = player.getStorage('bts_sk_yueding_buff', 1);
                     player.setStorage('bts_sk_yueding_buff', --count);
@@ -71,10 +71,13 @@ export const skill = {
                 },
                 ai: {
                     threaten: 1.8,
-                    "directHit_ai": true,
+                    // 消费方：引擎杀相关 AI（card/standard.js 读取 directHit_ai，参数 {target, card}）——
+                    // 约定生效期间克拉拉使用的【杀】不可被响应；对照引擎标准（贯石斧 card/standard.js:3942）：
+                    // 须带 {card,target} 且为敌向【杀】（源 max_yueding L4036-4052）
+                    directHit_ai: true,
                     skillTagFilter(player, tag, arg) {
-                        if (!arg) return false;
-                        if (arg.card.name != "sha") return false;
+                        if (!arg?.card || arg.card.name !== 'sha' || !arg.target) return false;
+                        return get.attitude(player, arg.target) < 0;
                     },
                 },
                 sub: true,
@@ -82,7 +85,15 @@ export const skill = {
             },
         },
         ai: {
-            order: 10,
+            // ai-guard: skip：content 为「失怒→加标记」直落、无内层选择，怒气门槛保证不会重复空转（§8 豁免）。
+            // AI 口径：4怒换2次（星启3次）不可被响应的【杀】；手上已有【杀】则当回合即兑现
+            //（源 max_yueding L4036-4052；源 AI StarRail-ai.lua：估值9、优先级≈Slash+0.45）
+            order(item, player) {
+                const times = lib.bts.api.god(player) ? 3 : 2; // 强制命中次数（星启+1）
+                let v = times === 3 ? 8 : 7; // 每次必中≈+1.2 期望伤害，量级对齐源 AI 估值9
+                if (player.getCards('h').some((c) => get.name(c) === 'sha')) v += 1; // 有杀可立即兑现
+                return Math.min(9, v);
+            },
             result: { player: 1 },
         },
     },
@@ -103,10 +114,18 @@ export const skill = {
                 filterCard: (card) => {
                     return get.name(card, player) === 'sha';
                 },
+                // AI 口径（cost 型触发技：发动与否由本处 ai1/ai2 决定，最高分≤0→取消）：
+                // ai1=弃估值最低的【杀】；ai2=对敌施压——目标各选①弃1牌或②受1伤并-1恐惧。
+                // 按实际牌数判定：无牌可弃者必走伤害分支、收益最稳；带恐惧者不能弃牌（必受伤）但会被
+                // 扣1层恐惧（己方损失，抵减）。友方取值为负→不会入选（源 st_fuchou L4053-4089）
+                ai1: (card) => 6 - get.value(card),
                 ai2: (target) => {
-                    if (get.attitude(player, target) < 0 && (target.hasSkillTag('noh') || target.hasSkillTag('noe'))) return 0;
-                    const eff = get.effect(target, { name: 'damage' }, player, player);
-                    return eff;
+                    let v = get.effect(target, { name: 'damage' }, player, player);
+                    if (get.attitude(player, target) < 0) {
+                        if (target.countCards('h') + target.countCards('e') === 0) v += 0.4; // 无牌可弃：必受伤
+                        if (lib.bts.api.getAbnor(target, 'scary')) v -= 0.4; // 必受伤但损失1层恐惧
+                    }
+                    return v;
                 },
             }).forResult();
         },
@@ -115,11 +134,14 @@ export const skill = {
 
             const targets = lib.bts.api.seatOrder(event.targets);
             for (const target of targets) {
+                // 被复仇者视角 AI：弃1牌 vs 承伤（伤害分支另移除1层恐惧）。血线≥2 且带恐惧者宁可承伤
+                //（顺带除恐惧层，且恐惧期间本不可弃牌）；桃不弃（源 AI @st_fuchou-discard 跳过 Peach）；
+                // 其余按实际牌数放宽容忍：该区仅剩1张时更保守（源 st_fuchou L4053-4089）
                 const result = await target.chooseCard('hes', `被${get.translation(player)}选为了「复仇」目标`, `弃置1张牌，或者选择取消，受到1点伤害并移除1层${get.poptip('bts_glossary_abnormal_scary_faq')}`).set("ai", card => {
                     if (target.hp >= 2 && lib.bts.api.getAbnor(target, 'scary')) return -1;
-                    if (target.countCards('e') > 0 && target.hasSkillTag('noe')) return get.position(card) === 'e';
-                    if (target.countCards('h') > 0 && target.hasSkillTag('noh')) return get.position(card) === 'h';
-                    return 7 - get.value(card);
+                    if (get.name(card) === 'tao') return -1;
+                    const spare = get.position(card) === 'e' ? target.countCards('e') : target.countCards('h');
+                    return (spare > 1 ? 7 : 5) - get.value(card);
                 }).forResult();
                 if (result.bool && result.cards.length > 0) {
                     await target.discard(result.cards, player);
@@ -154,13 +176,18 @@ export const skill = {
             player.changeSkin(event.name, "bts_ch_kelala");
         },
         ai: {
-            "maixie_defend": true,
+            // 消费方：引擎卖血/承伤类 AI（diy/skill.js 无参读 maixie_defend）——无参即认可反击威慑；
+            // 带参 {player} 时须真能对被指来源使用【杀】。声明必配 skillTagFilter（规范 §3）
+            maixie_defend: true,
             skillTagFilter(player, tag, arg) {
-                if (tag === "maixie_defend") {
-                    return !arg?.player || player.canUse({ name: 'sha', isCard: true }, arg?.player);
-                }
+                if (tag !== 'maixie_defend') return false;
+                const from = arg?.player;
+                return !from || player.canUse({ name: 'sha', isCard: true }, from);
             },
             effect: {
+                // 他方用牌估值修正：克拉拉受伤即视为对来源出【杀】反击——把反击折算回用牌者成本；
+                // 来源带 jueqing（伤害视作体力流失）时不产生 damage 事件、反击落空，按口径修正
+                //（递归保护 effLock 见 precontent.js；源 st_jiaren L4090-4097）
                 target: (card, player, target) => {
                     if (player.hasSkillTag("jueqing", false, target)) {
                         return [1, -1];
@@ -168,7 +195,7 @@ export const skill = {
                     if (!lib.bts.runtime.effLock['bts_sk_jiaren']) {
                         if (!target.canUse({ name: 'sha', isCard: true }, player)) return;
                         lib.bts.runtime.effLock['bts_sk_jiaren'] = true;
-                        const divAtt = Math.abs(get.attitude(player, target)) ?? 5;
+                        const divAtt = Math.abs(get.attitude(player, target)) || 5; // || 5 防除零：attitude 可为 0
                         const eff = get.effect(player, { name: 'sha', isCard: true }, target, player) / divAtt;
                         delete lib.bts.runtime.effLock['bts_sk_jiaren'];
                         return [1, 0, 1, eff];
@@ -178,7 +205,7 @@ export const skill = {
         },
     },
 
-    // ── 驱逐，无名杀不需要变形为史瓦罗后再使用，暂时废弃（源 st_quzhu = TriggerSkill Compulsory TargetSpecified，L4098-4112；史瓦罗）──
+    // ── 驱逐（源 st_quzhu = TriggerSkill Compulsory TargetSpecified，L4098-4112；史瓦罗）——无名杀无需「变形后使用」，暂未注册（翻译条目已备）。
     // bts_sk_quzhu: {
     //     trigger: { player: 'useCard' },
     //     forced: true,

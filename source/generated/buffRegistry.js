@@ -1,5 +1,4 @@
-// 本文件由 scripts/generate.mjs 根据 buff/标记定义标签（markKind/permanent/glossaryId）自动生成，请勿手动编辑。
-// 运行时静态 import 本表（加载期不遍历技能）。键均为 bts_ 完整标记键。
+// 由 scripts/generate.mjs 自动生成（勿手改）：标记定义标签（markKind/permanent/glossaryId）→ 静态表；运行时直接 import（加载期不遍历技能），键均为 bts_ 完整键。
 
 export const MARKS_REGISTRY = {
     'bless': [

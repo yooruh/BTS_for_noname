@@ -46,10 +46,34 @@ export const skill = {
             await player.useCard({ name: 'juedou', isCard: true }, target);
         },
         ai: {
+            // AI 口径：怒气≥5＋有手牌可弃（filter 同门）；失5怒弃1牌换目标翻面（跳过其下回合，强控场）
+            // ＋【决斗】期望1点伤害；已是背面的目标会被翻回正面（跳过失效）应回避；击杀加分
+            //（源 animal.lua L5158-5183）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_riluo') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_riluo')) return -1;
+                if (!lib.bts.api.getAngry(player, 5) || !player.countCards('h'))
+                    return -1; // filter 同门
+                let best = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    let v = 4; // 翻面（跳过下回合）2.5＋【决斗】期望1点1.5
+                    if (t.isTurnedOver()) v -= 4; // 本次会将其翻回正面：等于帮其恢复行动
+                    if (t.hp <= 1) v += 2.5; // 决斗击杀
+                    if (v > best) best = v;
+                }
+                if (best <= 0) return -1;
+                return best >= 6 ? 8 : best >= 4 ? 6 : best >= 2 ? 4 : 2;
             },
-            result: { target: -1 },
+            result: {
+                // 对敌：翻面（跳过下回合）＋【决斗】期望1伤；已翻面者翻回正面→目标获益（AI 不选）
+                target: (player, target) => {
+                    let harm = 4; // 翻面2.5＋决斗1.5
+                    if (target.isTurnedOver()) harm = -1; // 翻回正面：目标获益
+                    if (target.hp <= 1) harm += 2.5;
+                    return -harm;
+                },
+            },
         },
     },
 
@@ -57,8 +81,8 @@ export const skill = {
     // 出牌阶段，弃置一张【杀】，获得1枚口袋标记并指定一名其他角色为契约目标。
     // 缔约期间你的手牌【杀】视为【决斗】（源 #st_chishuo FilterSkill L5517-5529）；
     // 契约目标进入濒死或失去所有手牌时解除契约（源 st_chishuo TriggerSkill L5492-5515）。
-    // 定夺 2026-09-12（D-03）：去 usable 对齐源（源无每回合限一次，只禁"场上已有契约"），
-    // filterTarget 的"场上无目标契约标记"检查即源 enabled_at_play（L5206-5208）语义，解契后可再契。
+    // 定夺（D-03）：去 usable 对齐源（源无每回合限一次，只禁"场上已有契约"）；filterTarget
+    // 的"场上无目标契约标记"检查即源 enabled_at_play（L5206-5208）语义，解契后可再契。
     bts_sk_chishuo: {
         enable: 'phaseUse',
         filterCard: (card) => get.name(card) === 'sha', // 源 filter_pattern = "Slash"
@@ -84,8 +108,7 @@ export const skill = {
             player.addMark('bts_mk_koudai', 1);
             // 源 L5192：addPlayerMark(targets[1], "duizxhi"..id) —— 记录契约目标
             // 动态键（含来源 playerid）运行时注册：引擎 addMark/removeMark 在 log!==false 时
-            // 会 get.info(key)，未注册即告警「孩子，你的技能…」（2026-09-26 实机警告修复，
-            // 同上文解契移除路径）。
+            // 会 get.info(key)，未注册即告警「孩子，你的技能…」（同上文解契移除路径）。
             const contractMark = `bts_mk_botiou_target_${player.playerid}`;
             lib.skill[contractMark] ??= { markKind: 'record' };
             lib.translate[contractMark] ??= '炽烁契约';
@@ -117,7 +140,6 @@ export const skill = {
                     if (player.hasSkill('bts_sk_chishuo_buff'))
                         player.removeSkill('bts_sk_chishuo_buff');
                 },
-                ai: { noe: true },
             },
             // ── 关联技·契约状态（源 #st_chishuo FilterSkill L5517-5529 + gamerule_pro 目标限制 L1782-1786）──
             // 缔约期间你的手牌【杀】视为【决斗】（无距离限制，走 canUse 规则）；
@@ -155,12 +177,50 @@ export const skill = {
                             return false;
                     },
                 },
-                ai: { order: 5, result: { target: -1 } },
+                ai: {
+                    // ai-guard: skip：viewAs 声明式（无独立 content，弃牌/目标由引擎候选流程处理，不会空转）。
+                    // AI 口径：契约期把1张【杀】当【决斗】使用（目标被 mod 限定为契约对象）；契约目标手牌少
+                    //（缺杀）时决斗占优、手牌厚则与直接用【杀】差别不大（源 L5517-5529）
+                    order(item, player) {
+                        const mark = `bts_mk_botiou_target_${player.playerid}`;
+                        const contract = game.findPlayer(
+                            (p) => p !== player && p.isAlive() && p.countMark(mark) > 0,
+                        );
+                        if (!contract) return 5; // 无契约（理论不可达：本 buff 仅在契约期挂载）
+                        if (contract.countCards('h') <= 2) return 6;
+                        if (contract.countCards('h') >= 4) return 4;
+                        return 5;
+                    },
+                    result: { target: -1 },
+                },
             },
         },
         ai: {
+            // AI 口径：弃1【杀】（filterCard 同门）换取1枚口袋标记（装填：决斗伤害令目标弃至多3牌）
+            // 与契约期「手牌【杀】→【决斗】」的弹药；手牌杀多、契约目标手牌少（决斗大概率命中）时积极；
+            // 场上已有契约（filterTarget 同门）或无敌人时不发动（源 animal.lua L5185-5236）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_chishuo') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_chishuo')) return -1;
+                const sha = player.countCards('h', (card) => get.name(card) === 'sha');
+                if (!sha) return -1; // 需弃1张【杀】
+                const mark = `bts_mk_botiou_target_${player.playerid}`;
+                if (
+                    game.hasPlayer(
+                        (p) => p !== player && p.isAlive() && p.countMark(mark) > 0,
+                    )
+                )
+                    return -1; // 场上已有契约目标：不可再缔约
+                let best = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue; // 缔约对象应是主攻敌人（契约期只能对其用牌）
+                    let v = 2; // 1枚口袋＋【杀】转【决斗】的开战权
+                    v += Math.min(2, Math.max(0, sha - 1) * 0.6); // 余下【杀】都是弹药
+                    if (t.countCards('h') <= 1) v += 1; // 目标缺牌：决斗大概率命中
+                    if (v > best) best = v;
+                }
+                if (!best) return -1;
+                return best >= 4 ? 6 : best >= 2.5 ? 4 : 2;
             },
             result: { target: -1 },
         },
@@ -188,7 +248,6 @@ export const skill = {
                 true,
             );
         },
-        ai: { noe: true },
     },
 
 };
@@ -228,8 +287,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_koudai_faq',

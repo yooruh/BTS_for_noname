@@ -35,7 +35,9 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_zhuye');
             const target = event.targets[0];
             lib.bts.api.loseAngry(player, 3); // 源 L5542：LoseAngry(player, 3)
-            await target.damage(player, 1, 'nocard'); // 源 L5543：room:damage
+            const damage = target.damage(player, 1, 'nocard'); // 源 L5543：room:damage（DamageStruct(max_zhuye)）
+            damage.reason = 'bts_sk_zhuye'; // 供星启必杀+1（isBishaReason）识别
+            await damage;
             // 源 L5544：addPlayerMark("extra_turn") —— 额外回合
             lib.bts.api.extraTurn(player, 'bts_extra_turn');
             // 源 L1032：使用必杀技 → max_skill-clear 标记 → 山倾改三次判定。
@@ -43,15 +45,35 @@ export const skill = {
             player.addMark('bts_mk_skill-clear', 1);
         },
         ai: {
+            // AI 口径：怒气≥3（filter 同门）且有攻击范围内敌方才发；收益=1点伤害+整个额外回合
+            //（≈整回合资源；源 AI max_zhuye=CanMaxSkillDamage(3,true) 估值9，StarRail-ai.lua L2297-2313）；
+            // 本回合发过必杀后山倾判定×3（bts_mk_skill-clear）——手牌有【杀】可弃时更积极
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhuye') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zhuye')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1; // filter 同门
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0 &&
+                            player.inRange(t),
+                    )
+                )
+                    return -1; // 无攻击范围内敌方不发动
+                return player.getCards('h').some((c) => get.name(c) === 'sha') ? 8 : 7;
             },
-            result: { target: -1 },
+            threaten: 2,
+            result: {
+                player: 2, // 额外回合折算（跨技能估值）
+                // 目标：1点伤害，可击杀加权
+                target: (player, target) => (target.hp <= 1 ? -4 : -1.5),
+            },
         },
     },
 
     // ── 锁定技·若水（源 st_ruoshui = TriggerSkill Compulsory CardsMoveOneTime/TargetSpecified，L5862-5895）──
-    // 定夺 2026-09-12（E-06）：按描述实现——攻击范围内的角色失去最后一张手牌后，
+    // 定夺（E-06）：按描述实现——攻击范围内的角色失去最后一张手牌后，
     // 或你使用【杀】指定无手牌的目标后，你摸一张牌。
     bts_sk_ruoshui: {
         trigger: { global: ['loseAfter', 'useCardToPlayered'] },
@@ -79,7 +101,6 @@ export const skill = {
             // 源 L5873/L5881：p:drawCards(1)
             await player.draw(player);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·山倾（源 st_shanqing = TriggerSkill EventPhaseEnd Play + OneCardViewAsSkill，L5588-5640）──
@@ -96,6 +117,10 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L5637：askForUseCard("@@st_shanqing") —— 弃【杀】选目标
+            // AI 口径：只挑敌方（源 AI @@st_shanqing=Enemies_ThrowSlash_AI 弃杀打1名可及之敌，
+            // StarRail-ai.lua L2315-2317）；判定后目标弃不出异类牌则受1伤——空手/少牌者更易吃伤；
+            // 本回合发过必杀（bts_mk_skill-clear）时判定×3，收益随×3
+            const rounds = player.countMark('bts_mk_skill-clear') > 0 ? 3 : 1;
             event.result = await player
                 .chooseCardTarget({
                     prompt: '山倾：弃置一张【杀】并选择攻击范围内一名其他角色',
@@ -105,8 +130,16 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     filterTarget: (card, source, target) =>
                         target !== source && source.inRange(target),
-                    ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => -get.attitude(player, target),
+                    ai1: (card) => 6 - get.value(card), // 弃估值最低的【杀】
+                    ai2: (target) => {
+                        if (get.attitude(player, target) >= 0) return -1; // 只打敌方（全负=整体取消）
+                        const hand = target.countCards('h');
+                        let v = rounds; // 每轮≈1点伤害或1张牌损失
+                        if (!hand) v += 1.5 * rounds; // 空手：弃不出牌必吃伤害
+                        else if (hand <= 2) v += 0.8;
+                        if (target.hp <= rounds) v += 1.5; // 击杀窗口
+                        return v;
+                    },
                 })
                 .forResult();
         },
@@ -120,8 +153,8 @@ export const skill = {
                 // 上一轮伤害可能已击倒目标：跨玩家操作前门控（死者不再弃牌/受伤）。
                 if (!target.isAlive()) break;
                 const judge = await player.judge().forResult(); // 源 L5602-5607：判定
-                // 判定「无结果」契约（2026-10-03）：施法者死亡/离场除名/被移除时，事件被引擎拦截
-                //（ContentCompilerBase.isPrevented）→ undefined = 判定未发生，终止后续轮次。
+                // 判定「无结果」契约：施法者死亡/离场除名/被移除时事件被引擎拦截（ContentCompilerBase.isPrevented）
+                // → undefined = 判定未发生，终止后续轮次。
                 if (!judge) return;
                 const type = get.type(judge.card);
                 // 源 L5916：askForCard(target, "Basic|Trick|.|.|hand") —— 目标仅能从手牌弃置
@@ -135,7 +168,12 @@ export const skill = {
                 if (!result.bool) await target.damage(player, 1, 'nocard');
             }
         },
-        ai: { result: { target: -1 } },
+        // AI 口径：result 供跨技能估值——判定失败每轮1点伤害、可击杀加权；发动决策在 cost 内联 AI
+        ai: {
+            result: {
+                target: (player, target) => (target.hp <= 1 ? -2.5 : -1),
+            },
+        },
     },
 };
 

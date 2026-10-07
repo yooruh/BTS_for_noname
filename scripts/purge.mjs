@@ -3,12 +3,6 @@
 /**
  * 崩铁杀 远程清理脚本：清除 zips 分支 / 删除某个 zip 版本 / 删除某个 v{版本} 分支。
  *
- * 合并自原 purge-zips.mjs + purge-version-branch.mjs：
- *  - purgeAll      整体清除 zips 分支（本地 + GitHub/Gitee 远端，连同发布标签与提交物理抹除）
- *  - purgeZipVer   删除某个 zip 版本：移除 zips 分支上代码包 + 删除其 GitHub Release 与标签
- *  - purgeBranch   删除某个 v{版本} 分支（本地 + 远端），并顺带清理该版本的代码包/Release
- *  - listBranches  仅列出 v{版本} 分支（只读）
- *
  * 无参数时进入交互菜单选择清理方式；有参数时按参数直接执行。
  *
  * 用法:
@@ -83,7 +77,7 @@ async function confirmDestructive(promptText, { skipConfirm }) {
     return /^y(es)?$/i.test(answer);
 }
 
-// ── zips 分支清理（吸收 purge-zips.mjs）────────────────────────────────────
+// ── zips 分支清理 ───────────────────────────────────────────────────────
 function hasZipsBranch() {
     return (
         git(['rev-parse', '--verify', '-q', `refs/heads/${ZIP_BRANCH}`], {
@@ -458,7 +452,7 @@ async function purgeZipVer(version, { dryRun, localOnly, skipConfirm }) {
     log.ok(`版本 ${version} 清理完成`);
 }
 
-// ── 版本分支清理（吸收 purge-version-branch.mjs）───────────────────────────
+// ── 版本分支清理 ───────────────────────────────────────────────────────
 /** 收集本地 + 远端(origin) 的 v{版本} 分支名（新版本在前） */
 function listVersionBranches() {
     const set = new Set();

@@ -53,13 +53,44 @@ export const skill = {
             if (killed) lib.bts.api.addAngry(player, killed);
         },
         ai: {
+            // AI 口径：4 怒多目标炎伤（每敌≈1 点，星启必杀+1/相克+1 可至 2~3）；击杀各回 1 怒（源 L2332-2337）。
+            // 目标越多/可击杀越多越积极；仅 1 名敌人且无击杀窗口时低于出杀，保守。（源 animal.lua L2224-2264）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_tianzhui')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_tianzhui'))
+                    return -1;
+                let val = 0; // 敌方侧预期总伤害
+                let kills = 0; // 可击杀数（每杀回 1 怒）
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    const nature = lib.bts.api.getNature(null, t);
+                    const dmg =
+                        1 +
+                        (lib.bts.api.god(player) ? 1 : 0) + // 星启必杀+1（源 L1100）
+                        (nature && nature !== 'flame' ? 1 : 0); // 元素相克+1（源 L1103）
+                    val += dmg;
+                    if (t.hp <= dmg) kills += 1;
+                }
+                const score = val + kills;
+                if (score >= 4) return 7;
+                if (score >= 2) return 5;
+                return val >= 1 ? 2 : -1; // 单敌 1 点伤害低于出杀（杀≈3.2）
             },
             threaten: 2.5,
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 目标受损：炎伤（星启必杀+1、相克+1）；可击杀者更低（回怒）
+                target: (player, target) => {
+                    const nature = lib.bts.api.getNature(null, target);
+                    const dmg =
+                        1 +
+                        (lib.bts.api.god(player) ? 1 : 0) +
+                        (nature && nature !== 'flame' ? 1 : 0);
+                    let v = -1.5 * dmg;
+                    if (target.hp <= dmg) v -= 1; // 击杀回 1 怒（源 L2332-2337）
+                    return v;
+                },
+            },
         },
     },
 
@@ -99,16 +130,14 @@ export const skill = {
                 (p) =>
                     p.isAlive() &&
                     player.countMark('bts_damage_link_' + p.playerid) > 0 &&
-                    // 源 ViewAsCard L163 `not from:isProhibited(p, slash)`：剔除被禁目标
-                    //（含【杀】不能指定自己）；canUse 第三参 false 跳过距离检查，仍保留
-                    // targetEnabled（禁目标等）规则（参照飞霄·钺贯范式）
+                    // 源 ViewAsCard L163 `not from:isProhibited(p, slash)`：剔除被禁目标（含自指）；
+                    // canUse 第三参 false 跳过距离检查、仍保留 targetEnabled（禁目标等）——飞霄·钺贯范式。
                     player.canUse(card, p, false),
             );
             if (!targets.length) return;
             const use = player.useCard(card, targets);
             await use;
         },
-        ai: { noe: true },
     },
 
     // ── 熔核（源 st_ronghe = OneCardViewAsSkill + filter_pattern Slash，L2312-2327）──
@@ -135,30 +164,43 @@ export const skill = {
             await damage;
         },
         ai: {
+            // AI 口径：弃 1 张【杀】点杀烧伤目标；目标带异属性时相克+1（源 L1103）、炎属性时叠烧伤层；
+            // 可击杀加权。无烧伤目标时 filter 不放行（order 兜底 -1）。（源 animal.lua L2312-2327）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_ronghe')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_ronghe'))
+                    return -1;
+                let best = 0; // 单目标收益上限（selectTarget=1）
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    if (!lib.bts.api.getAbnor(t, 'burn')) continue;
+                    const nature = lib.bts.api.getNature(null, t);
+                    const dmg =
+                        1 + (nature && nature !== 'flame' ? 1 : 0); // 相克+1（非必杀技，无星启+1）
+                    best = Math.max(best, dmg + (t.hp <= dmg ? 1 : 0));
+                }
+                if (!best) return -1;
+                return best >= 2 ? 5 : 3; // 相克/击杀窗口高优先；否则≈出杀
             },
             useful: 2,
             value: 5,
-            result: { player: 1, target: -2 },
+            result: {
+                player: 1,
+                // 目标受损：1 点炎伤（异属性相克+1）；可击杀加权
+                target: (player, target) => {
+                    const nature = lib.bts.api.getNature(null, target);
+                    const dmg = 1 + (nature && nature !== 'flame' ? 1 : 0);
+                    let v = -1.5 * dmg;
+                    if (target.hp <= dmg) v -= 1;
+                    return v;
+                },
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_himiko_skin1': '皮肤1',
-    'bts_ch_himiko_skin10': '皮肤10',
-    'bts_ch_himiko_skin2': '皮肤2',
-    'bts_ch_himiko_skin3': '皮肤3',
-    'bts_ch_himiko_skin4': '皮肤4',
-    'bts_ch_himiko_skin5': '皮肤5',
-    'bts_ch_himiko_skin6': '皮肤6',
-    'bts_ch_himiko_skin7': '皮肤7',
-    'bts_ch_himiko_skin8': '皮肤8',
-    'bts_ch_himiko_skin9': '皮肤9',
     'bts_ch_himiko_skin1': '皮肤1',
     'bts_ch_himiko_skin10': '皮肤10',
     'bts_ch_himiko_skin2': '皮肤2',

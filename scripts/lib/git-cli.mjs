@@ -1,13 +1,9 @@
 /**
- * 崩铁杀 清理类 CLI 脚本共享工具
+ * 崩铁杀 清理类 CLI 脚本共享工具（供 scripts/purge.mjs 复用）。
+ * 提供 git 命令执行、交互输入（队列式 readline）、临时工作树清理、origin slug 解析。
  *
- * 提供 git 命令执行、交互输入（队列式 readline）、临时工作树清理、origin 仓库 slug 解析。
- * 供 scripts/purge.mjs 复用。
- *
- * 交互输入注意：
- *   readline 的 question() 在管道一次性灌入多行时，会在同一个 data 事件里同步 emit 所有行，
- *   async/await 的微任务间隙会丢掉后续行。因此这里用 on('line') 持续入队，由 ask() 按需消费，
- *   对真实终端与管道/脚本化输入都稳定。
+ * 交互输入注意：readline question() 在管道灌入多行时会于同一 data 事件同步 emit，
+ * async 微任务间隙会丢行；故用 on('line') 持续入队、ask() 按需消费，终端/管道均稳定。
  */
 
 import { spawnSync } from 'node:child_process';

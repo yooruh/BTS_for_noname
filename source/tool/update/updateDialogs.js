@@ -574,9 +574,8 @@ class UIManager {
                 failedFiles.slice(0, 3).map(f => `• ${f.path}`).join('\n') +
                 (failedFiles.length > 3 ? `\n...等${failedFiles.length}个` : '');
 
-            // 代码包失败时不允许忽略：applyUpdate() 硬性要求 zip 状态为 success，
-            // 且 markAllFailedAsSkipped() 已排除 kind==='zip'，点了「忽略」也必然报错，
-            // 因此此时不提供「忽略失败并应用」选项。
+            // 代码包失败不提供「忽略失败并应用」：applyUpdate() 硬性要求 zip 状态 success，
+            // 且 markAllFailedAsSkipped() 排除 kind==='zip'，忽略也必然报错。
             const zipFailed = failedFiles.some(f => f.kind === 'zip');
             let buttons;
             if (zipFailed) {
@@ -736,9 +735,9 @@ class UIManager {
         return null;
     }
 
-    // 显示不可交互的“处理中，请稍候”模态框（转圈动画），返回 { close, updateText, showPromptRow, getLastActivityAt } 控制器。
-    // 用于版本信息请求、文件清单下载、更新覆写等耗时阶段，避免 UI 空窗让用户误以为卡死。
-    // 这些阶段没有进度回调，使用转圈加载框（loading），而不是 complexLoading 的确定进度条。
+    // 显示不可交互的“处理中，请稍候”转圈模态框，返回 { close, updateText, showPromptRow,
+    // getLastActivityAt } 控制器。用于版本信息/清单下载/覆写等无进度回调的耗时阶段，
+    // 避免 UI 空窗被误判为卡死（用 loading 转圈而非 complexLoading 确定进度条）。
     async showLoading(title, message, options = {}) {
         const controller = await this.dialog.loading(title, message, {
             width: 'min(420px, 90vw)'

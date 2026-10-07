@@ -156,13 +156,7 @@ class GitAdapter {
         return this.mirror ? this.mirror + path.replace(/^\/+/, '') : null;
     }
 
-    /**
-     * 生成代码包的下载地址列表（按优先级排序，供 SmartDownloader 依次尝试）。
-     * 主源：专门分支（默认 zips）上的 release/code/，走与逐文件更新相同的 raw + jsdelivr 机制；
-     * 备用：GitHub/Gitee release 资产（tag + filename）。
-     * @param {{filename:string, branch?:string, tag?:string}} zipMeta
-     * @returns {string[]}
-     */
+    // 生成代码包下载地址列表（供 SmartDownloader 依次尝试）：主源 zips 分支 release/code/，备用 GitHub Release 资产。
     getZipURLs(zipMeta = {}) {
         const filename = zipMeta.filename;
         if (!filename) return [];
@@ -180,8 +174,7 @@ class GitAdapter {
             urls.push(`https://cdn.jsdelivr.net/gh/${this.owner}/${this.repo}@${branch}/release/code/${url}`);
         }
 
-        // 备用：GitHub Release 资产（发布脚本只建 GitHub Release，资产名与 zip.filename 同名；
-        // 代码包改 ASCII 名后此 URL 与资产一致；Gitee 无 Release，不生成对应 URL）
+        // 备用：GitHub Release 资产（发布脚本只建 GitHub Release，资产名与 zip.filename 同名；Gitee 无 Release）
         const tag = zipMeta.tag;
         if (tag) {
             urls.push(`https://github.com/${this.owner}/${this.repo}/releases/download/${tag}/${url}`);

@@ -1,5 +1,11 @@
 {
   "installed": [
     "E:/Users/Admin/Desktop/game/sgs_fork/noname/resources/app/extension/崩铁杀"
-  ]
+  ],
+  "pack": {
+    "nonameBuild": "E:/Users/Admin/Desktop/game/sgs_fork/noname-build",
+    "desktopApp": "E:/Users/Admin/Desktop/game/sgs_fork/noname/resources/app",
+    "baseDir": "E:/path/to/电脑基座包目录",
+    "keystoreProps": "E:/Users/Admin/Desktop/game/sgs_fork/apk-signing/keystore.properties"
+  }
 }

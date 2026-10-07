@@ -48,10 +48,37 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：怒气≥3 才可用；非星启仅在敌方已处麻痹时可选（filterTarget 同门），星启可点名任意敌方
+            //（未麻痹+1层/已麻痹+2层）。收益=麻痹层数（每层≈1回合：目标摸牌阶段受1点无来源伤害且额定
+            //摸牌-1，回合结束自然减1层）。（源 animal.lua L3366-3389；源 AI max_rechao L2065-2096）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_rechao') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_rechao')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1; // 怒气<3 且无怒气豁免：不可用
+                const god = lib.bts.api.god(player);
+                let best = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    const numb = lib.bts.api.getAbnor(t, 'numb');
+                    if (!numb && !god) continue; // 非星启只能选已麻痹者
+                    const num = numb ? 2 : 1; // 施加层数（麻痹者+2；星启未麻痹者+1）
+                    best = Math.max(best, num * 1.2);
+                }
+                if (!best) return -1;
+                return best >= 2.4 ? 6 : 5; // 2层麻痹≈6、星启1层≈5
             },
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1,
+                // 目标受损=麻痹层数×1.2（每层1回合：受1伤+少摸1牌；引擎按态度加权区敌我）
+                target: (player, target) => {
+                    const num =
+                        lib.bts.api.god(player) &&
+                        !lib.bts.api.getAbnor(target, 'numb')
+                            ? 1
+                            : 2;
+                    return -num * 1.2;
+                },
+            },
         },
     },
 
@@ -69,7 +96,6 @@ export const skill = {
             // 源 L3397：AddAngry(player)
             lib.bts.api.addAngry(player, 1);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·电光（源 st_dianguang = TriggerSkill EventPhaseStart Draw + OneCardViewAsSkill，L3402-3431）──
@@ -82,10 +108,28 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L3429：askForUseCard("@@st_dianguang")
+            // AI 口径：代价=放弃摸牌（≈2张）+弃1张【杀】（≈0.8）；收益=敌方+2层麻痹（=2回合：各受1点
+            // 无来源伤害+额定摸牌-1）。已是麻痹目标（续期）或血线≤2（2回合内击杀/濒死压力）时收益
+            // 明确高于成本才发动；弃后至少留1张手牌防自废防御。（源 AI：有可伤害敌方即换；原实现
+            // 未配 ai→chooseBool 无条件确认、chooseTarget 默认态度2会把目标选成友方，属 AI 缺陷）
+            const worth = () => {
+                if (player.countCards('h') < 2) return false;
+                let best = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    let v = 2.4; // 2层麻痹
+                    if (lib.bts.api.getAbnor(t, 'numb')) v += 0.6; // 续期叠加
+                    if (t.hp <= 2) v += 0.8; // 血线低：击杀/濒死压力
+                    best = Math.max(best, v);
+                }
+                return best >= 3.0; // 收益须明显高于≈2.5的成本
+            };
             const result = await player
                 .chooseBool(
                     '电光：是否放弃摸牌并弃置一张【杀】并选择一名角色令其附加2层麻痹？',
                 )
+                .set('ai', worth)
                 .forResult();
             if (!result.bool) {
                 event.result = { bool: false };
@@ -97,6 +141,10 @@ export const skill = {
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
                 )
+                // AI 口径：弃分值最低的【杀】（≥6 视为过贵→放弃发动；同风堇·虹光 ai1 范式）
+                .set('ai', (card) =>
+                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
+                )
                 .forResult();
             if (!cards.bool) {
                 event.result = { bool: false };
@@ -104,6 +152,16 @@ export const skill = {
             }
             const target = await player
                 .chooseTarget('电光：选择一名角色', [1, 1], () => true)
+                // AI 口径：只对敌方（麻痹=减益，默认态度2会误选友方）；续期与低血线优先
+                //（chooseTarget 的 ai 实参签名 (target, targets)，首参即候选目标）
+                .set('ai', (target) => {
+                    if (target === player || get.attitude(player, target) >= 0)
+                        return -1;
+                    let s = 1;
+                    if (lib.bts.api.getAbnor(target, 'numb')) s += 0.6; // 已有麻痹：续期
+                    s += Math.max(0, 3 - target.hp) * 0.4; // 血线低优先
+                    return s;
+                })
                 .forResult();
             if (!target.bool) {
                 event.result = { bool: false };
@@ -117,25 +175,23 @@ export const skill = {
             if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
             // 源 L3408：AddAbnormal(targets[1], "@abnormal_numb", 2, player)
             lib.bts.api.addAbnormal(event.targets[0], 'numb', 2, player);
-            // 源 L3570：on_trigger 返回 true 跳过摸牌阶段（代价=放弃本次摸牌）。
-            // phaseDrawBegin 触发时 trigger 即 phaseDraw 事件本身（loop Begin 派生点，见核实 F-07）；
-            // 勿用 getParent（排除自身、恒返回 {}，跳过块永不执行——原实现「放弃摸牌」从未生效）。
+            // 源 L3570：返回 true 跳过摸牌阶段（代价=放弃本次摸牌）。phaseDrawBegin 的 trigger 即
+            // phaseDraw 事件本身（loop Begin 派生点，F-07）；勿用 getParent——排除自身恒返回 {}。
             if (trigger.name === 'phaseDraw') {
                 trigger.isSkipped = true;
                 trigger.finish();
             }
         },
-        ai: { result: { player: 1, target: -1 } },
+        ai: {
+            // 发动决策在 cost 内联（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值——
+            // 施动方放弃摸牌+弃1杀（记负）；目标受损=2层麻痹（源 animal.lua L3402-3431）
+            result: { player: -1, target: -2.4 },
+        },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_xiluwa_skin1': '皮肤1',
-    'bts_ch_xiluwa_skin2': '皮肤2',
-    'bts_ch_xiluwa_skin3': '皮肤3',
-    'bts_ch_xiluwa_skin4': '皮肤4',
-    'bts_ch_xiluwa_skin5': '皮肤5',
     'bts_ch_xiluwa_skin1': '皮肤1',
     'bts_ch_xiluwa_skin2': '皮肤2',
     'bts_ch_xiluwa_skin3': '皮肤3',

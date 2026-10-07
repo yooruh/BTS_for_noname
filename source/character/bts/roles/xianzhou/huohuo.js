@@ -38,10 +38,31 @@ export const skill = {
             for (const target of event.targets) lib.bts.api.addAngry(target, 1, player);
         },
         ai: {
+            // AI 口径：5怒气为友方各+1怒气；仅对拥有怒气必杀者有效（addAngry 门控 hasAngryBisha），
+            // 处于 2/4 层者 +1 即过常见门槛 3/5——合计至少2点价值才发动（源 max_yigui，animal.lua L7174-7196；源 AI StarRail-ai.lua L2608-2624 值9）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yigui') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yigui')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 与 filter 同门
+                let value = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) <= 0) continue; // 只给友方供怒
+                    if (!lib.bts.api.hasAngryBisha(target)) continue; // 怒气对其无用
+                    value += 1;
+                    const angry = lib.bts.api.getAngry(target);
+                    if (angry === 2 || angry === 4) value += 1; // 直接促成必杀
+                }
+                if (value < 2) return -1;
+                return Math.min(9, 3 + value);
             },
-            result: { target: 1 },
+            result: {
+                // 目标+1怒气；无怒气必杀者记0（2/4 层者过门槛更值）
+                target: (player, target) => {
+                    if (!lib.bts.api.hasAngryBisha(target)) return 0;
+                    const angry = lib.bts.api.getAngry(target);
+                    return angry === 2 || angry === 4 ? 1.5 : 1;
+                },
+            },
         },
     },
 
@@ -55,6 +76,14 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L6839：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // AI 口径：已有「曾被自己回复过」的角色（bts_recover_link）时禳命可立即兑现，更积极；
+            // 弃【杀】按分值扣减，>0 才弃（最高分≤0 由引擎取消=不发动）（源 AI StarRail-ai.lua L4186-4192：有杀即交）
+            const linked = game.hasPlayer(
+                (target) =>
+                    target !== player &&
+                    target.isAlive() &&
+                    target.countMark(`bts_recover_link_${player.playerid}`) > 0,
+            );
             event.result = await player
                 .chooseCard(
                     'h',
@@ -63,6 +92,7 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '灵符：是否弃置一张【杀】获得2层禳命祝福？',
                 )
+                .set('ai', (card) => 6 - get.value(card) + (linked ? 1 : 0))
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -70,7 +100,10 @@ export const skill = {
             // 源 L6841：AddBless(player, "@bless_rangming", 2)
             await lib.bts.api.addBless(player, 'rangming', 2, player);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 2层禳命=延迟治疗引擎（被自己回复过的角色准备阶段/必杀后回1血清1异常），折算1点供跨技能估值
+            result: { player: 1 },
+        },
     },
 
     // ── 锁定技·凭附（源 st_pingfu = DistanceSkill，L6846-6854）──
@@ -82,7 +115,6 @@ export const skill = {
                 if (to.hasSkill('bts_sk_pingfu')) return distance + 2;
             },
         },
-        ai: { noe: true },
     },
 };
 
@@ -120,8 +152,8 @@ export const buffSkills = {
         forced: true,
         silent: true,
         filter(event, player, triggername) {
-            // 定夺 2026-09-12（E-07）：均不允许自指——源代码允许自指（自己准备阶段/必杀后
-            // 也可触发）但源描述为「其他」，与摇风统一口径，按描述排除（event.player === player）。
+            // 定夺（E-07）：均不允许自指——源代码允许自指，但源描述为「其他」，
+            // 与摇风统一口径，按描述排除（event.player === player）。
             if (
                 event.player === player ||
                 !event.player.isDamaged() ||
@@ -147,8 +179,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_rangming_faq',

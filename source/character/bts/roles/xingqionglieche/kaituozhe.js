@@ -33,7 +33,7 @@ export const character = {
             'bts_sk_xingchen',
             'bts_sk_douzhi',
             'bts_sk_anxi',
-            // 'bts_sk_huanxing', // 焕星为扩展自有模板（源无此技能），2026-09-04 用户定夺：保留代码但停用
+            // 'bts_sk_huanxing', // 焕星为扩展自有模板（源无此技能），定夺：保留代码但停用
         ],
     },
 };
@@ -61,7 +61,7 @@ export const characterSubstitute = {
 };
 
 export const skill = {
-    // ── 形态切换·焕星（基础架构示例，2026-09-04 用户定夺：保留代码但停用）──
+    // ── 形态切换·焕星（基础架构示例，定夺：保留代码但停用）──
     // 源开拓者无此技能（源 L1830-1972 仅 3 技能；翻译表只预留 kaituozhe_1/kaituozhe_2）。
     // 原 Lua ChangeHero 由多名双形态角色调用；此处保留穹↔星模板供阿格莱雅&衣匠、
     // 遐蝶&死龙、白厄&卡厄斯兰那等角色复用（如需启用，取消注释并重新加入 character.skills）。
@@ -102,7 +102,7 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_xingchen');
             lib.bts.api.loseAngry(player, 4); // 源 L1642
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             lib.bts.api.addBless(player, 'god', 2, player); // 星启祝福（源 L1643）
             // 选择一项：1.星落（对一名角色造成1点伤害） 2.安息强化（无需弃牌且无目标上限）
             // 修复：控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案改走 set('prompt')
@@ -112,6 +112,19 @@ export const skill = {
                     '发动"安息"：无需弃牌，对任意名角色各造成1点伤害',
                 )
                 .set('prompt', '星尘：选择一项')
+                // AI 口径：上方已附加星启 → 星落吃「必杀+1」实为 2 伤；安息群伤每目标 1 点。
+                // 有 2 个可击杀(≤1)敌人→安息多杀（每杀回 1 怒）；有(≤2)→星落点杀；否则多敌群伤、单敌点杀
+                .set('ai', () => {
+                    const foes = game.players.filter(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    );
+                    if (foes.filter((t) => t.hp <= 1).length >= 2) return 1;
+                    if (foes.some((t) => t.hp <= 2)) return 0;
+                    return foes.length >= 2 ? 1 : 0;
+                })
                 .forResult();
             if (!choice || !choice.control) return;
             let targets = [];
@@ -122,6 +135,17 @@ export const skill = {
                         [1, 1],
                         () => true, // 源 filter 仅 #targets==0（L1833-1835），允许自选（自伤可回怒气）
                     )
+                    // AI 口径：只打敌方，2 伤可击杀者优先（回 1 怒）；自伤/友伤排除
+                    .set('ai', (target) => {
+                        if (
+                            target === player ||
+                            get.attitude(player, target) >= 0
+                        )
+                            return -1;
+                        let v = -get.attitude(player, target);
+                        if (target.hp <= 2) v += 2;
+                        return v;
+                    })
                     .forResult();
                 if (!r.bool) return;
                 targets = r.targets;
@@ -132,6 +156,17 @@ export const skill = {
                         [1, Infinity],
                         () => true, // 源 filter return true（L1871-1873），允许自选
                     )
+                    // AI 口径：群伤每目标 1 点，只打敌方；可击杀(≤1)者优先（回 1 怒）
+                    .set('ai', (target) => {
+                        if (
+                            target === player ||
+                            get.attitude(player, target) >= 0
+                        )
+                            return -1;
+                        let v = -get.attitude(player, target) + 0.5;
+                        if (target.hp <= 1) v += 2;
+                        return v;
+                    })
                     .forResult();
                 if (!r.bool) return;
                 targets = r.targets;
@@ -154,13 +189,31 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：4 怒必杀（施放即附加 2 层星启，本回合内必杀+1 生效）；星落=2 伤点杀、安息=每目标 1 伤群伤；
+            // 击杀回 1 怒（源 L1550-1556）。怒气≥6 施放后有余量、乐观；<6 保守。分支选择见 content 内联 ai。
+            // （源 animal.lua L1541-1654）
             order(item, player) {
                 if (lib.bts?.aiGuard?.blocked(player, 'bts_sk_xingchen'))
                     return -1;
-                return lib.bts.api.getAngry(player) >= 6 ? 6 : 3;
+                const foes = game.players.filter(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) < 0,
+                );
+                if (!foes.length) return -1; // 无敌人可打，避免误伤友方
+                let val = lib.bts.api.getAngry(player) >= 6 ? 6 : 3;
+                if (foes.some((t) => t.hp <= 2))
+                    val += 1; // 星落 2 伤可击杀（回怒）
+                else if (foes.length >= 2) val += 0.5; // 安息群伤
+                return val;
             },
             threaten: 2.5,
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 目标受损：星落 2 伤（星启必杀+1）/安息 1 伤；可击杀者更低
+                target: (player, target) => (target.hp <= 2 ? -4 : -1.5),
+            },
         },
     },
 
@@ -181,7 +234,6 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.api.addShield(player); // 源 L1665（发动由引擎自动记录）
         },
-        ai: { noe: true },
     },
 
     // ── 转化技·安息（源 st_anxi，L1671-1680；出牌阶段限一次）──
@@ -209,28 +261,39 @@ export const skill = {
             await damage;
         },
         ai: {
+            // AI 口径：出牌阶段限一次，弃 1 张【杀】换 1 点直伤（可自伤回怒，源 L1953-1955 允许自选）；
+            // 敌方残血可击杀时提高；无【杀】时 filterCard 不放行。（源 animal.lua L1671-1680）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_anxi') ? -1 : 4;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_anxi')) return -1;
+                let val = 4;
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0 &&
+                            t.hp <= 1,
+                    )
+                )
+                    val += 1; // 击杀窗口
+                return val;
             },
             useful: 2,
             value: 4,
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 目标受损：1 点直伤（自伤换回怒，轻负）；可击杀者更低
+                target: (player, target) => {
+                    if (target === player) return -0.5; // 自伤换回怒：轻负（源允许自选）
+                    return target.hp <= 1 ? -2.5 : -1.5;
+                },
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_kaituozhe_skin1': '皮肤1',
-    'bts_ch_kaituozhe_skin10': '皮肤10',
-    'bts_ch_kaituozhe_skin14': '皮肤14',
-    'bts_ch_kaituozhe_skin15': '皮肤15',
-    'bts_ch_kaituozhe_skin16': '皮肤16',
-    'bts_ch_kaituozhe_skin17': '皮肤17',
-    'bts_ch_kaituozhe_skin3': '皮肤3',
-    'bts_ch_kaituozhe_skin6': '皮肤6',
-    'bts_ch_kaituozhe_skin8': '皮肤8',
-    'bts_ch_kaituozhe_skin9': '皮肤9',
     'bts_ch_kaituozhe_skin1': '皮肤1',
     'bts_ch_kaituozhe_skin10': '皮肤10',
     'bts_ch_kaituozhe_skin14': '皮肤14',

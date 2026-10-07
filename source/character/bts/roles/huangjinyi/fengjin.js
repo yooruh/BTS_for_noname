@@ -40,6 +40,15 @@ export const characterSubstitute = {
     bts_ch_fengjin: [['bts_ch_fengjin_and_xiaoyika', []]],
 };
 
+// 晴空 AI 共用口径（cost 内联 chooseBool=发动决策；content 只执行）：
+// 仅救治友方，且自身体力高于当前诅咒+1——每层诅咒会在你下次受伤时追加等量伤害
+//（rules/globalBuffs.js DamageInflicted 结算；源 StarRail-ai.lua st_qingkong：asFriend 且自身不虚弱）。
+export function qingkongWorth(player, target) {
+    if (!target || target === player || !target.isAlive()) return false;
+    if (get.attitude(player, target) <= 0) return false;
+    return player.hp > lib.bts.api.getCurse(player) + 1;
+}
+
 export const skill = {
     // ── 必杀技·晨昏（源 st_chenhun = SkillCard + ZeroCardViewAsSkill，L7961-7995）──
     // 出牌阶段，失5怒气并选择至少一名其他角色，你附加3层雨过天晴祝福并召唤小伊卡；
@@ -47,7 +56,7 @@ export const skill = {
     bts_sk_chenhun: {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02：防被复制/随技能检索异常）
+        // 召唤忆灵的技能均为 unique:true（定夺：防被复制/随技能检索异常）
         unique: true,
         enable: 'phaseUse',
         filter(event, player) {
@@ -71,7 +80,7 @@ export const skill = {
                 for (const target of event.targets)
                     await lib.bts.api.addBless(target, 'maxhp', 2, player);
             }
-            // 源 L7976-7983：n=1，组合形态时+1，自己与目标各回复 n 点
+            // 源 L7976-7983：n=1；拥有爱诗（bts_sk_aishi）时 n=2，自己与目标各回复 n 点
             const amount = player.hasSkill('bts_sk_aishi') ? 2 : 1;
             await player.recover(player, amount);
             for (const target of event.targets.filter((target) =>
@@ -80,12 +89,46 @@ export const skill = {
                 await target.recover(player, amount);
         },
         ai: {
+            // AI 口径：怒气≥5 且非空转时发动；收益=3层雨过天晴（体力上限祝福翻倍）+召唤/重复召唤小伊卡
+            // （展落回怒+1；缺场首召另得+2体力/+2上限）+星启上限祝福+对受伤友军的1~2点治疗；
+            // 已有雨过天晴层数时视为刷新略降（源 animal.lua L7961-7995；源 AI StarRail-ai.lua 估值 9）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_chenhun')
-                    ? -1
-                    : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_chenhun'))
+                    return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 怒气<5 且无额外上限：不可用（filter 同门）
+                let value = 7; // 基础：3层雨过天晴（结束阶段每回合-1层，期间体力上限祝福全部翻倍）
+                if (!player.countMark('bts_pet_xiaoyika')) value += 1; // 缺场首召：合体+2体力/+2上限的承伤池
+                if (lib.bts.api.god(player)) value += 1; // 星启：自己与各目标+2上限祝福（雨过天晴翻倍=+4）
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t !== player &&
+                            t.isAlive() &&
+                            t.isDamaged() &&
+                            get.attitude(player, t) > 0,
+                    )
+                )
+                    value += 1; // 有受伤友军：治疗不浪费（爱诗在队时回复量为2）
+                if (lib.bts.api.getBless(player, 'yuguotianqing', -1) > 0)
+                    value -= 1; // 已有层数：本次为刷新延续，价值低于首入
+                return Math.min(9, value); // 上限对齐源 AI 估值 9（StarRail-ai.lua max_chenhun）
             },
-            result: { player: 2, target: 2 },
+            result: {
+                // 状态倍率自算（关引擎血线/手牌倍率）：否则残血敌人会被「回血收益」洗正而误选
+                ignoreStatus: true,
+                // 施动方（每个候选目标各计一次）：回复1~2点 + 小伊卡养成（展落回怒）
+                player: 0.6,
+                // 受动方：可回复量（下限1.5：相对 player:0.6，敌方 attitude 为负时计分必为负，多目标不误选敌方）
+                target: (player, target) => {
+                    const heal = player.hasSkill('bts_sk_aishi') ? 2 : 1;
+                    let v = Math.max(
+                        1.5,
+                        Math.min(heal, Math.max(0, target.maxHp - target.hp)),
+                    );
+                    if (lib.bts.api.god(player)) v += 0.5; // 星启：目标另得+2上限祝福（雨过天晴翻倍）
+                    return v;
+                },
+            },
         },
     },
 
@@ -104,14 +147,13 @@ export const skill = {
             if (!lib.bts.api.getAbnor(player, 'scary'))
                 lib.bts.api.addAbnormal(player, 'scary', 1, player);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·虹光（源 st_hongguang = TriggerSkill EventPhaseStart Start + OneCardViewAsSkill，L8010-8055）──
     // 准备阶段开始时，可弃置一张【杀】并选择受伤的其他角色，召唤小伊卡并令其回复1点体力；
     // 若你的体力值为场上最低，你可以选择任意名角色。
     bts_sk_hongguang: {
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02）
+        // 召唤忆灵的技能均为 unique:true（定夺）
         unique: true,
         trigger: { player: 'phaseZhunbeiBegin' },
         filter(event, player) {
@@ -141,8 +183,17 @@ export const skill = {
                     filterTarget: (card, source, target) =>
                         target !== source && target.isDamaged(),
                     selectTarget: [1, maximum],
+                    // 本技为 cost 型触发技：引擎不走默认 chooseBool、无顶层 check 读取点，发动与否完全由此处
+                    // ai1/ai2 决定（两层均以「最高分 ≤0 → 取消」，见引擎 ai/basic.js chooseCard/chooseTarget）。
+                    // AI 口径：ai1=弃分值最低的【杀】（≥6 分则整体放弃）；ai2=仅选友军、受伤越重越优先
+                    //（源 animal.lua L8010-8055；源 AI @@st_hongguang：只带受伤友军、仅体力最低时可多选）
                     ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => get.attitude(player, target),
+                    ai2: (target) => {
+                        const att = get.attitude(player, target);
+                        if (att <= 0) return att; // 敌方/中立不给分：全员非友军→本次不发动（引擎取消）
+                        const lost = Math.max(0, target.maxHp - target.hp);
+                        return att + Math.min(2, lost) * 0.5; // 固定回1点：受伤越重越优先
+                    },
                 })
                 .forResult();
         },
@@ -156,12 +207,20 @@ export const skill = {
             ))
                 await target.recover(player);
         },
-        ai: { result: { player: 1, target: 2 } },
+        ai: {
+            // 发动决策在 cost 的 ai1/ai2（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能
+            // 估值查询——治疗价值按目标受伤与否函数化（源 animal.lua L8010-8055）
+            result: {
+                player: 1,
+                target: (player, target) =>
+                    target.isDamaged() ? 1 : 0, // 回复1点体力；未受伤目标无收益
+            },
+        },
     },
 
-    // ── 触发技·晴空（源 st_qingkong = TriggerSkill HpChanged，L8058 起）──
-    // 当其他角色扣减体力后，若你的诅咒层数少于忆灵当前体力（定夺 2026-09-12（C-04）：
-    // 阈值由固定2改为取小伊卡当前体力 bts_pet_xiaoyika），你可以获得1层诅咒并令其回复1点体力。
+    // ── 触发技·晴空（源 st_qingkong，L8058 起）──
+    // 当其他角色扣减体力后，若你的诅咒层数少于忆灵当前体力，你可以获得1层诅咒并令其回复1点体力。
+    //（定夺 C-04：阈值由固定 2 改为取小伊卡当前体力 bts_pet_xiaoyika。）
     bts_sk_qingkong: {
         trigger: { global: ['damageEnd', 'loseHpEnd'] },
         filter(event, player) {
@@ -175,23 +234,27 @@ export const skill = {
                     player.countMark('bts_pet_xiaoyika')
             );
         },
-        async content(event, trigger, player) {
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             const target = trigger.player; // trigger=伤害/失血事件
             // 询问是否获得1层诅咒并治疗目标
-            const choice = await player
+            event.result = await player
                 .chooseBool(
                     `晴空：是否获得1层诅咒并令${get.translation(target)}回复1点体力？`,
                 )
                 .set(
                     'ai',
-                    () => get.attitude(player, target) > 0 && player.hp > 1,
+                    // AI 口径：仅救治友方，且自身体力扛得住诅咒+1（qingkongWorth；诅咒会在下次受伤时
+                    // 追加等量伤害）（源 L8058 起；源 AI asFriend）
+                    () => qingkongWorth(player, target),
                 )
                 .forResult();
-            if (!choice.bool) return;
+        },
+        async content(event, trigger, player) {
+            const target = trigger.player; // trigger=伤害/失血事件
             lib.bts.api.addCurse(player, 1);
             await target.recover(player);
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·走开（源 st_zoukai，L8082-8094）──
@@ -202,9 +265,8 @@ export const skill = {
         filter(event, player) {
             return (
                 lib.bts.api.getBless(player, 'yuguotianqing') &&
-                // 源 LastDamagedLink 记在被伤者（风堇）身上、键=来源 → 「伤过风堇的人」；
-                // 无名杀以 getAllHistory('damage')（风堇受到的伤害）的 source 近似
-                // （ren.js 同款范式；勿用 sourceDamage=打出，方向相反 —— 已修正）
+                // LastDamagedLink 记被伤者（键=来源）→ 取 getAllHistory('damage') 的 source
+                //（ren.js 同范式；勿用 sourceDamage，方向相反）。
                 player
                     .getAllHistory('damage')
                     .some((ev) => ev.source?.isAlive())
@@ -220,12 +282,11 @@ export const skill = {
             lib.bts.api.setDamageNature(damage, 'wind');
             await damage;
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·展落（源 st_zhanluo，L8104 起）──
-    // 源技能壳为空、效果硬编码在 AddPet/RemovePet；2026-10-02 自注册重构：改为监听
-    // bts_pet_add（登场/重复召唤→+1 怒气，源 L819-822）与 bts_pet_remove（离场→摸1）。
+    // 源壳为空（效果硬编码在 AddPet/RemovePet）；监听 bts_pet_add（登场/重复召唤 +1 怒气，
+    // 源 L819-822）与 bts_pet_remove（离场摸 1）。
     bts_sk_zhanluo: {
         charlotte: true,
         trigger: { player: ['bts_pet_add', 'bts_pet_remove'] },
@@ -241,20 +302,11 @@ export const skill = {
                 lib.bts.api.addAngry(player); // 小伊卡登场/重复召唤：+1 怒气（源 L819-822）
             else await player.draw(player, 1); // 小伊卡离场：摸1（源 RemovePet）
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_fengjin_skin1': '皮肤1',
-    'bts_ch_fengjin_skin2': '皮肤2',
-    'bts_ch_fengjin_skin3': '皮肤3',
-    'bts_ch_fengjin_skin4': '皮肤4',
-    'bts_ch_fengjin_skin5': '皮肤5',
-    'bts_ch_fengjin_skin6': '皮肤6',
-    'bts_ch_fengjin_skin7': '皮肤7',
-    'bts_ch_fengjin_skin8': '皮肤8',
     'bts_ch_fengjin_skin1': '皮肤1',
     'bts_ch_fengjin_skin2': '皮肤2',
     'bts_ch_fengjin_skin3': '皮肤3',
@@ -324,8 +376,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_yuguotianqing_faq',

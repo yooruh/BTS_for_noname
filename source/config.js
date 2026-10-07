@@ -92,12 +92,12 @@ export const config = {
             game.saveExtensionConfig('崩铁杀', 'bts_showAngry', item);
         },
     },
-    bts_bgm_follow_zhu: {
-        name: 'BGM跟随主公',
-        intro: '开启后，身份模式下开始游戏时，会将BGM改为主公的专属BGM；主公没有专属BGM时改为随机对战BGM',
-        init: false,
+    bts_bgm_control: {
+        name: 'BGM跟随与切换',
+        intro: '开启后：<br>①身份模式下开始游戏时，会将BGM改为主公的专属BGM（主公没有专属BGM时改为随机对战BGM）；<br>②允许角色技能切换BGM（如知更鸟的必杀曲、知更鸟·晴歌的和声曲）',
+        init: true,
         onclick: (item) => {
-            game.saveExtensionConfig('崩铁杀', 'bts_bgm_follow_zhu', item);
+            game.saveExtensionConfig('崩铁杀', 'bts_bgm_control', item);
         },
     },
     bts_ai_character_mode: {

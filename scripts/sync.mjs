@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * 崩铁杀 开发↔安装目录同步脚本
- *
- * 移植自叁岛世界 scripts/sync.mjs（同款机制）。
- * 以源目录的 Directory.json 为唯一同步依据：只逐文件同步清单中列出的文件，
- * 逐字节比对（Buffer.equals）决定是否复制；清单外的文件一律不同步。
+ * 崩铁杀 开发↔安装目录同步脚本。
+ * 以源目录 Directory.json 为唯一同步依据：只同步清单列出的文件，逐字节比对
+ *（Buffer.equals）决定是否复制；清单外一律不同步。
  *
  * 用法:
  *   node scripts/sync.mjs install         dev → 已安装目录（本机配置 installed）

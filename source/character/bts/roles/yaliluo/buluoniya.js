@@ -35,21 +35,47 @@ export const skill = {
                 await lib.bts.api.addBless(t, 'through', 2, player);
         },
         ai: {
+            // AI 口径：怒气≥4 且存在友方时发动——自己与每名友方各+2层贯通祝福（2回合破盾/破甲窗口，
+            // 贯通主用途=敌方护盾，场上有护盾敌人时加值）；无友方不发动（否则只能给敌方补贯通；源 AI
+            // 同款要求 friends_noself>0）。贯通按≈0.8/层计（源 animal.lua L3962-4034；源 AI StarRail-ai.lua L1878-1890）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_xingqu')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xingqu')) return -1;
+                if (!lib.bts.api.getAngry(player, 4)) return -1; // 怒气<4 且无怒气豁免：不可用（filter 同门）
+                const friends = game.countPlayer(
+                    (t) => t !== player && t.isAlive() && get.attitude(player, t) > 0,
+                );
+                if (!friends) return -1; // 至少需1名友方成为目标
+                let value = (1 + friends) * 1.6; // 自身+每名友方各2层贯通
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            get.attitude(player, t) < 0 &&
+                            lib.bts.api.getShield(t),
+                    )
+                )
+                    value += 1; // 贯通破盾：敌方有护盾时收益上调
+                return Math.min(9, value);
             },
-            result: { player: 1 },
+            result: {
+                player: 1.6, // 自身+2层贯通（获益）
+                // 受动方各+2层贯通（获益）；持【杀】者更可能把窗口转化为输出，略优先（引擎按态度加权区敌我）
+                target: (player, target) => {
+                    if (!target.isAlive()) return 0;
+                    const armed = target
+                        .getCards('h')
+                        .some((c) => get.name(c) === 'sha');
+                    return armed ? 2 : 1.6;
+                },
+            },
         },
     },
 
     // ── 部署（源 st_bushu = OneCardViewAsSkill + EventPhaseChanging，L4184-4220）──
     bts_sk_bushu: {
-        // 源 st_bushu = EventPhaseChanging（即将进入出牌阶段前触发）：
-        // 若在 phaseUseBegin 里 skip('phaseUse')，出牌阶段已开始，checkSkipped 不会消费
-        // 该标记且残留致下一回合出牌阶段被误跳；改在 phaseChange（阶段切换前）触发，
-        // 此刻 skip 才会在阶段事件启动时被消费（同款正确范式：xingqiri.js 恩赐 L76-84）。
+        // 源 st_bushu = EventPhaseChanging（进入出牌阶段前触发）：在 phaseUseBegin 里 skip('phaseUse')
+        // 时出牌阶段已开始，checkSkipped 不消费该标记、残留会误跳下一回合；故取 phaseChange
+        //（阶段切换前），skip 才会在阶段事件启动时被消费（同款范式：xingqiri.js 恩赐 L76-84）。
         trigger: { player: 'phaseChange' },
         filter(event, player) {
             // 即将进入出牌阶段、出牌阶段未被跳过，且手牌有【杀】可弃
@@ -60,8 +86,18 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
+            // AI 口径：代价=弃1张【杀】+跳过整个出牌阶段；收益=友方移除1层异常+抢到你下家位（提前一轮）。
+            // 出牌阶段价值≈手牌数：仅在手牌≤2（打不出名堂）且存在友方时发动（源 animal.lua L4184-4220；
+            // 源 AI @@st_bushu 亦要求友方目标——原实现未配 ai：chooseBool 无条件确认、chooseTarget 走默认
+            // 态度2会把目标选成友方（凑巧）且不看手牌，属 AI 缺陷，此按收益矩阵修复）
+            const worth = () =>
+                player.countCards('h') <= 2 &&
+                game.hasPlayer(
+                    (t) => t !== player && t.isAlive() && get.attitude(player, t) > 0,
+                );
             const r = await player
                 .chooseBool('部署：是否弃置一张【杀】并跳过出牌阶段？')
+                .set('ai', worth)
                 .forResult();
             if (!r.bool) {
                 event.result = { bool: false };
@@ -72,6 +108,10 @@ export const skill = {
                     'h',
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
+                )
+                // AI 口径：弃分值最低的【杀】（≥6 视为过贵→放弃发动；同风堇·虹光 ai1 范式）
+                .set('ai', (card) =>
+                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
                 )
                 .forResult();
             if (!cards.bool) {
@@ -85,6 +125,13 @@ export const skill = {
                     // 源 L4186-4187：任意其他角色（无需有异常；无异常时仅换座）
                     (c, p, t) => t !== p,
                 )
+                // AI 口径：仅友方（移除异常=增益）；背负异常者优先；全非友方→选择失败、技能不发动
+                //（chooseTarget 的 ai 实参签名 (target, targets)，首参即候选目标——勿按 filter 形参误读）
+                .set('ai', (target) => {
+                    const att = get.attitude(player, target);
+                    if (att <= 0) return -1;
+                    return att + (lib.bts.api.abnormalCount(target) > 0 ? 1 : 0);
+                })
                 .forResult();
             if (!target.bool) {
                 event.result = { bool: false };
@@ -108,7 +155,7 @@ export const skill = {
                     player,
                 );
             } else if (marks.length > 1) {
-                // 修复：控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案改走 set('prompt')
+                // 控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案走 set('prompt')。
                 const r = await player
                     .chooseControl(marks)
                     .set('prompt', '部署：选择移除一种异常')
@@ -123,12 +170,16 @@ export const skill = {
                     );
             }
             // 源 L4191-4195：目标还不是你下家时，一次性与其换座令其成为你下家
-            //（源 fix：原 while 逐格换座会一回合多次座位广播致游戏结束闪退，改单次交换）
+            //（逐格 while 换座会多次广播座位、致游戏结束闪退；单次交换即可）
             const next = player.getNext();
             if (next && target !== next) game.swapSeat(next, target);
             player.skip('phaseUse'); // 源 player:skip(Player_Play)
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动决策在 cost 内联（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值——
+            // 受动方移除1层异常（获益）；施动方弃1杀+跳过出牌阶段（代价，记负）
+            result: { player: -1, target: 1 },
+        },
     },
 
     // ── 锁定技·军势（源 st_junshi = TriggerSkill Compulsory EventPhaseStart，L4011-4034）──
@@ -144,18 +195,11 @@ export const skill = {
             // 源 L4030 ExtraPhase(Draw)：真实额外摸牌阶段（触发摸牌技能/异常/祝福）
             lib.bts.api.extraPhase(player, 'phaseDraw');
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_buluoniya_skin1': '皮肤1',
-    'bts_ch_buluoniya_skin2': '皮肤2',
-    'bts_ch_buluoniya_skin3': '皮肤3',
-    'bts_ch_buluoniya_skin1': '皮肤1',
-    'bts_ch_buluoniya_skin2': '皮肤2',
-    'bts_ch_buluoniya_skin3': '皮肤3',
     'bts_ch_buluoniya_skin1': '皮肤1',
     'bts_ch_buluoniya_skin2': '皮肤2',
     'bts_ch_buluoniya_skin3': '皮肤3',

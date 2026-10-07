@@ -35,12 +35,35 @@ export const skill = {
             if (lib.bts.api.god(player)) target.addMark('bts_sk_jingxi', 1);
         },
         ai: {
+            // AI 口径：怒气≥3 且有敌方时发动；目标+1层中毒（弃牌阶段失去1体力+手牌上限-1，回复体力会移除异常）；
+            // 星启另获惊喜标记（该次失去改为2点并消耗）；残血可逼濒死
+            //（源 animal.lua L3568-3586；中毒见 rules/globalBuffs.js bts_abnormal_poison）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_jingxi')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_jingxi')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1;
+                const god = lib.bts.api.god(player);
+                let best = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    let v = 1.3; // 中毒1层：弃牌阶段失去1体力+手牌上限-1
+                    if (god) v += 0.6; // 星启：惊喜标记令该次失去改为2点
+                    if (target.hp <= (god ? 2 : 1)) v += 1.5; // 残血：弃牌阶段失血可逼濒死
+                    if (lib.bts.api.getAbnor(target, 'poison')) v -= 0.3; // 已中毒：叠加收益递减
+                    best = Math.max(best, v);
+                }
+                if (!best) return -1;
+                return best >= 4 ? 7 : best >= 3 ? 5 : 3;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                // 受动方：+1层中毒（弃牌阶段失1体力+手牌上限-1）；星启与残血加压
+                target: (player, target) => {
+                    let v = 1.3;
+                    if (lib.bts.api.god(player)) v += 0.6;
+                    if (target.hp <= 2) v += 0.5;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -53,13 +76,12 @@ export const skill = {
         }, // 无属性伤害
         async content(event, trigger, player) {
             const judge = await player.judge((card) => true).forResult();
-            // 判定「无结果」契约（2026-10-03）：死亡/离场除名/被移除时事件被引擎逐步骤拦截
+            // 判定「无结果」契约：死亡/离场除名/被移除时事件被引擎逐步骤拦截
             //（ContentCompilerBase.isPrevented）→ undefined = 判定未发生，不改伤害属性。
             if (!judge) return;
             if (judge.color === 'black')
                 lib.bts.api.setDamageNature(trigger, 'wind'); // 判定黑色加风
         },
-        ai: { noe: true },
     },
 
     // ── 横跳（源 st_hengtiao = OneCardViewAsSkill + SkillCard，L3776-3835）：顺手牵羊后目标及所有中毒角色判定，黑桃各+1中毒 ──
@@ -72,7 +94,7 @@ export const skill = {
         position: 'h',
         prompt: '弃置一张【杀】，对距离1内一名角色视为使用【顺手牵羊】，再令其与中毒角色判定',
         filterTarget(event, player, target) {
-            // 定夺 2026-09-12（F-03）：直接用 canUse 判断顺手牵羊是否可用——
+            // 定夺（F-03）：直接用 canUse 判断顺手牵羊是否可用——
             // 源顺手牵羊原生 targetFilter 为「距离≤1」，无名杀引擎经 targetInRange/targetEnabled
             // 校验；此处交由引擎判定，不再手写攻击范围（原攻击范围比源宽，含武器距离加成）。
             // 保留「目标有牌」显式检查（顺手牵羊对空目标无效，防 targetEnabled 未含该规则时误选）。
@@ -96,27 +118,51 @@ export const skill = {
                 ),
             )) {
                 const judge = await p.judge((card) => true).forResult(); // 源 judge.who = p（各被判定者）
-                // 无结果契约（2026-10-03）：该角色已死亡/离场除名/被移除 → 其判定未发生，跳过（不中断其余角色）。
+                // 无结果契约：该角色已死亡/离场除名/被移除 → 其判定未发生，跳过（不中断其余角色）。
                 if (!judge) continue;
                 if (judge.suit === 'spade')
                     lib.bts.api.addAbnormal(p, 'poison', 1, player);
             }
         },
         ai: {
+            // AI 口径：需手牌有【杀】（filterCard 同门）且有可指定的有牌敌方（距离等由 canUse 同门判定）才发动；
+            // 收益=夺1牌+判定链：目标与所有中毒角色各判定，黑桃(1/4)各+1层中毒——中毒敌方为增益、友方为代价
+            //（源 animal.lua L3776-3835；中毒见 rules/globalBuffs.js bts_abnormal_poison）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_hengtiao')
-                    ? -1
-                    : 4;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_hengtiao')) return -1;
+                if (!player.getCards('h').some((card) => get.name(card) === 'sha'))
+                    return -1; // 无【杀】不可发
+                let best = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    if (target.countCards('he') === 0) continue; // 顺手牵羊需目标有牌
+                    if (!player.canUse({ name: 'shunshou', isCard: true }, target))
+                        continue; // 距离/可用性同 filterTarget
+                    best = Math.max(best, 1.5); // 夺1牌
+                }
+                if (!best) return -1;
+                let value = best + 0.35; // 目标自身黑桃判定+1层中毒的期望（1/4×1.3）
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (!lib.bts.api.getAbnor(target, 'poison')) continue;
+                    value += get.attitude(player, target) < 0 ? 0.35 : -0.35; // 判定链波及全体中毒角色
+                }
+                if (value < 1.2) return -1; // 中毒友方过多致链式期望反转：不弃【杀】
+                return value >= 2.8 ? 6 : value >= 2.2 ? 5 : 3;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                // 施动方：夺得目标1张牌
+                player: 1.2,
+                // 受动方：失去1张牌+黑桃判定再+1层中毒的期望（filterTarget 已限定有牌目标）
+                target: -1.55,
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_sangbo_skin1': '皮肤1',
-    'bts_ch_sangbo_skin2': '皮肤2',
     'bts_ch_sangbo_skin1': '皮肤1',
     'bts_ch_sangbo_skin2': '皮肤2',
     bts_ch_sangbo: '桑博',

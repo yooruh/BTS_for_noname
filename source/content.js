@@ -1,11 +1,10 @@
 // 阶段2（content）：安装非游戏规则类注册（工具/UI/AI/poptip/延迟包），并消费预载角色包信息。
-// 规则类注册（全局技能实现：gamerule 规则技能/标记来源追踪/BGM 跟随/AI 守卫/buff 生命周期）
-// 统一在 rules/index.js 直接命名导出，此处 import 调用；AI 选将经 tool/ai/characterPick.js，
-// 其余非游戏规则注册内联于本文件。
-// 扩展设置项定义在 source/config.js（不迁移）。
+// 规则类注册（gamerule/标记来源/BGM 跟随/AI 守卫/buff 生命周期）统一在 rules/index.js 命名
+// 导出、此处 import 调用；其余非游戏规则注册内联于本文件。设置项定义在 source/config.js。
 import { lib, game, ui, get } from '../../../noname.js';
 import {
     registerRules,
+    installBgmControl,
     installBgmFollow,
     installSceneBgm,
     installMarkSourceTrack,
@@ -20,11 +19,11 @@ import { installNodeintroWide } from './tool/ui/nodeintroWidth.js';
 import { installCardsInfo } from './tool/ui/cardsInfo.js';
 import { installCharacterPickAI } from './tool/ai/characterPick.js';
 import { installCordovaFileCompat } from './tool/utils/cordovaCompat.js';
+import { installDBCompat } from './tool/utils/dbCompat.js';
 
 // ── 势力名排版（武将卡右上角势力标签）────────────────────────────────────────
-// 规律：≤3 字一行；4~5 字首行 2 字+其余第二行；≥6 字每行 3 字。
-// 引擎在 ui.create.buttonPresets.character 里把完整势力名直接写入
-// `.identity > div`（无子节点时）。此处 hook 该工厂，创建与 refresh 后重排。
+// 规律：≤3 字一行；4~5 字首行 2 字+余下第二行；≥6 字每行 3 字。hook
+// ui.create.buttonPresets.character（引擎把完整势力名直写 `.identity > div`），创建与 refresh 后重排。
 function btsFormatKingdomName(text) {
     const chars = Array.from(text);
     const n = chars.length;
@@ -82,9 +81,8 @@ function registerDeferredPacks(characterPacks) {
 }
 
 // ── AI 选将（配置项 bts_ai_character_mode）──────────────────────────────────
-// 实现移至 tool/ai/characterPick.js：包装 game.chooseCharacter 的同步执行窗口，
-// 捕获 chooseCharacter 事件并替换 next.ai 决策（引擎分支与取位策略见该文件头部）。
-// 仅单机·标准身份（identity_mode=normal）生效；random 模式零干预，配置调用时读取。
+// 实现于 tool/ai/characterPick.js：包装 game.chooseCharacter 的同步执行窗口、替换 next.ai
+// 决策（引擎分支与取位见该文件头部）。仅单机·标准身份（identity_mode=normal）生效。
 
 export async function content(config, pack) {
     const extensionPack = lib.extensionPack['崩铁杀'];
@@ -97,12 +95,17 @@ export async function content(config, pack) {
     game.showExtensionChangeLog(updateContent, '崩铁杀');
     // 规则类注册（rules/index.js 直接导出）：全局规则技能 + 词条 + API 挂载。
     registerRules();
-    // 非游戏规则注册：安卓(cordova)文件接口兼容垫片（游戏资料卡/换肤扫描的
-    // 原生 Java 异常改为走失败回调，避免全屏报错炸 UI，见 tool/utils/cordovaCompat.js）。
+    // 非游戏规则注册：安卓(cordova)文件接口兼容垫片（同步异常转失败回调、避免全屏报错炸 UI；
+    // 见 tool/utils/cordovaCompat.js）。
     installCordovaFileCompat();
+    // 非游戏规则注册：引擎 IndexedDB 接口守卫（无 onError 的 getDB/putDB 调用不再产生
+    // 「isTrusted」孤儿 rejection 崩溃弹窗，降级为可读日志；见 tool/utils/dbCompat.js）。
+    installDBCompat();
     // 非游戏规则注册（内联）：势力名排版 hook。
     installKingdomLayoutHook();
-    // 规则类注册：BGM 跟随主公（全局技能 bts_bgm_follow）。
+    // 规则类注册：BGM 切换/还原机制（lib.bts.bgm；供角色技能调用 + 每局清栈）。
+    installBgmControl();
+    // 规则类注册：BGM 跟随主公（全局技能 bts_bgm_follow；与技能切换共用设置开关）。
     installBgmFollow();
     // 非游戏规则注册：场景曲（源 due30）登记进「设置·音效·背景音乐」可选列表。
     installSceneBgm();
@@ -114,19 +117,19 @@ export async function content(config, pack) {
     installCustomEventHooks();
     // 非游戏规则注册：AI 选将（评分/流派；tool/ai/characterPick.js）。
     installCharacterPickAI();
-    // 规则类注册：AI 防重试守卫（全局技能 bts_aiGuardReset）——与叁岛相同，
-    // 模式加载完成后再安装真实守卫，避免 global 列表被模式覆盖。
+    // 规则类注册：AI 防重试守卫（全局技能 bts_aiGuardReset）——模式加载完成后再安装，
+    // 避免 global 列表被模式覆盖。
     installAiGuard();
-    // 规则类注册：「不可被指定为目标」目标封锁（貊泽·潜行；选目标候选 + useCard 首步双守卫，
-    // 判据 lib.bts.api.untargetable，见 rules/index.js 注释）。
+    // 规则类注册：「不可被指定为目标」封锁（貊泽·潜行；候选 + useCard 首步双守卫，
+    // 判据 lib.bts.api.untargetable（细节见 rules/index.js）。
     installUntargetableGuard();
     // 非游戏规则注册（内联）：配置项 bts_nodeintro_wide 技能详情弹窗（#nodeintro）宽度加倍。
     installNodeintroWide();
-    // 非游戏规则注册（内联）：配置项 bts_cardsInfo 卡牌上显示出牌信息（移植自叁岛世界）。
+    // 非游戏规则注册（内联）：配置项 bts_cardsInfo 卡牌上显示出牌信息。
     installCardsInfo();
 
     registerDeferredPacks(lib.bts.characterPacks || {});
-    // 非游戏规则注册（内联）：角色与专有名词词条、属性/命途 poptip（参照叁岛 registerPoptips）。
+    // 非游戏规则注册（内联）：角色与专有名词词条、属性/命途 poptip。
     registerPoptips(lib.bts.characterPacks || {});
     registerNaturePathPoptips();
     delete lib.bts.characterPacks;

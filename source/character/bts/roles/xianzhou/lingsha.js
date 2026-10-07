@@ -44,10 +44,37 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：失5怒=令敌方各+2层醇醉（弃牌后手牌≤2即清空；星启再即弃1手牌）；
+            // 醇醉为负面异常，只贴敌方（源 st_liaoxia，animal.lua L6999-7026）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_liaoxia') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_liaoxia')) return -1;
+                const god = lib.bts.api.god(player);
+                let count = 0;
+                let best = 0; // 最佳单体收益
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    count++;
+                    let v = 2; // 2层醇醉≈2（再弃1牌即可能清空）
+                    if (t.countCards('h') > 0 && t.countCards('h') <= 2) v += 1; // 已在清空线
+                    if (god && t.countCards('h')) v += 1; // 星启立即弃1手牌
+                    best = Math.max(best, v);
+                }
+                if (!count) return -1;
+                let v = 4 + best; // 5怒大招基准（含资源成本）+单体收益
+                v += Math.min(count - 1, 2); // 每多一名目标+1（截断2）
+                return Math.min(9, v);
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损：2层醇醉≈-2；手牌≤2 或星启弃牌加码（源 L7007-7013）
+                target: (player, target) => {
+                    let v = 2;
+                    if (target.countCards('h') > 0 && target.countCards('h') <= 2)
+                        v += 1;
+                    if (lib.bts.api.god(player) && target.countCards('h')) v += 1;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -67,12 +94,19 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L7039：askForPlayerChosen 选择一名受伤角色
+            // AI 口径：回复1点体力只给友方（敌方不救，全负则取消发动）；伤重/濒危者优先
+            //（源 st_fenyun，animal.lua L7028-7046）
             event.result = await player
                 .chooseTarget(
                     '氛氲：选择一名受伤角色回复1点体力',
                     [1, 1],
                     (card, source, target) => target.isDamaged(),
-                    (target) => get.attitude(player, target),
+                    (target) => {
+                        if (get.attitude(player, target) <= 0) return -1;
+                        let v = 1 + (target.maxHp - target.hp) * 0.5; // 体力缺口越大越值
+                        if (target.hp <= 1) v += 2; // 濒危保命
+                        return v;
+                    },
                 )
                 .forResult();
         },
@@ -105,6 +139,15 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '飞彩：是否弃置一张【杀】获得浮元？',
                 )
+                // AI 口径：弃1【杀】换浮元（3次防伤追击：敌弃牌+炎+治疗最低关联者）；
+                // 唯一【杀】且血线告急时保留（源 st_feicai，animal.lua L7048-7057）
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    const spare =
+                        player.countCards('h', (c) => get.name(c) === 'sha') - 1;
+                    if (spare <= 0 && player.hp <= 2) return -1; // 唯一杀且危险：取消
+                    return 1;
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -123,7 +166,7 @@ export const skill = {
     bts_sk_fuyuan: {
         // 源 st_fuyuan = TriggerSkill CardFinished/EventPhaseStart（L7059-7092），非必杀技——不标 bts_bisha
         charlotte: true,
-        // damageBegin1（源 DamageCaused L1153-1175，resolver 迁入，2026-09-04）：浮元【杀】造成伤害时结算浮元链。
+        // damageBegin1（源 DamageCaused L1153-1175，自 resolver 迁入）：浮元【杀】造成伤害时结算浮元链。
         trigger: {
             player: ['useSkillAfter', 'phaseJieshuBegin'],
             source: 'damageBegin1',
@@ -143,6 +186,8 @@ export const skill = {
         async cost(event, trigger, player) {
             // 源 L7088-7090：canSlash(p, true) and not isProhibited（距离+禁制）；
             // 无名杀以 canUse(card, target, true) 等价（同飞霄·雷狩范式）。
+            // AI 口径：浮元【杀】防伤+目标弃1牌+炎，并治疗你回复过的受伤角色——只对敌方追击；
+            // 有关联治疗对象时更值（源 st_fuyuan，animal.lua L7059-7092）
             event.result = await player
                 .chooseTarget(
                     '浮元：视为对一名其他角色使用【杀】',
@@ -150,7 +195,22 @@ export const skill = {
                     (card, source, target) =>
                         target !== source &&
                         source.canUse({ name: 'sha', isCard: true }, target, true),
-                    (target) => -get.attitude(player, target),
+                    (target) => {
+                        if (target === player) return -1;
+                        if (get.attitude(player, target) >= 0) return -1; // 防伤≠伤害，不追击友方
+                        let s = 1 - get.attitude(player, target) / 4;
+                        if (
+                            game.hasPlayer(
+                                (c) =>
+                                    c.isDamaged() &&
+                                    c.countMark(
+                                        `bts_recover_link_${player.playerid}`,
+                                    ),
+                            )
+                        )
+                            s += 1; // 浮元链有治疗对象
+                        return s;
+                    },
                 )
                 .forResult();
         },
@@ -187,6 +247,8 @@ export const skill = {
                                 [1, 1],
                                 (card, source, t) => tied.includes(t),
                             )
+                            // AI 口径：并列最低体力的关联角色中选态度最高者（治疗对象均为友链）
+                            .set('ai', (t) => get.attitude(player, t))
                             .forResult();
                         if (!result.bool) return;
                         target2 = result.targets[0];
@@ -212,7 +274,6 @@ export const skill = {
                 await player.removeSkills(['bts_sk_fuyuan']);
             }
         },
-        ai: { noe: true },
     },
 };
 
@@ -281,8 +342,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_chunzui_faq',

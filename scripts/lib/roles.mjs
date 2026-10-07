@@ -1,10 +1,8 @@
 /**
  * 崩铁杀构建工具链 — 角色模块共享加载器。
- *
- * 角色文件顶层 `import ... from 'noname.js'`（浏览器引擎），Node 无法直接加载；
- * 经 bts-loader 的 noname.js→存根 重定向后即可 import（Node ≥22）。本模块缓存
- * 结果，供 rebuild.mjs / generate.mjs / voice.mjs / check.mjs 复用同一批模块，
- * 替代「读文件 + 正则解析源码块」的数据提取方式（能 import 就不正则）。
+ * 角色文件顶层 `import ... from 'noname.js'`，Node 须经 bts-loader 的 noname.js→存根
+ * 重定向后方可 import（Node ≥22）。缓存结果供 rebuild/generate/voice/check 复用，
+ * 替代「读文件 + 正则解析」（能 import 就不正则）。
  */
 import { readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

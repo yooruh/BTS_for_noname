@@ -17,9 +17,8 @@ export const character = {
 
 export const skill = {
     // ── 必杀技·天流（源 st_tianliu = SkillCard + ZeroCardViewAsSkill + TriggerSkill，L5265-5295）──
-    // 出牌阶段，失5怒气并结束出牌阶段；回合结束（NotActive）时附加3层结印祝福并执行额外回合。
-    // 源版把结印/额外回合放在 st_tianliu 的 TriggerSkill 的 NotActive 阶段结算；
-    // 无名杀直接在 content 内联完成（行为等价）。
+    // 出牌阶段，失5怒气并结束出牌阶段；回合结束时附加3层结印祝福并执行额外回合。
+    // 源版在自身回合结束（NotActive）结算结印/额外回合，此处以 pending 标记同点结算（行为等价）。
     bts_sk_tianliu: {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
@@ -35,9 +34,8 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_tianliu');
             lib.bts.api.loseAngry(player, 5); // 源 L5269：LoseAngry(player, 5)
             lib.bts.api.endPlayPhase(player); // 源 L5271：Global_PlayPhaseTerminated 结束出牌阶段
-            // 源 L5286-5294：结印祝福+额外回合在乱破【自己回合结束（NotActive）】才结算——
-            // 若出牌阶段中途就挂结印，当前回合结束阶段会先自然衰减1层（resolver phaseJieshuBegin），
-            // 额外回合只剩2层；故记 pending 标记，由其回合结束后（phaseAfter）再授予（满3层）。
+            // 源 L5286-5294：结印/额外回合在自身回合结束（NotActive）结算；中途先挂会被回合
+            // 结束阶段先衰减1层（resolver phaseJieshuBegin），故记 pending 待 phaseAfter 授予（满3层）。
             player.addMark('bts_mk_tianliu_pending', 1);
         },
         group: ['bts_sk_tianliu_jieyin'],
@@ -59,16 +57,22 @@ export const skill = {
                     await lib.bts.api.addBless(player, 'jieyin', 3);
                     lib.bts.api.extraTurn(player, 'bts_extra_turn');
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：收益=回合末3层结印（手牌【杀】当【决斗】、决斗命中改为拆2牌或弃1牌+失1体力）
+            // ＋额外回合；代价=失5怒气并结束出牌阶段（手牌超体力会进弃牌阶段白弃）。
+            // 手牌不超体力→直接发动；超体力→先记3分（低于【杀】order≈3.2）出牌削手再发动（源 L5265-5295）。
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_tianliu')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_tianliu'))
+                    return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1;
+                if (lib.bts.api.getBless(player, 'jieyin')) return -1;
+                const discardRisk = player.countCards('h') > player.hp;
+                return discardRisk ? 3 : 8;
             },
-            result: { player: 1 },
+            // 自我收益：额外回合＋3层结印（跨技能估值查询用；失5怒气已由 order 门槛把关）
+            result: { player: 2 },
         },
     },
 
@@ -85,7 +89,6 @@ export const skill = {
             // 源 L5319：player:drawCards(1)
             await player.draw(player);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·贯彻（源 st_guanche = TriggerSkill Damaged，L5325-5350）──
@@ -102,7 +105,10 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L5335：askForCard(player, "Slash") —— 只用 chooseCard 选择，弃置在 content 结算
+            // 源 L5335：askForCard(player, "Slash") —— 只用 chooseCard 选择，弃置在 content 结算。
+            // cost 型触发技无顶层 check 读取点：发动与否=本 ai（最高分≤0→取消，引擎 ai/basic.js chooseCard）。
+            // AI 口径：收益=每个「曾伤害过我」的关联角色（伤害链接标记挂其身上）各拆1张手牌（敌方≈+1.5/人，
+            // 友军倒扣）；代价=弃一张【杀】。仅1名关联敌人且杀不富余时按1换1放弃（源 L5325-5350）。
             event.result = await player
                 .chooseCard(
                     'h',
@@ -111,6 +117,32 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '贯彻：选择弃置一张【杀】弃置伤害关联角色一张手牌？',
                 )
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object')
+                        return -1; // 技能按钮候选（非牌）不选
+                    if (get.name(card) !== 'sha') return -1;
+                    let value = 0;
+                    for (const candidate of game.filterPlayer(
+                        (candidate) =>
+                            candidate !== player && candidate.isAlive(),
+                    )) {
+                        if (
+                            candidate.countMark(
+                                `bts_damage_link_${player.playerid}`,
+                            ) === 0 ||
+                            candidate.countCards('h') === 0
+                        )
+                            continue;
+                        value +=
+                            get.attitude(player, candidate) < 0 ? 1.5 : -1.5;
+                    }
+                    if (value <= 0) return -1;
+                    const surplus =
+                        player.countCards('h', (c) => get.name(c) === 'sha') >
+                        1;
+                    if (value < 3 && !surplus) return -1; // 1名敌人且杀不富余：1换1不划算
+                    return value;
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -126,7 +158,17 @@ export const skill = {
             ))
                 await player.discardPlayerCard(candidate, 'h', true);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动决策在 cost 的 ai（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值查询：
+            // 受动方（伤害关联角色且手牌不为空）失去1张手牌=受损；施动方消耗一张【杀】为代价（源 L5325-5350）。
+            result: {
+                target: (player, target) =>
+                    target.countMark(`bts_damage_link_${player.playerid}`) >
+                        0 && target.countCards('h') > 0
+                        ? -1.5
+                        : 0,
+            },
+        },
     },
 };
 
@@ -185,7 +227,20 @@ export const buffSkills = {
                     return false;
             },
         },
-        ai: { order: 2, result: { target: -1 } },
+        ai: {
+            // AI 口径：viewAs 型（无独立 content，不空转）：手牌【杀】当【决斗】；结印生效时【杀】的原
+            // 用法已被 mod 禁用，转化即其唯一出手形态 → order 6（高于【杀】≈3.2）；只打敌方（源 #bless_jieyin）。
+            order: 6,
+            result: {
+                target: (player, target) => {
+                    if (get.attitude(player, target) >= 0) return -2; // 只决斗敌方
+                    let value = 1.2;
+                    if (target.countCards('h') > 1) value += 0.3; // 命中改为弃2牌更赚
+                    else value += 0.4; // 否则弃1牌+失1体力
+                    return -value;
+                },
+            },
+        },
         trigger: { source: 'damageBegin1' },
         forced: true,
         silent: true,
@@ -222,8 +277,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_jieyin_faq',

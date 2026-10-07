@@ -4,14 +4,11 @@
  * 崩铁杀派生数据生成脚本。
  *
  * 遍历「全局 buff/标记 + 全部角色 buffSkills/marks」定义上的自定义标签
- * （markKind / permanent / glossaryId，仿 bts_bisha 先例），自动生成
- * source/generated/buffRegistry.js：
+ * （markKind / permanent / glossaryId），自动生成 source/generated/buffRegistry.js：
  *   MARKS_REGISTRY / BLESSES / ABNORMALS / PERMANENT_BLESSES / BUFF_GLOSSARY
  * 运行时静态 import 本表（加载期不遍历技能，符合「build 复杂度可增、加载复杂度不增」）。
  *
- * 迁移期兼容：markKind 缺失时按键前缀推断（bts_bless_→bless …），permanent 缺失时
- * 按遗留常驻对（bts_bless_god / bts_bless_yingzi）兜底——与重构前行为一致；
- * 迁移完成（阶段3）后所有条目应显式打标签，推断路径自然闲置。
+ * 标签缺失兜底：markKind 按键前缀推断（bts_bless_→bless …）；permanent 仅认显式 true。
  *
  * 用法：node scripts/generate.mjs [--check]   （--check 只比对不写盘，漂移/校验失败退出码 1）
  */
@@ -36,8 +33,8 @@ const KNOWN_KINDS = ['bless', 'abnormal', 'shield', 'curse', 'pet', 'mark', 'rec
 const BARE_ORPHAN_KEYS = ['liubu', 'zhigaozhizi', 'dengshen', 'bts_liewu'];
 
 const GENERATED_HEADER =
-    '// 本文件由 scripts/generate.mjs 根据 buff/标记定义标签（markKind/permanent/glossaryId）自动生成，请勿手动编辑。\n' +
-    '// 运行时静态 import 本表（加载期不遍历技能）。键均为 bts_ 完整标记键。\n';
+    '// 由 scripts/generate.mjs 自动生成（勿手改）：标记定义标签（markKind/permanent/glossaryId）→ 静态表；' +
+    '运行时直接 import（加载期不遍历技能），键均为 bts_ 完整键。\n';
 
 async function importIfExists(rel) {
     const url = pathToFileURL(resolve(SOURCE, rel)).href;
@@ -49,7 +46,7 @@ async function importIfExists(rel) {
     }
 }
 
-/** 键前缀推断（迁移期：标签缺失时与重构前行为一致）。 */
+/** 键前缀推断（markKind 缺失时的兜底）。 */
 function inferKind(key, def) {
     if (key.startsWith('bts_bless_')) return 'bless';
     if (key.startsWith('bts_abnormal_')) return 'abnormal';
@@ -127,8 +124,8 @@ async function collect() {
         mod,
     }));
 
-    // 词条 id 全集（校验 glossaryId 可解析；通用 → rules/globalrules.js glossary +
-    // 角色专属 → 各角色文件 glossary，TODO 任务3 拆分归位后聚合）
+    // 词条 id 全集（校验 glossaryId 可解析）：通用词条在 rules/globalrules.js、角色专属在
+    // 各角色文件 glossary，均在此聚合）
     const glossaryIds = new Set(
         [
             ...(globalrulesMod?.glossary ?? []),
@@ -169,7 +166,7 @@ async function collect() {
             warnings.push(`[待迁移] ${src} ${key}：name/markContent 仍在对象内，应迁入 translate`);
         }
         if (!explicit || !def || (def.name == null && def.markContent == null)) {
-            // 未显式标签或已迁移：仍需确保有显示名来源（translate[id] 或遗留内联 name）
+            // 未显式标签或未带内联 name：仍需确保有显示名来源（translate[id] 或内联 name）
             const hasName = translateMap[key] != null || (def && def.name != null);
             if (!hasName) warnings.push(`[缺译名] ${src} ${key}：translate[${key}] 与内联 name 均缺失`);
         }

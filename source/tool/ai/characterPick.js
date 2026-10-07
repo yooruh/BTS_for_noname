@@ -1,18 +1,10 @@
 // 身份模式 AI 选将（扩展配置 bts_ai_character_mode）：
-//   纯随机（random）= 不干预，保持无名杀原生行为；
-//   按评分（score） = 太阳神选将权重表（characterPickWeights.js）+ 主公启发式；
-//   按流派（style） = 手工标定的技能定位标签（STYLE_TAGS），按身份偏好序列挑选。
+//   random = 不干预（无名杀原生行为）；score = 太阳神权重表（characterPickWeights.js）+ 主公启发式；
+//   style = 手工标定的技能定位标签（STYLE_TAGS），按身份偏好序列挑选。
 //
-// ── 引擎现状与拦截点（2026-09-28 对本 fork 实测）───────────────────────────────
-// mode/identity.js 标准身份流程（identity_mode=normal → game.chooseCharacter）：
-//   · step 0：主公为 AI 时调用 event.ai(game.zhu, event.list, getZhuList())；
-//   · step 2：其余 AI 逐个 event.list.randomSort() 后调用
-//     event.ai(player, event.list.splice(0, choice_<身份>), null, event.list)。
-//   event.ai 自身分支（identity.js L1589-1728）：
-//   · 主公：20% 概率取 list2[0]（list2.randomSort 后的主公技候选），否则取 list[0]；
-//   · 忠臣：50% 概率（或特定主公）取候选里「首个与主公同势力」者，否则取 list[0]；
-//   · 其余：取 list[0]（双将模式下第二将取 list[1]）。
-//   —— 即引擎除随机分支外总是读取 list 前两位/首个同势力位。
+// ── 引擎现状与拦截点（对本 fork 实测）───────────────────────────────
+// identity.js L1589-1728：主公 20% 取 list2[0] 否则 list[0]；忠臣 50% 取首个同势力
+//   否则 list[0]；其余取 list[0]（双将第二将取 list[1]）；即除随机分支外总是读取 list 前两位/首个同势力位。
 //
 // 拦截策略（不重写引擎、不动 mode 文件）：
 //   1. 包装 game.chooseCharacter：执行窗口内置位「选将流程深度」，窗口内同步创建的
@@ -26,9 +18,8 @@
 //
 // ── 范围与限制 ──────────────────────────────────────────────────────────────
 //   · 仅单机、identity_mode=normal 的标准身份；明忠/谋攻/3v3v2 与联机不拦截（保持引擎行为）；
-//   · 双将模式下第二将仍按引擎逻辑（list[1]）；
-//   · 候选角色若在 lib.characterReplace（同名替换组）中，引擎会照旧再做一次随机替换；
-//   · 配置在每次调用时读取，设置项切换后下一局即生效。
+//   · 双将第二将仍按引擎逻辑（list[1]）；候选在 lib.characterReplace 中时引擎照旧再随机替换；
+//   · 配置每次调用时读取，设置项切换后下一局生效。
 import { lib, game, _status } from '../../../../../noname.js';
 import { GENERIC, BY_LORD } from './characterPickWeights.js';
 
@@ -37,10 +28,9 @@ const CONFIG_KEY = 'bts_ai_character_mode';
 // 参与本逻辑的身份（commoner 等扩展身份交还引擎随机）。
 const PICK_IDENTITIES = ['zhu', 'zhong', 'fan', 'nei'];
 
-// ── 流派标签（按技能特点人工标定，2026-09-28 初版）────────────────────────────
-// 分类：输出 / 防御 / 辅助 / 控制 / 资源（资源=摸牌/牌差/额外回合等节奏运转）。
-// 说明：不以称号「命途」为准（命途只粗反映技能类型），由技能定位直接标注；
-// 每角色 1-2 个标签，主定位在前。未收录角色回退到 PATH_FALLBACK（命途兜底）。
+// ── 流派标签（按技能特点人工标定）────────────────────────────
+// 分类：输出 / 防御 / 辅助 / 控制 / 资源（资源=摸牌/牌差/额外回合等节奏运转）；
+// 每角色 1-2 个标签、主定位在前；不以「命途」为准（命途只粗反映技能类型），未收录回退 PATH_FALLBACK（命途兜底）。
 const STYLE_TAGS = {
     busitu: ['输出', '控制'],
     gilgamesh: ['输出', '辅助'],

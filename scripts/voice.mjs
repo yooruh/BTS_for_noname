@@ -1,29 +1,23 @@
 #!/usr/bin/env node
 /**
- * 语音档案维护工具（并入 npm run voice，不新增脚本）。
+ * 语音档案维护工具（npm run voice）：角色数据经 lib/roles.mjs 直接 import（bts-loader 改道
+ * noname.js 存根）；仅「注释掉的台词键」与写回定位走文本级处理（import 不见注释）。
  *
- * 台词来源：源 translate 的非注释 $ / ~ 台词键优先（无名杀既有台词），文档台词兜底
- * （仅当代码无该台词时保留文档手填）——保证代码里的正确台词不被旧文档错值覆盖。
+ * 台词来源：源 translate 的非注释 $ / ~ 台词键（无名杀既有）优先，文档台词仅兜底（保留手填）。
+ * $ / ~ 键打包期由 audioPaths.js 归一为引擎 `#` 键（见《文案与语音规范》§2.2）。
  *
- * 角色数据经 lib/bts-loader.mjs 直接 import（character/transformCharacter/skill/translate 对象），
- * 不做源码正则解析；仅「注释掉的台词键」与写回定位仍需文本级处理（import 看不到注释）。
- *
- * 用法：
- *   node scripts/voice.mjs gen              按「音频 + 文档台词」重建文档。
- *        ——有 mp3 一律列出；有台词归「已配齐」，无台词归「缺台词」（你删掉技能/阵亡也会归回
- *           缺台词类）；凡已定义技能无 mp3，自动预留 2 个空位归「缺音频」（排除清单：scripts/voice-exclude.txt）。
- *           可点链接、幂等、保留你填的台词。
- *   node scripts/voice.mjs reorganize       仅重排现有清单（以文档内容为准、尊重手动删除，不重扫音频；
- *        ——但文档里提到（引用）过却缺表格的技能/阵亡语音，会补齐表格本身）。
- *   node scripts/voice.mjs write [--apply]  把文档台词写回代码 translate（缺台词插入、已配齐不一致则更新）；
- *        ——默认预览，--apply 才写盘。
- *   node scripts/voice.mjs clear [--apply]  删除 translate 中残留的台词键（$ / ~，便于按新规范重写）；
- *        ——默认预览，--apply 才写盘。
- *   node scripts/voice.mjs syncdie [--apply] 形态角色阵亡音频复用（纯形态 + _and_ 组合）：把主角色 die 音频
- *        复制为形态 die 文件；——默认预览，--apply 才写盘。
- *   node scripts/voice.mjs exclude [list|add|remove] [id…]  无语音技能排除清单管理（scripts/voice-exclude.txt）：
- *        ——清单内技能完全跳过（gen 不预留空位、reorganize 移除条目、write 跳过台词行）；支持 * 通配；
- *        无参=交互菜单。
+ * 用法（gen/reorganize 直接写文档；write/clear/syncdie 默认预览、--apply 才写盘）：
+ *   node scripts/voice.mjs gen        按「音频 + 文档台词」重建文档（含 BGM 配齐检查）：有 mp3 一律列出、
+ *       幂等、保留手填；已定义技能无 mp3 自动预留 2 个空位归「缺音频」（豁免：scripts/voice-exclude.txt）；
+ *       末段列缺 BGM（主角色 audio/bgm/<角色id>.mp3，.bgm/.all 豁免）。
+ *   node scripts/voice.mjs reorganize 仅重排现有清单（以文档为准、不复活手动删去的条目，不重扫音频；文档提到
+ *       却缺表格的语音会补齐）。
+ *   node scripts/voice.mjs write      把文档台词写回代码 translate（缺台词插入、不一致则更新）。
+ *   node scripts/voice.mjs clear      清除 translate 中残留的台词键（$ / ~），便于按新规范重写。
+ *   node scripts/voice.mjs syncdie    形态角色阵亡音频复用（纯形态 + _and_ 组合）：主角色 audio/die/<主>.mp3
+ *       复制为形态 die 文件。
+ *   node scripts/voice.mjs exclude [list|add|remove] [id…]  检查豁免清单管理（scripts/voice-exclude.txt）：
+ *       后缀语义见「检查豁免清单」节；支持 * 通配；无参=交互菜单。
  */
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -35,6 +29,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DOC = resolve(root, '..', '文档', '技能语音字幕填充清单.md');
 const audioSkill = join(root, 'audio', 'skill');
 const audioDie = join(root, 'audio', 'die');
+const audioBgm = join(root, 'audio', 'bgm');
 const rolesRoot = join(root, 'source', 'character', 'bts', 'roles');
 
 const cmd = process.argv[2];
@@ -52,12 +47,11 @@ const esc = (s) => s.replace(/\|/g, '\\|');
 const audioSkillLines = {};
 for (const f of await walk(audioSkill, '.mp3')) { const m = /^(bts_[\w]+?)(\d+)$/.exec(basename(f, '.mp3')); if (m) (audioSkillLines[m[1]] ??= new Set()).add(Number(m[2])); }
 const dieFiles = new Set((await walk(audioDie, '.mp3')).map((f) => basename(f, '.mp3')));
-// ── 角色数据：经 lib/roles.mjs 直接 import 角色文件读对象，不再用正则解析源码块 ──
-// mod.character[id]（含 skills）、mod.transformCharacter[id]（形态，_and_ 为组合）、
-// mod.skill 顶层键（技能归属兜底）、mod.translate（中文名 + $ / ~ 台词键，import 只见非注释键）。
+const bgmFiles = new Set((await walk(audioBgm, '.mp3')).map((f) => basename(f, '.mp3')));
+// ── 角色数据：经 lib/roles.mjs 直接 import 角色对象 ──
+// mod.character（含 skills）、mod.transformCharacter（形态/_and_）、mod.skill 顶层键、mod.translate（$ / ~ 台词键）。
 const roleMods = await loadRoleMods();
-// 角色结构：cInfo(所有角色/形态 id)、skillOwner(技能→所属角色,按各块 skills 归属)、
-// dieReuse(形态 id→主角色 id,阵亡复用)、roleFile(id→所在文件)、comboIds(_and_ 组合)。
+// 角色结构：cInfo(全角色/形态 id)、skillOwner(技能→所属)、dieReuse(形态→主角色)、roleFile(id→文件)、comboIds(_and_ 组合)。
 const cInfo = {}, skillOwner = {}, nameById = {}, dieReuse = {}, roleFile = {};
 const comboIds = new Set();
 const cjk = (s) => /[一-鿿]/.test(s);
@@ -75,8 +69,7 @@ for (const [full, mod] of roleMods) {
   // 兜底：文件级 skill 对象里、未归属任一 skills 的技能归主形态（本扩展技能都带 bts_ 前缀，
   // 过滤掉 group/mark 等块内属性键）
   for (const k of Object.keys(mod.skill ?? {})) if (!skillOwner[k] && /^bts_/.test(k)) skillOwner[k] = charKey;
-  // 中文名：translate 对象直取；只取 1-10 字的短字符串值（长 info/英文长句自动排除）。
-  // 同键多值（translate+pinyins 等）中文名优先：已有值且新值无 CJK（英文/替代名）不覆盖，反之覆盖
+  // 中文名：translate 直取 1-10 字短字符串（排除长 info/英文）；同键多值时仅 CJK 值可覆盖已有值。
   for (const [k, v] of Object.entries(mod.translate ?? {})) {
     if (!/^bts_[\w]+$/.test(k) || typeof v !== 'string' || v.length < 1 || v.length > 10) continue;
     if (nameById[k] == null || cjk(v)) nameById[k] = v;
@@ -93,34 +86,64 @@ for (const [full, mod] of roleMods) {
   }
 }
 
-// ── 无语音技能排除清单（scripts/voice-exclude.txt）──────────────────────────
-// 每行一个技能 id 或通配模式（* = 任意字符）；# 注释、空行忽略；须 bts_ 开头（防误配）。
-// 语义：清单内技能完全跳过——gen 不预留「缺音频」空位、reorganize 移除其条目、write 跳过其台词行。
+// ── 检查豁免清单（scripts/voice-exclude.txt；.die/.all 与 rebuild --audio 共用）────────────────────────────
+// 每行一个条目；# 注释、空行忽略；* 通配；剥后缀后须 bts_ 开头（防误配）。
+// 后缀语义：
+//   无后缀    技能语音——gen 不预留「缺音频」空位、reorganize 剔除条目、write 跳过其台词行；
+//   <id>.die  阵亡语音（按主角色判定，形态/组合随主）——gen 不列其占位、write 跳过其 ~ 台词行；
+//   <id>.bgm  BGM 配齐检查（主角色）——“源侧与仓库均无、留空”者不列缺；
+//   <id>.all  整个角色——技能 + 阵亡 + BGM 全部豁免（技能语义同无后缀，作用于该角色名下技能）。
 const EXCLUDE_FILE = join(root, 'scripts', 'voice-exclude.txt');
+const EXCL_SUFFIX = /\.(bgm|die|all)$/;
 const globToRe = (p) => new RegExp('^' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*') + '$');
 const exclEntries = [];
 {
   let raw = '';
-  try { raw = await readFile(EXCLUDE_FILE, 'utf8'); } catch { console.warn(`⚠ 排除清单不存在（按空处理）：${EXCLUDE_FILE}`); }
+  try { raw = await readFile(EXCLUDE_FILE, 'utf8'); } catch { console.warn(`⚠ 豁免清单不存在（按空处理）：${EXCLUDE_FILE}`); }
   for (const line of raw.split(/\r?\n/)) {
     const p = line.replace(/#.*$/, '').trim();
     if (!p) continue;
-    if (!/^bts_/.test(p)) { console.warn(`⚠ 排除清单忽略非法条目（须 bts_ 开头）：${p}`); continue; }
-    if (!exclEntries.some((e) => e.p === p)) exclEntries.push({ p, re: globToRe(p), hits: [] });
+    const sm = EXCL_SUFFIX.exec(p);
+    const scope = sm ? sm[1] : 'skill';
+    const id = sm ? p.slice(0, -sm[0].length) : p;
+    if (!/^bts_/.test(id)) { console.warn(`⚠ 豁免清单忽略非法条目（须 bts_ 开头）：${p}`); continue; }
+    if (!exclEntries.some((e) => e.p === p)) exclEntries.push({ p, id, scope, re: globToRe(id), hits: [] });
   }
 }
-const isExcluded = (id) => exclEntries.some((e) => e.re.test(id));
+const matchesExcl = (id, scopes) => exclEntries.some((e) => scopes.includes(e.scope) && e.re.test(id));
+// 技能豁免：技能 id 直接命中（无后缀/整角条目）或所属角色被 .all 命中
+const isExcluded = (id) => matchesExcl(id, ['skill']) || (skillOwner[id] ? matchesExcl(skillOwner[id], ['all']) : false);
+// 阵亡豁免：按主角色判定（纯形态→主；_and_ 组合→主段）；也可直接写形态/组合 id 条目
+const dieOwnerOf = (id) => {
+  if (dieReuse[id]) return dieReuse[id];
+  const mm = /^(bts_[a-z0-9_]+?)_and_/.exec(id);
+  return mm ? mm[1] : id;
+};
+const isDieExcluded = (id) => matchesExcl(id, ['die', 'all']) || (dieOwnerOf(id) !== id && matchesExcl(dieOwnerOf(id), ['die', 'all']));
+// BGM 豁免：主角色 id 命中 .bgm/.all
+const isBgmExcluded = (id) => matchesExcl(id, ['bgm', 'all']);
+// 命中统计（各 scope 检查域）：技能 / 角色（阵亡按 cInfo 全量、BGM 按主角色）
 const allSkillIds = [...new Set([...Object.keys(skillOwner), ...Object.keys(audioSkillLines)])].sort();
-for (const e of exclEntries) e.hits = allSkillIds.filter((id) => e.re.test(id));
+const mainCharIds = Object.keys(cInfo).filter((id) => !dieReuse[id]).sort();
+// 阵亡条目的检查域 = 角色表 + die 音频文件集（换肤等无角色注册的遗留文件也能命中）
+const dieDomain = [...new Set([...Object.keys(cInfo), ...dieFiles])];
+for (const e of exclEntries) {
+  e.hits = [...new Set([
+    ...(e.scope === 'skill' || e.scope === 'all' ? allSkillIds.filter((id) => e.re.test(id)) : []),
+    ...(e.scope === 'die' || e.scope === 'all' ? dieDomain.filter((id) => e.re.test(id)) : []),
+    ...(e.scope === 'bgm' || e.scope === 'all' ? mainCharIds.filter((id) => e.re.test(id)) : []),
+  ])];
+}
 const exclMatched = [...new Set(exclEntries.flatMap((e) => e.hits))].sort();
-const exclHeaderLine = () => `> 无语音排除：${exclMatched.length} 个技能不参与本清单（清单文件 \`zip/scripts/voice-exclude.txt\`；\`node scripts/voice.mjs exclude\` 管理）。`;
+const EXCL_SCOPE_NAME = { skill: '技能', die: '阵亡', bgm: 'BGM', all: '整角' };
+const exclHeaderLine = () => `> 检查豁免：${exclEntries.length} 条（${Object.entries(EXCL_SCOPE_NAME).map(([s, n]) => `${n} ${exclEntries.filter((e) => e.scope === s).length}`).join(' / ')}）；清单文件 \`zip/scripts/voice-exclude.txt\`，\`node scripts/voice.mjs exclude\` 管理。`;
 
-// ── 读文档台词（跨次保留，用户手填的最高优先）──────────────────────────────
+// ── 读文档台词（跨次保留；仅作代码台词的兜底）──────────────────────────────
 const userText = new Map();
 try { for (const line of (await readFile(DOC, 'utf8')).split('\n')) { const m = /audio\/(?:skill|die)\/[A-Za-z0-9_]+\.mp3/.exec(line); if (!m || !line.includes('|')) continue; const cells = line.split('|'); const t = (cells[cells.length - 2] || '').trim(); if (t) userText.set(m[0], t); } } catch {}
 // ── 源 translate 台词键（非注释 $ / ~ 键）→ 首选台词来源 ────────────────────
-// 代码台词是无名杀既有台词，优先于文档；文档台词仅在代码无该台词时兜底（保留手填）。
-// 注释掉的台词键（// '$...'/ '~...'）import 不可见，天然不读。
+// 代码台词（无名杀既有）优先于文档；文档台词仅兜底（保留手填）。
+// 注释掉的台词键（'$bts_<技能><N>' / '~bts_<资源名>'）import 不可见，天然不读。
 const codeVoice = new Map();
 for (const [, mod] of roleMods) {
   for (const [k, v] of Object.entries(mod.translate ?? {})) {
@@ -133,9 +156,25 @@ for (const [, mod] of roleMods) {
 }
 
 // ═════════════════════════  gen：重建文档  ═════════════════════════════
-// 缺配音自动扫描：凡「已定义技能」无任何 mp3 → 自动在文档为其预留 RESERVE_SIZE 个空位（缺音频占位）。
-// 个别技能若不需要语音（mod技等）、也不要空位：加进 scripts/voice-exclude.txt 排除清单（其余全部自动）。
+// 已定义技能无 mp3 → 预留 RESERVE_SIZE 个空位（缺音频占位）；不需要语音的（mod技等）加 scripts/voice-exclude.txt 豁免，其余自动。
 const RESERVE_SIZE = 2;
+
+// ── BGM 配齐检查（主角色 ↔ zip/audio/bgm/<角色id>.mp3）──────────────────────
+function collectBgmRows() {
+  const missing = [], exempt = [], exemptWithData = [];
+  for (const ck of mainCharIds) {
+    const has = bgmFiles.has(ck);
+    if (isBgmExcluded(ck)) { exempt.push(ck); if (has) exemptWithData.push(ck); continue; }
+    if (!has) missing.push(ck);
+  }
+  return { missing, exempt, exemptWithData };
+}
+function pushBgmSection(md, bgmRows, nameOf) {
+  md.push('---', '## BGM 配齐（主公跟随 / 技能切换用）', '', '> 数据源：`zip/audio/bgm/<角色id>.mp3`（角色专属曲）。缺 BGM 的角色若「太阳神源侧与仓库均无」属留空，在豁免清单写 `<角色id>.bgm` 后不再列出。', '');
+  const fmt = (k) => `${nameOf(k)}（${k}）`;
+  md.push(`### 缺 BGM（${bgmRows.missing.length}）`, '', bgmRows.missing.length ? bgmRows.missing.map(fmt).join('、') : '（无——未豁免的主角色全部配有 BGM）', '');
+  if (bgmRows.exempt.length) md.push(`### 已豁免（${bgmRows.exempt.length}）`, '', bgmRows.exempt.map(fmt).join('、'), '');
+}
 
 async function gen() {
   const DONE = '已配齐', TEXT = '缺台词', AUDIO = '缺音频';
@@ -143,8 +182,7 @@ async function gen() {
   const rowsByChar = {};
   const push = (k, r) => (rowsByChar[k] ??= []).push(r);
   const cell = (mp3, has) => has ? `[${mp3}](../zip/${mp3})` : `\`${mp3}\`（待补）`;
-  // 所有技能来源统一过滤 bts_ 前缀（排除被误判的块内属性如 group/mark，并阻断文档里已有占位自续）
-  // userText 映射只保留规范前缀（bts_sk_/bts_mk_ 等），杜绝旧键（如 bts_wanglai_beifu）自续
+  // 技能来源统一过滤 bts_ 前缀（排除 group/mark 误判）；userText 仅保留规范前缀（bts_sk_/bts_mk_ 等），防旧键自续。
   const sk = new Set([...Object.keys(audioSkillLines),
     ...[...userText.keys()].filter((p) => /^audio\/skill\/bts_(?:sk|mk|bless|abnormal|n|pet|shield|curse)_/.test(p)).map((p) => p.slice(12).replace(/\d+\.mp3$/, '')),
     ...Object.keys(skillOwner)].filter((s) => /^bts_/.test(s)));
@@ -169,9 +207,9 @@ async function gen() {
       push(skillOwner[s] || '未归属', { type: '技能', label, mp3: cell(mp3, a), status: st(a, t), text });
     }
   }
-  // 阵亡：按 cInfo 的角色（含形态）。形态角色复用主角色 die（音频用 syncdie 复制文件、台词取主）
-  // 两缺（无 mp3 且无台词）此前直接跳过 → 缺阵亡的角色在清单中完全不可见（2026-10-03 修复：
-  // 主角色/独立角色列为「缺音频」占位，供对照太阳神源补齐；纯形态随主角色行体现，不重复占位）
+  // 阵亡：按 cInfo 的角色（含形态）。形态角色复用主角色 die（音频用 syncdie 复制文件、台词取主）。
+  // 两缺（无 mp3 且无台词）：主角色/独立角色列为「缺音频」占位（供对照太阳神源补齐）；纯形态随主角色行体现。
+  const dieExemptWithData = [];
   for (const ck of Object.keys(cInfo)) {
     const reuse = dieReuse[ck]; // 形态→主
     const srcId = reuse || ck;
@@ -181,37 +219,43 @@ async function gen() {
     // 台词优先级：代码（无名杀既有台词）> 文档（兜底保留手填）
     const text = codeVoice.get(srcMp3) || userText.get(srcMp3) || '';
     const t = !!text;
+    // 阵亡豁免（.die/.all，按主角色判定）：不进清单；若检测到已有音频/台词记录告警
+    if (isDieExcluded(ck)) { if (a || t) dieExemptWithData.push(ck); continue; }
     if (!a && !t) {
       if (!reuse) push(ck, { type: '阵亡', label: `${cInfo[ck].name} 阵亡`, mp3: cell(mp3, false), status: AUDIO, text: '' });
       continue;
     }
     push(ck, { type: '阵亡', label: `${cInfo[ck].name} 阵亡`, mp3: cell(mp3, a), status: !a ? AUDIO : (t ? DONE : TEXT), text });
   }
-  // 组合阵亡：阵亡音频与台词均复用主角色——_and_ 组合的台词严格取主角色（audio/die/<主>.mp3 的 $ ~ 文本，
-  // 与纯形态一致；主台词改动经 gen → write 自动同步到组合键）
+  // 组合阵亡：音频与台词均复用主角色（_and_ 台词严格取 audio/die/<主>.mp3 的 $ ~ 文本，同纯形态）。
   const combos = [];
   for (const d of [...dieFiles].sort()) { if (Object.hasOwn(cInfo, d)) continue; if (!/_and_/.test(d)) { combos.push({ label: `${nameById[d] ? nameById[d] : d}`, mp3: cell(`audio/die/${d}.mp3`, true), text: codeVoice.get(`audio/die/${d}.mp3`) || userText.get(`audio/die/${d}.mp3`) || '' }); continue; } const mm = /^(bts_[a-z0-9_]+?)_and_/.exec(d); combos.push({ label: `${d}（复用 ${mm[1]}）`, mp3: cell(`audio/die/${d}.mp3`, true), text: codeVoice.get(`audio/die/${mm[1]}.mp3`) || userText.get(`audio/die/${mm[1]}.mp3`) || '' }); }
   // 输出
   const STAT_ORDER = [DONE, TEXT, AUDIO], STAT_TITLE = { [DONE]: '已配齐', [TEXT]: '缺台词', [AUDIO]: '缺音频' };
   const byStatus = {};
+  const bgmRows = collectBgmRows();
   const nameOf = (k) => cInfo[k]?.name || k.replace(/^bts_ch_/, '');
   const factionOf = (k) => cInfo[k]?.faction || '';
   const cmpChar = (a, b) => { const fa = factionOf(a), fb = factionOf(b); return fa === fb ? nameOf(a).localeCompare(nameOf(b), 'zh') : fa.localeCompare(fb, 'zh'); };
   for (const [ck, rows] of Object.entries(rowsByChar)) for (const r of rows) { (byStatus[r.status] ??= {})[ck] ??= []; byStatus[r.status][ck].push(r); }
-  let md = ['# 技能语音字幕维护清单', '', '> 状态：**缺音频**（待补 mp3）、**缺台词**（有 mp3、无台词）、**已配齐**（有 mp3、有台词）。台词来源：文档优先（手填保留），源 translate 非注释 $ / ~ 键兜底。', '> `node scripts/voice.mjs gen` 重建（有 mp3 一律列出，删掉的技能/阵亡归回缺台词类）；`write [--apply]` 写回代码。', exclHeaderLine(), ''];
+  let md = ['# 技能语音字幕维护清单', '', '> 状态：**缺音频**（待补 mp3）、**缺台词**（有 mp3、无台词）、**已配齐**（有 mp3、有台词）。台词来源：代码（源 translate 非注释 $ / ~ 键）优先，文档兜底（保留手填）。', '> `node scripts/voice.mjs gen` 重建（有 mp3 一律列出，删掉的技能/阵亡归回缺台词类）；`write [--apply]` 写回代码。', exclHeaderLine(), ''];
   for (const s of STAT_ORDER) { const ck = Object.keys(byStatus[s] || {}).sort(cmpChar); if (!ck.length) continue; const n = ck.reduce((x, k) => x + byStatus[s][k].length, 0); md.push(`## ${STAT_TITLE[s]}（${n}）`, ''); for (const k of ck) { md.push(`### ${nameOf(k)}（${k}）　〔${factionOf(k)}〕`, '', '| 类型 | 条目 | 音频文件 | 台词 |', '|---|---|---|---|'); for (const r of byStatus[s][k]) md.push(`| ${r.type} | ${esc(r.label)} | ${r.mp3} | ${esc(r.text)} |`); md.push(''); } }
   if (combos.length) { md.push('---', '## 组合阵亡（复用主角色）', '', '| 条目 | 音频文件 | 台词 |', '|---|---|---|'); for (const r of combos) md.push(`| ${esc(r.label)} | ${r.mp3} | ${esc(r.text)} |`); md.push(''); }
+  pushBgmSection(md, bgmRows, nameOf);
   await writeFile(DOC, md.join('\n'), 'utf8');
   const all = Object.values(rowsByChar).flat();
   console.log(`✓ gen 完成：主条目 ${all.length}（已配齐 ${all.filter((r) => r.status === DONE).length}，缺台词 ${all.filter((r) => r.status === TEXT).length}，缺音频 ${all.filter((r) => r.status === AUDIO).length}）；组合阵亡 ${combos.length}。`);
-  console.log(`  · 排除清单：${exclEntries.length} 条命中 ${exclMatched.length} 个技能${exclMatched.length ? `（${exclMatched.join('、')}）` : ''}。`);
+  console.log(`  · 豁免清单：${exclEntries.length} 条（${Object.entries(EXCL_SCOPE_NAME).map(([s, n]) => `${n} ${exclEntries.filter((e) => e.scope === s).length}`).join(' / ')}）命中 ${exclMatched.length} 项。`);
+  console.log(`  · BGM：缺 ${bgmRows.missing.length}（已豁免 ${bgmRows.exempt.length}）。`);
   const exclUnmatched = exclEntries.filter((e) => !e.hits.length);
-  if (exclUnmatched.length) console.log(`  ⚠ 未命中任何已定义技能的条目（拼写/已删？）：${exclUnmatched.map((e) => e.p).join('、')}`);
-  if (excludedWithData.length) console.log(`  ⚠ 排除技能检测到已有音频/台词（建议复核）：${excludedWithData.join('、')}`);
+  if (exclUnmatched.length) console.log(`  ⚠ 未命中任何对象的条目（拼写/已删？）：${exclUnmatched.map((e) => e.p).join('、')}`);
+  if (excludedWithData.length) console.log(`  ⚠ 豁免技能检测到已有音频/台词（建议复核）：${excludedWithData.join('、')}`);
+  if (dieExemptWithData.length) console.log(`  ⚠ 阵亡豁免检测到已有音频/台词（建议复核）：${dieExemptWithData.join('、')}`);
+  if (bgmRows.exemptWithData.length) console.log(`  ⚠ BGM 豁免检测到已有曲目（建议复核）：${bgmRows.exemptWithData.join('、')}`);
 }
 
 // ═════════════════════════  write：doc→code  ═════════════════════════════
-// ── 台词块辅助：把新台词插到 translate 末尾、按 character.skills 排序、阵亡最后 ──
+// ── 台词块辅助：新台词插 translate 末尾、按 skills 排序、阵亡最后 ──
 /** 台词键排序基数：技能按 skills 下标+N；阵亡（~/~）最后 */
 function cmpVoiceKey(raw, idx) {
   const k = raw.replace(/^['"]|['"]$/g, '');
@@ -262,8 +306,8 @@ async function writeBack() {
   const ins = new Map(), upd = new Map(), skip = [];
   for (const line of (await readFile(DOC, 'utf8')).split('\n')) { const m3 = /audio\/(?:skill|die)\/[A-Za-z0-9_]+\.mp3/.exec(line); if (!m3 || !line.trim().startsWith('|')) continue; const c = line.split('|'); const text = (c[c.length - 2] || '').trim(); if (!text) continue; const p = m3[0];
     let key, kid, ck;
-    if (p.startsWith('audio/skill/')) { const m = /^audio\/skill\/(bts_[\w]+?)(\d+)\.mp3$/.exec(p); if (!m) continue; if (isExcluded(m[1])) { skip.push(`'$${m[1]}${m[2]}'（已排除）`); continue; } key = `'$${m[1]}${m[2]}'`; kid = `${m[1]}|${m[2]}`; ck = skillOwner[m[1]]; }
-    else { const m = /^audio\/die\/(bts_[A-Za-z0-9_]+)\.mp3$/.exec(p); if (!m) continue; key = `'~${m[1]}'`; kid = `die:${m[1]}`; ck = m[1]; }
+    if (p.startsWith('audio/skill/')) { const m = /^audio\/skill\/(bts_[\w]+?)(\d+)\.mp3$/.exec(p); if (!m) continue; if (isExcluded(m[1])) { skip.push(`'$${m[1]}${m[2]}'（已豁免）`); continue; } key = `'$${m[1]}${m[2]}'`; kid = `${m[1]}|${m[2]}`; ck = skillOwner[m[1]]; }
+    else { const m = /^audio\/die\/(bts_[A-Za-z0-9_]+)\.mp3$/.exec(p); if (!m) continue; if (isDieExcluded(m[1])) { skip.push(`'~${m[1]}'（已豁免）`); continue; } key = `'~${m[1]}'`; kid = `die:${m[1]}`; ck = m[1]; }
     if (!ck || !charFile[ck]) { skip.push(`${key}（无归属）`); continue; }
     const old = activeVal[kid];
     if (old !== undefined) { if (old === text) continue; if (!upd.has(charFile[ck])) upd.set(charFile[ck], new Map()); upd.get(charFile[ck]).set(key, { jsonVal: JSON.stringify(text), old }); }
@@ -314,7 +358,7 @@ async function reorganize() {
   const rowsByChar = {};
   const push = (k, r) => (rowsByChar[k] ??= []).push(r);
   const combos = [];
-  let excludedDropped = 0;
+  let excludedDropped = 0, excludedDieDropped = 0;
 
   for (const [mp3, text] of docMp3) {
     if (mp3.startsWith('audio/skill/')) {
@@ -329,8 +373,9 @@ async function reorganize() {
       const m = /^audio\/die\/(bts_[A-Za-z0-9_]+)\.mp3$/.exec(mp3);
       if (!m) continue;
       const d = m[1];
+      if (isDieExcluded(d)) { excludedDieDropped++; continue; }
       const a = dieFiles.has(d);
-      // 组合 / 无 cInfo 归属的独立阵亡音频 → 组合阵亡区（与 gen 的 dieFiles 分流一致，2026-10-02 对齐）
+      // 组合 / 无 cInfo 归属的独立阵亡音频 → 组合阵亡区（与 gen 的 dieFiles 分流一致）
       if (/_and_/.test(d) || !cInfo[d]) {
         const mm = /^(bts_[a-z0-9_]+?)_and_/.exec(d);
         // 组合台词严格复用主角色（与 gen 一致：取主角色文档行；主行无台词时保留本行现值）
@@ -342,15 +387,16 @@ async function reorganize() {
     }
   }
 
-  // 输出：三大状态 → 角色；再附组合阵亡
+  // 输出：三大状态 → 角色；再附组合阵亡与 BGM 配齐
   const STAT_ORDER = [DONE, TEXT, AUDIO], STAT_TITLE = { [DONE]: '已配齐', [TEXT]: '缺台词', [AUDIO]: '缺音频' };
   const nameOf = (k) => cInfo[k]?.name || k.replace(/^bts_ch_/, '');
   const factionOf = (k) => cInfo[k]?.faction || '';
   const byStatus = {};
+  const bgmRows = collectBgmRows();
   for (const [ck, rows] of Object.entries(rowsByChar)) for (const r of rows) { (byStatus[r.status] ??= {})[ck] ??= []; byStatus[r.status][ck].push(r); }
   const cmpChar = (a, b) => { const fa = factionOf(a), fb = factionOf(b); return fa === fb ? nameOf(a).localeCompare(nameOf(b), 'zh') : fa.localeCompare(fb, 'zh'); };
 
-  let md = ['# 技能语音字幕维护清单', '', '> 状态：**缺音频**（待补 mp3）、**缺台词**（有 mp3、无台词）、**已配齐**（有 mp3、有台词）。台词来源：文档优先（手填保留），源 translate 非注释 $ / ~ 键兜底。', '> `voice.mjs reorganize` 仅重排（以文档现有语音为准、尊重手动删除，文档提到但缺表格的语音补齐）；`gen` 以音频为准全量列出；`write [--apply]` 写回代码。', exclHeaderLine(), ''];
+  let md = ['# 技能语音字幕维护清单', '', '> 状态：**缺音频**（待补 mp3）、**缺台词**（有 mp3、无台词）、**已配齐**（有 mp3、有台词）。台词来源：代码（源 translate 非注释 $ / ~ 键）优先，文档兜底（保留手填）。', '> `voice.mjs reorganize` 仅重排（以文档现有语音为准、尊重手动删除，文档提到但缺表格的语音补齐）；`gen` 以音频为准全量列出；`write [--apply]` 写回代码。', exclHeaderLine(), ''];
   for (const s of STAT_ORDER) {
     const ck = Object.keys(byStatus[s] || {}).sort(cmpChar);
     if (!ck.length) continue;
@@ -364,10 +410,13 @@ async function reorganize() {
   }
   if (combos.length) { md.push('---', '## 组合阵亡（复用主角色）', '', '| 条目 | 音频文件 | 台词 |', '|---|---|---|'); for (const r of combos) md.push(`| ${esc(r.label)} | ${r.mp3} | ${esc(r.text)} |`); md.push(''); }
 
+  pushBgmSection(md, bgmRows, nameOf);
   await writeFile(DOC, md.join('\n'), 'utf8');
   const all = Object.values(rowsByChar).flat();
   console.log(`✓ reorganize 完成：主条目 ${all.length}（已配齐 ${all.filter((r) => r.status === DONE).length}，缺台词 ${all.filter((r) => r.status === TEXT).length}，缺音频 ${all.filter((r) => r.status === AUDIO).length}）；组合阵亡 ${combos.length}。`);
-  if (excludedDropped) console.log(`  · 排除清单跳过 ${excludedDropped} 行（技能已排除）。`);
+  if (excludedDropped) console.log(`  · 豁免清单跳过 ${excludedDropped} 行（技能）。`);
+  if (excludedDieDropped) console.log(`  · 豁免清单跳过 ${excludedDieDropped} 行（阵亡）。`);
+  console.log(`  · BGM：缺 ${bgmRows.missing.length}（已豁免 ${bgmRows.exempt.length}）。`);
 }
 
 // ═════════════════════════  clear：删除 translate 中残留的台词键（$ / ~）═══
@@ -411,9 +460,7 @@ async function clearVoiceKeys() {
 }
 
 // ═════════════════════════  syncDie：形态角色阵亡音频复用主角色  ═════════════════
-// 把每个含 transformCharacter 的角色的「主形态 array 音频」(audio/die/<主>.mp3)
-// 复制为各形态 id 的 die 文件（audio/die/<形态id>.mp3，含 _and_ 组合），使形态角色也能播放阵亡。
-// 台词用主角色（gen 已对形态/组合条目取主台词）。默认预览，--apply 才写盘。
+// 含 transformCharacter 的角色：主形态 die 音频（audio/die/<主>.mp3）复制为各形态 id 文件（含 _and_ 组合）；台词同用主角色。
 async function syncDie() {
   let copied = 0, files = 0;
   const missingMain = new Set();
@@ -441,21 +488,21 @@ async function syncDie() {
   if (missingMain.size) console.log(`  ⚠ 主角色缺阵亡音频（无法复用，跳过）：${[...missingMain].join(', ')}`);
 }
 
-// ═════════════════════════  exclude：无语音排除清单管理  ═════════════════════
-// 清单文件 scripts/voice-exclude.txt：每行一个技能 id（支持 * 通配）；gen 不预留空位、
-// reorganize 移除条目、write 跳过台词行。list 显示命中详情；add/remove 直接编辑文件。
+// ═════════════════════════  exclude：检查豁免清单管理  ═════════════════════
+// 清单 scripts/voice-exclude.txt（后缀语义见上）；支持 * 通配；list 显示命中详情，add/remove 直接编辑文件。
 async function listExcludes() {
-  console.log(`排除清单（${EXCLUDE_FILE}）：`);
+  console.log(`豁免清单（${EXCLUDE_FILE}）：`);
   if (!exclEntries.length) { console.log('  （空）'); return; }
-  for (const e of exclEntries) console.log(`  ${e.p}  → ${e.hits.length ? `${e.hits.length} 个：${e.hits.join('、')}` : '⚠ 未命中任何已定义技能'}`);
-  console.log(`  合计命中 ${exclMatched.length} 个技能。`);
+  for (const e of exclEntries) console.log(`  ${e.p}  [${EXCL_SCOPE_NAME[e.scope]}] → ${e.hits.length ? `${e.hits.length} 项：${e.hits.join('、')}` : '⚠ 未命中任何对象'}`);
+  console.log(`  合计命中 ${exclMatched.length} 项。`);
 }
 async function addExcludes(ids) {
-  if (!ids.length) { console.log('用法: node scripts/voice.mjs exclude add <id…>（须 bts_ 开头，支持 * 通配）'); return; }
+  if (!ids.length) { console.log('用法: node scripts/voice.mjs exclude add <id…>（技能/角色 id，可带 .bgm/.die/.all 后缀；支持 * 通配）'); return; }
   const trimmed = ids.map((s) => s.trim()).filter(Boolean);
-  const bad = trimmed.filter((s) => !/^bts_/.test(s));
+  const okExcl = (s) => /^bts_/.test(s.replace(EXCL_SUFFIX, ''));
+  const bad = trimmed.filter((s) => !okExcl(s));
   if (bad.length) console.log(`✗ 忽略非法条目（须 bts_ 开头）：${bad.join('、')}`);
-  const clean = [...new Set(trimmed.filter((s) => /^bts_/.test(s)))];
+  const clean = [...new Set(trimmed.filter(okExcl))];
   let raw = '';
   try { raw = await readFile(EXCLUDE_FILE, 'utf8'); } catch { console.log(`（清单文件不存在，将新建：${EXCLUDE_FILE}）`); }
   const existing = new Set(raw.split(/\r?\n/).map((l) => l.replace(/#.*$/, '').trim()).filter(Boolean));
@@ -484,14 +531,14 @@ async function removeExcludes(ids) {
 }
 async function excludeInteractive() {
   for (;;) {
-    const choice = await menu('无语音技能排除清单（gen/write 跳过清单内技能）:', [
+    const choice = await menu('检查豁免清单（技能/阵亡/BGM/整角；gen/write 跳过清单内条目）:', [
       { label: 'list — 查看清单与命中详情', value: 'list' },
-      { label: 'add — 添加条目（支持 * 通配、逗号/空格分隔）', value: 'add' },
+      { label: 'add — 添加条目（支持 .bgm/.die/.all 后缀、* 通配、逗号/空格分隔）', value: 'add' },
       { label: 'remove — 移除条目', value: 'remove' },
     ]);
     if (!choice) return;
     if (choice.value === 'list') { await listExcludes(); continue; }
-    const ans = await prompt(choice.value === 'add' ? '输入要添加的技能 id: ' : '输入要移除的技能 id / 条目: ');
+    const ans = await prompt(choice.value === 'add' ? '输入要添加的 id（技能/角色，可带后缀）: ' : '输入要移除的 id / 条目: ');
     const ids = (ans || '').split(/[\s,，]+/).filter(Boolean);
     if (choice.value === 'add') await addExcludes(ids); else await removeExcludes(ids);
   }
@@ -512,7 +559,7 @@ async function run() {
       },
       { label: 'clear — 删除 translate 中残留的台词键（$ / ~，便于重排）', value: 'clear' },
       { label: 'syncdie — 形态角色阵亡音频复用（复制主角色 die 文件）', value: 'syncdie' },
-      { label: 'exclude — 无语音技能排除清单管理（gen/write 跳过清单内技能）', value: 'exclude' },
+      { label: 'exclude — 检查豁免清单管理（技能/阵亡/BGM/整角）', value: 'exclude' },
     ]);
     if (!choice) {
       console.log('已取消');
@@ -524,7 +571,7 @@ async function run() {
       const verb = action === 'clear' ? '删除 translate 台词键并写盘' : action === 'syncdie' ? '复制形态阵亡音频文件' : '将台词写入角色代码（translate）';
       applyWrite = await confirm(`是否真正${verb}？`);
     }
-    // exclude 自带交互流程（查看/添加/移除），单独处理后再关闭交互
+    // exclude 需保持交互会话（list/add/remove），处理完再关闭
     if (action === 'exclude') { await excludeInteractive(); closeInteractive(); return; }
     closeInteractive();
   }

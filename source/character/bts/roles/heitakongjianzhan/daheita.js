@@ -59,16 +59,16 @@ export const skill = {
                 return 6;
             },
             threaten: 2.5,
-            // AI 选目标优化（2026-10-01）：原配置只给了 result.player，无 result.target ——
-            // 各候选最终收益相同且恒正，AI 会把全部角色都选进来（含友军被误伤）。
-            // 技能只对「选中集内体力值最大者」造成伤害，故只纳入敌方中体力最高组；
-            // 其余（低体力敌方/友方）以最终值≤0 排除。get.effect 逐目标
-            // final = result.player×态度施动 + result.target×态度目标（敌方态度为负）。
+            // AI 选目标：不配 result.target 时各候选恒正，AI 会全选（含友军）；技能只打击选中集内
+            // 体力最大者（谜底≥99 时改为打击全部选中者），故非星启仅纳入敌方体力最高组，
+            // 其余以最终值≤0 排除（final = result.player×施动态度 + result.target×目标态度，敌方态度为负）。
             result: {
                 player: 1,
                 target(player, target) {
                     if (target === player) return -1;
                     if (get.attitude(player, target) >= 0) return -2;
+                    // 谜底≥99（content 判定 >98）：无视体力限制，低体力敌方同样受损 → 一并纳入
+                    if (player.countMark('bts_mk_midi') > 98) return -1;
                     const topEnemyHp = Math.max(
                         ...game
                             .filterPlayer(
@@ -83,6 +83,7 @@ export const skill = {
     },
 
     // ── 锁定技·视界（源 st_shijie = TriggerSkill EventPhaseStart/Damage，L3286-3311）──
+    // 锁定技（forced，含 damage 子技）：自动累计谜底、无询问 → 不配 ai。
     bts_sk_shijie: {
         trigger: { player: 'phaseZhunbeiBegin' },
         forced: true,
@@ -104,10 +105,8 @@ export const skill = {
                     if (trigger.reason?.includes('_bts_reason_common')) num = (num * 2) ** 2; // 通常伤害翻倍再平方
                     player.addMark('bts_mk_midi', num);
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 格局（源 st_geju = TriggerSkill EventPhaseStart，L3312-3364）──
@@ -117,9 +116,7 @@ export const skill = {
             return player.countCards('h') > 0;
         },
         async cost(event, trigger, player) {
-            // AI 决策优化（2026-10-01）：有【杀】且存在敌方才发动（否则无伤害收益）。
-            // 注意 chooseBool 默认 choice=true——不配 ai 时 AI 无条件接手，配合默认目标估值
-            // 容易白弃【杀】/对友军砸伤害。
+            // AI：有【杀】且存在敌方才发动（chooseBool 默认 choice=true，不配 ai 时 AI 无条件接手，易白弃）。
             const hasValue =
                 player.getCards('h').some((card) => get.name(card) === 'sha') &&
                 game.hasPlayer(
@@ -152,11 +149,12 @@ export const skill = {
                     [1, 1],
                     (c, p, t) => t !== p,
                     // 目标估值：优先敌方（态度为负），其中优先低体力（击杀压力）；友方排斥。
-                    (c, p, t) => {
-                        if (t === p) return 0;
-                        const attitude = get.attitude(p, t);
+                    // 签名 (target, targets)：引擎 ai.basic.chooseTarget 以此实参调用（basic.js:204），
+                    // 原 (c,p,t) 形参把首参当 card 误读（恒返回≤0 → AI 目标选择必然失败），此按实参修正。
+                    (target) => {
+                        const attitude = get.attitude(player, target);
                         if (attitude >= 0) return -1;
-                        return -attitude * 10 - t.hp * 2;
+                        return -attitude * 10 - target.hp * 2;
                     },
                 )
                 .forResult();
@@ -258,8 +256,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_midi_faq',

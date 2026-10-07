@@ -1,15 +1,14 @@
-// 身份模式 AI 选将「按评分」权重数据 —— 由迁移工具从太阳神备份生成。
+// 身份模式 AI 选将「按评分」权重数据；生成工具：_others/迁移工具/port-ai-weights.mjs（重新运行会覆盖本文件）。
 // 源：_others/太阳神备份/太阳神三国杀V2.0 移植参照/etc/{loyalist,rebel,renegade}.txt
-//     （用户在太阳神版手工标定的 AI 选将权重表；2026-09-28 初版）。
-// 生成工具：_others/迁移工具/port-ai-weights.mjs（重新运行会覆盖本文件）。
+//     （太阳神版手工标定的 AI 选将权重表）。
 //
 // 语义（沿用太阳神 GeneralSelector 口径）：
 //   - GENERIC[身份][候选]         —— 源表 `_ 候选 权重` 通用条目；
 //   - BY_LORD[身份][主公][候选]   —— 源表 `主公 候选 权重` 专属条目；
 //   - 评分 = GENERIC + BY_LORD 叠加（排序等价于源公式的 1.1^(w1+w2)）。
-//   - 身份：zhong=忠臣（loyalist）/ fan=反贼（rebel）/ nei=内奸（renegade）。
-// 键已归一化为「小写、无 st_/max_ 前缀」，别名：jizi→himiko（姬子）。
-// 表未收录的角色得 0 分；主公（zhu）位无表数据（另用启发式评分，见 characterPick.js）。
+// 身份：zhong=忠臣（loyalist）/ fan=反贼（rebel）/ nei=内奸（renegade）。
+// 键已归一化为「小写、无 st_/max_ 前缀」，别名 jizi→himiko（姬子）；表未收录得 0 分，
+// 主公（zhu）位无表数据（另用启发式评分，见 characterPick.js）。
 export const GENERIC = {
     zhong: {
         nakexia: 0.5,

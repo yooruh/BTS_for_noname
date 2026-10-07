@@ -1,4 +1,4 @@
-// 通用包加载器（搬运自叁岛，仅扩展名改为"崩铁杀"）
+// 通用包加载器。
 // 职责：动态 import → 校验包名唯一 → 补全技能音频/角色资源 → 首次默认启用 → game.import 注册。
 import { lib, game } from '../../../../../noname.js';
 import { extensionPath } from '../utils/paths.js';
@@ -45,14 +45,11 @@ function getDisplayName(info, meta) {
     return meta.displayName || info.translate?.[info.name] || info.name;
 }
 
-// 引擎 game.playAudio 对非 blob:/data:/ext:/db: 的相对路径一律前置 'audio/'；
-// 数字 audio 又会在装包时被引擎改写为 ext:<扩展名>:<N>（落扩展根、无 audio/skill 子目录）。
-// 崩铁杀音频统一放 audio/skill、audio/die 子目录，故在引擎介入前把数字 audio 包装成
-// ext:<扩展名>/audio/skill:<N> 字符串（ext: 分支在 playAudio 中不再叠 audio/），原样透传。
-// 拼装逻辑收敛在 audioPaths.js，本文件不再手拼 "ext:崩铁杀/audio/…"。图片/img/skinPath
-// 走 get.image/parseResourceAddress，可继续直接用 extensionPath。
-//
-// 幂等：仅包装数字 audio；已显式写成字符串（含 ext:）或 audio:false（无音开关）的保持不动。
+// 引擎 game.playAudio 对非 blob:/data:/ext:/db: 路径一律前置 'audio/'；数字 audio 又会被
+// 装包改写为 ext:<扩展名>:<N>（落扩展根、无 audio/skill 子目录）。故在引擎介入前把数字
+// audio 包装成 ext:<扩展名>/audio/skill:<N>（ext: 分支不再叠 audio/）原样透传；拼装收敛在
+// audioPaths.js，本文件不手拼 "ext:崩铁杀/audio/…"。图片/img/skinPath 走 get.image/
+// parseResourceAddress，可直接用 extensionPath。幂等：仅包装数字 audio，字符串与 false 不动。
 function fillSkillAudio(info) {
     for (const skill of Object.values(info.skill || {})) {
         if (typeof skill.audio === 'number') {

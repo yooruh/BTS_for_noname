@@ -58,11 +58,12 @@ export const skill = {
             lib.bts.api.extraPhase(player, 'phaseUse');
         },
         ai: {
+            // AI 口径：5怒气换「变身拓星者+额外出牌阶段（光束）」——额外阶段≈多一整轮行动，恒为高位必发
+            //（源 st_zhuxing，L9804-9824）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhuxing')
-                    ? -1
-                    : 9;
+                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhuxing') ? -1 : 9;
             },
+            // 收益=额外阶段的行动机会+光束技能
             result: { player: 2 },
         },
     },
@@ -88,6 +89,16 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                 )
+                // AI 口径：旗语=准备阶段令「远征」视为未发动（重置限定技）——远征已用则优先换；
+                // 未用则收益需未来兑现，仅【杀】富余（≥3）时换
+                //（源 st_linghang，L9826-9836）
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    const used = player.getStorage('bts_mk_yuanzheng_used', false);
+                    const sha = player.countCards('h', (c) => get.name(c) === 'sha');
+                    if (!used && sha < 3) return -1;
+                    return 10 - get.useful(card);
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -110,6 +121,9 @@ export const skill = {
         },
         // 源 Card filter（L10198）：#targets == 0（自选一名角色，自指允许，无 ~=Self）
         selectTarget: 1,
+        // 显式全通过（自选一名角色、自指允许，同上源语义）：缺省会让引擎技能态目标选择
+        // 短路为「无目标放行」——content 随后直取 targets[0] 即崩
+        filterTarget: true,
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_yuanzheng');
             const target = event.targets[0];
@@ -137,7 +151,6 @@ export const skill = {
                 async content(event, trigger, player) {
                     trigger.player.addSkill('bts_sk_yuanzheng_friend');
                 },
-                ai: { noe: true },
             },
             // ── 同盟·远征代发（源 st_yuanzheng_friend，L9868-9908）：星穹列车势力角色可代姬子·启行发动远征；
             //    姬子未用过远征且同意时：盟友结束出牌阶段、记为姬子已用、对目标炎属性致命贯通伤害、盟友回1怒气。
@@ -157,12 +170,14 @@ export const skill = {
                 },
                 // 源 friendCard filter（L10235）：#targets == 0（自选一名角色，自指允许，无 ~=Self）
                 selectTarget: 1,
+                // 显式全通过（自选一名角色、自指允许，同上源语义）：缺省会让引擎技能态目标选择
+                // 短路为「无目标放行」——content 随后直取 targets[0] 即崩
+                filterTarget: true,
                 async content(event, trigger, player) {
                     lib.bts.aiGuard.record(player, 'bts_sk_yuanzheng_friend');
                     const target = event.targets[0];
-                    // 源 L10239-10247：for 遍历 findPlayersBySkillName("st_yuanzheng") 逐姬子征询，
-                    // 每个同意的姬子各记已用并各结算一次（定夺 2026-09-12（B-07）由 findPlayer 取第一个
-                    // 改为逐姬子征询）
+                    // 源 L10239-10247：逐姬子征询——每个同意的姬子各记已用并各结算一次
+                    //（定夺（B-07）：由 findPlayer 取第一个改为逐姬子征询）
                     for (const jizi of lib.bts.api.seatOrder(
                         game.filterPlayer(
                             (p) =>
@@ -189,30 +204,78 @@ export const skill = {
                     }
                 },
                 ai: {
+                    // AI 口径：代姬子·启行发动远征——对敌1点炎致命贯通+自回1怒气；代价=结束自己出牌阶段，
+                    // 故手牌将尽时再发；无可用姬子/无敌人不发动（源 st_yuanzheng_friend，L9868-9908）
                     order(item, player) {
-                        return lib.bts.aiGuard.blocked(player, 'bts_sk_yuanzheng_friend')
-                            ? -1
-                            : 7;
+                        if (lib.bts.aiGuard.blocked(player, 'bts_sk_yuanzheng_friend'))
+                            return -1;
+                        if (
+                            !game.hasPlayer(
+                                (p) =>
+                                    p.isAlive() &&
+                                    p.hasSkill('bts_sk_yuanzheng') &&
+                                    !p.getStorage('bts_mk_yuanzheng_used', false),
+                            )
+                        )
+                            return -1;
+                        if (
+                            !game.hasPlayer(
+                                (t) =>
+                                    t.isAlive() &&
+                                    t !== player &&
+                                    get.attitude(player, t) < 0,
+                            )
+                        )
+                            return -1;
+                        const hand = player.countCards('h');
+                        return hand <= 1 ? 7 : hand <= 3 ? 4 : 2;
                     },
-                    result: { target: -2 },
+                    result: {
+                        // 自方：回1怒气（仅拥有怒气必杀者实收，addAngry 门控）；目标：1点炎致命贯通
+                        player: (player) =>
+                            lib.bts.api.hasAngryBisha(player) ? 1 : 0,
+                        target: (player, target) => {
+                            if (target === player || get.attitude(player, target) >= 0)
+                                return -1;
+                            return lib.bts.api.getShield(target) > 0 ? -2.5 : -2;
+                        },
+                    },
                 },
             },
         },
         ai: {
+            // AI 口径：限定技——对一名角色1点炎致命贯通（封受伤回怒、穿盾）；代价=结束出牌阶段，
+            // 故留到阶段尾声（手牌将尽）再发；无敌人不发动（源 st_yuanzheng，L9837-9873）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yuanzheng')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yuanzheng')) return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1;
+                const hand = player.countCards('h');
+                return hand <= 1 ? 8 : hand <= 3 ? 5 : 3;
             },
-            result: { target: -2 },
+            result: {
+                // 1点炎致命贯通：致命（封怒）+贯通（穿盾）——带盾目标额外值
+                target: (player, target) => {
+                    if (target === player || get.attitude(player, target) >= 0)
+                        return -1;
+                    return lib.bts.api.getShield(target) > 0 ? -2.5 : -2;
+                },
+            },
         },
     },
 
     // 光束（源 st_guangshu，L9761-9801）：出牌阶段限六次，弃目标一牌其摸一牌；第六次引爆随机目标并结束阶段
     // 源代码伤害无元素，但描述为「炎属性伤害」，此处按描述补炎属性（见 RULE_TRANSLATE 炎）。
     bts_sk_guangshu: {
-        // 子技能经 group 挂载（引擎 expandSkills 只展开 group、不自动展开 subSkill；
-        // back 未挂载则逐星切回永不生效 —— 已修正，参照黄泉·残梦 bts_sk_canmeng_finisher 既有范式）
+        // 子技能经 group 挂载（expandSkills 只展开 group、不自动展开 subSkill；back 漏挂则逐星切回
+        // 永不生效；参照黄泉·残梦 bts_sk_canmeng_finisher 范式）
         group: ['bts_sk_guangshu_back'],
         enable: 'phaseUse',
         usable: 6, // 源 enabled_at_play（L9799）：usedTimes("#st_guangshu") < 6
@@ -246,12 +309,31 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：前五次=拆敌1牌+其摸1（骚扰/消耗）；第六次（计数≥5）=引爆1伤并结束出牌阶段，
+            // 故第六次压低到手牌将尽再发（源 st_guangshu，L9761-9801）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_guangshu')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_guangshu')) return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() && t !== player && t.countCards('he') > 0,
+                    )
+                )
+                    return -1;
+                const count = player.countMark('bts_mk_guangshu_count-play');
+                if (count >= 5) return player.countCards('h') <= 2 ? 8 : 2;
+                return 6;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                // 拆1张+目标摸1（补偿）；已标记者优先——引爆池集中，第六击命中可控
+                player: 1,
+                target: (player, target) => {
+                    if (target === player) return -1;
+                    let v = -1;
+                    if (target.countMark('bts_mk_guangshu-play') > 0) v -= 0.5;
+                    return v;
+                },
+            },
         },
         subSkill: {
             // 逐星·还原（隐藏）：额外出牌阶段结束后 ChangeHero 切回姬子·启行（源 L9812）。
@@ -296,9 +378,6 @@ export const translate = {
     bts_mk_zhuxing_active: '逐星状态',
     'bts_mk_guangshu-play': '光束目标',
     'bts_mk_guangshu_count-play': '光束计数',
-    'bts_ch_jizi_qixing_skin1': '皮肤1',
-    'bts_ch_jizi_qixing_skin2': '皮肤2',
-    'bts_ch_jizi_qixing_skin3': '皮肤3',
     bts_ch_jizi_qixing: '姬子·启行',
     bts_ch_tuoxingzhe: '拓星者',
     bts_sk_zhuxing: '逐星',
@@ -365,8 +444,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_qiyu_faq',

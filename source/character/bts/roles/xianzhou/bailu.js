@@ -11,6 +11,10 @@ export const character = {
         skills: ['bts_sk_leiyin', 'bts_sk_zhulu', 'bts_sk_jishi'],
     },
 };
+// 济世 AI 口径（cost 内联 ai 定发动）：只救友方——限定技每局一次，救敌方等于资敌（源 L6266-6286）。
+export function jishiWorth(player, target) {
+    return Boolean(target) && target !== player && get.attitude(player, target) > 0;
+}
 export const skill = {
     // ── 必杀技·雷音（源 st_leiyin = SkillCard + ZeroCardViewAsSkill，L6213-6235）──
     // 出牌阶段，失4怒气，令你与至少一名其他角色各附加2层生息。
@@ -36,12 +40,38 @@ export const skill = {
                 await lib.bts.api.addBless(target, 'shengxi', 2, player);
         },
         ai: {
+            // AI 口径：至少1名友方可选才发动——生息对敌是纯增益（禁送）；自身/友军受伤时收益更实
+            //（每层≈1次受伤后回血；源 animal.lua L6212-6235）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_leiyin')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_leiyin')) return -1;
+                if (
+                    !game.hasPlayer(
+                        (target) =>
+                            target !== player &&
+                            target.isAlive() &&
+                            get.attitude(player, target) > 0,
+                    )
+                )
+                    return -1; // 无可选友方：不给敌方贴生息
+                let value = 6; // 4怒：自身+每名友方各2层生息（≈2~4次回血机会）
+                if (player.isDamaged()) value += 1; // 自身受伤：1层立即兑现
+                if (
+                    game.hasPlayer(
+                        (target) =>
+                            target !== player &&
+                            target.isAlive() &&
+                            target.isDamaged() &&
+                            get.attitude(player, target) > 0,
+                    )
+                )
+                    value += 1; // 受伤友军：生息立即兑现
+                return value;
             },
-            result: { target: 1 },
+            result: {
+                // 施动方：自身2层生息；受动方受伤兑现更快（态度由引擎加权——敌方自动计负不入围）
+                player: 1.2,
+                target: (player, target) => (target.isDamaged() ? 2 : 1.2),
+            },
         },
     },
 
@@ -60,21 +90,36 @@ export const skill = {
                 player.countMark('bts_mk_jishi_used') === 0 // 源 L6275：p:getMark("@st_jishi") == 0
             );
         },
-        async content(event, trigger, player) {
-            const result = await player
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
+            event.result = await player
                 .chooseBool(
                     '济世：是否令' +
                         get.translation(trigger.player) +
                         '将体力回复至1点？',
                 )
+                .set('ai', () => jishiWorth(player, trigger.player))
                 .forResult();
-            if (!result.bool) return;
+        },
+        async content(event, trigger, player) {
             player.addMark('bts_mk_jishi_used', 1);
             // 源 L6279：RecoverStruct(p, nil, 1 - dying.who:getHp())（trigger=dying 事件）
             if (trigger.player.hp < 1)
                 await trigger.player.recover(player, 1 - trigger.player.hp);
         },
-        ai: { save: true, result: { target: 3 } },
+        ai: {
+            // 协议标签（消费方 Player#canSave → 濒死求桃 AI L2207）：他人濒死且未消耗时才视为可救
+            save: true,
+            skillTagFilter(player, tag, target) {
+                return (
+                    Boolean(target) &&
+                    target !== player &&
+                    player.countMark('bts_mk_jishi_used') === 0
+                );
+            },
+            // 供跨技能估值：将濒死角色回复至1点=挽救（值3量级）
+            result: { target: 3 },
+        },
     },
 };
 export const marks = {
@@ -92,7 +137,7 @@ export const marks = {
             return (
                 event.player &&
                 event.player !== player &&
-                // 2026-09-27 修复（死者回血非法态）：damageEnd 晚于濒死链，被此伤害打死的目标此时
+                // 修复（死者回血非法态）：damageEnd 晚于濒死链，被此伤害打死的目标此时
                 // isAlive()===false；isDamaged() 对尸体恒真，须补 isAlive 门（同 moze.js 掠袭约定）。
                 event.player.isAlive() &&
                 event.player.isDamaged() &&
@@ -104,6 +149,9 @@ export const marks = {
         },
         async cost(event, trigger, player) {
             // 源 L6244：room:askForCard(p, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 决定（最高分 ≤0 → 取消，
+            // 见引擎 ai/basic.js chooseCard）。AI 口径：只救友方（敌方受疗为负收益）；弃价值最低的
+            //【杀】换1点治疗+珠露标记（标记角色可被二次随机补奶选中；源 L6244-6257）
             event.result = await player
                 .chooseCard(
                     'h',
@@ -112,6 +160,13 @@ export const marks = {
                         lib.filter.cardDiscardable(card, player),
                     '珠露：是否弃置一张【杀】令受伤角色回复1点体力？',
                 )
+                .set('ai', (card) => {
+                    // 敌方/中立受疗为负收益：不给分、取消
+                    if (get.attitude(player, trigger.player) <= 0) return -1;
+                    // 弃价值最低的【杀】；濒死边缘的友军治疗价值更高
+                    const base = 6 + (trigger.player.hp <= 1 ? 1 : 0);
+                    return base - get.value(card);
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -128,7 +183,10 @@ export const marks = {
             if (healed.length)
                 await healed.randomGet().recover(player); // 源 L6255-6257：players:at(math.random(...)) 后 recover
         },
-        ai: { result: { target: 1 } },
+        ai: {
+            // 供跨技能估值：受动方回复1点+获得珠露标记（可被二次随机补奶选中）
+            result: { target: 1 },
+        },
     },
 };
 
@@ -164,9 +222,8 @@ export const buffSkills = {
     bts_bless_shengxi: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_shengxi_faq',
-        // 附加此祝福或受伤后（源描述；源代码作被移除时——同族 7 处 gain 方向与描述相反
-        // 的系统性笔误，2026-10-02 用户定夺按描述方向实现：监听 bts_mark_add；
-        // 移除/回合结束自然减少不再触发回血）。
+        // 附加此祝福或受伤后（源描述；源代码作被移除时——同族 7 处系统性笔误，定夺按描述方向实现：
+        // 监听 bts_mark_add；移除/回合结束自然减少不再触发回血）。
         trigger: { player: 'damageEnd', global: 'bts_mark_add' },
         forced: true,
         silent: true,
@@ -186,8 +243,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_shengxi_faq',

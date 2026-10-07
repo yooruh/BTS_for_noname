@@ -42,22 +42,37 @@ export const skill = {
             await damage;
         },
         ai: {
+            // AI 口径：4怒大招=1点暴击伤（命中回1怒）+有护盾追加致命（目标不回怒）；
+            // 护盾在手时升档（源 AI max_kuaiyu：CanMaxSkillDamage(4)，StarRail-ai L2359-2368）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_kuaiyu') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_kuaiyu'))
+                    return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1; // 无敌不发动
+                return lib.bts.api.getShield(player) ? 7 : 6;
             },
-            result: { target: -2 },
+            result: {
+                // 1伤(≈1.5)+暴击回怒(≈0.5)；有护盾致命再压其怒气回复
+                target: (player, target) =>
+                    lib.bts.api.getShield(player) ? -2.5 : -2,
+            },
         },
     },
 
     // ── 锁定技·呼剑（源 st_hujian = TriggerSkill Compulsory DamageCaused/Damage，L6314-6336）──
-    // 若你拥有护盾，你不是其他角色使用黑色【杀】的合法目标；
-    // 你使用【杀】造成的伤害视为暴击+致命伤害，伤害后视为对目标使用【杀】，
-    // 此【杀】造成伤害时改为令其附加1层冻结。
+    // 有护盾时：你不是其他角色使用黑色【杀】的合法目标；你使用【杀】造成的伤害视为暴击+致命，
+    // 伤害后视为对目标使用【杀】，此【杀】造成伤害时改为令其附加1层冻结。
     bts_sk_hujian: {
         mod: {
             targetEnabled(card, player, target) {
-                // 无名杀补充：有护盾时免疫其他角色黑色【杀】（源版经 QSanguosha 目标判定，
-                // 迁移记录注明为适配补充）
+                // 无名杀补充（适配）：有护盾时免疫其他角色黑色【杀】（源版经 QSanguosha 目标判定）。
                 if (
                     target.hasSkill('bts_sk_hujian') &&
                     lib.bts.api.getShield(target) &&
@@ -78,8 +93,8 @@ export const skill = {
             lib.bts.api.markDamage(trigger, '_critical');
             lib.bts.api.markDamage(trigger, '_fatal');
         },
-        // 子技能经 group 挂载（引擎 expandSkills 只展开 group、不自动展开 subSkill；
-        // freeze 未挂载则追击杀不会改附加冻结 —— 已修正，参照黄泉·残梦 bts_sk_canmeng_finisher 既有范式）
+        // 子技能须经 group 挂载（引擎 expandSkills 只展开 group、不自动展开 subSkill；freeze 未挂载
+        // 则追击杀不会改附加冻结；参照黄泉·残梦 bts_sk_canmeng_finisher 范式）
         group: ['bts_sk_hujian_follow', 'bts_sk_hujian_freeze'],
         subSkill: {
             follow: {
@@ -105,11 +120,11 @@ export const skill = {
                     );
                     await use;
                 },
-                ai: { noe: true },
             },
             freeze: {
-                // 源 L6326-6328：呼剑追击【杀】造成伤害时改为附加冻结
+                // 源 L6326-6328：呼剑追击【杀】造成伤害时改为附加冻结（呼剑为锁定技、转换无询问）→ forced。
                 trigger: { source: 'damageBegin1' },
+                forced: true,
                 filter(event) {
                     return !!event.card?.storage?.bts_sk_hujian;
                 },
@@ -117,10 +132,8 @@ export const skill = {
                     trigger.cancel();
                     lib.bts.api.addAbnormal(trigger.player, 'freeze', 1, trigger.source);
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·三尺（源 st_sanchi = TriggerSkill EventPhaseEnd Play，L6338-6348）──
@@ -132,7 +145,9 @@ export const skill = {
             return player.getCards('h').some((card) => get.name(card) === 'sha');
         },
         async cost(event, trigger, player) {
-            // 源 L6343：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // 源 L6343：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）。
+            // 发动 AI 在本内联选择（cost 型触发技引擎不询顶层 check）：1护盾≈1点减伤且驱动呼剑
+            //（暴击致命/黑杀免疫）；已有护盾降档、独牌不留空手；弃最低值【杀】。
             event.result = await player
                 .chooseCard(
                     'h',
@@ -140,6 +155,13 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                     '三尺：是否弃置一张【杀】获得1点护盾？',
+                    (card) => {
+                        if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                        if (player.countCards('h') <= 1) return -1; // 独牌不留空手
+                        let v = lib.bts.api.getShield(player) ? 4 : 6;
+                        if (player.isDamaged()) v += 1; // 血线低时护盾更急
+                        return v - get.value(card);
+                    },
                 )
                 .forResult();
         },

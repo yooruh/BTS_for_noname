@@ -31,8 +31,7 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_xinrou');
             lib.bts.api.loseAngry(player, 5); // 源 L9577：LoseAngry(player, 5)
             await player.loseHp(); // 源 L9578：room:loseHp(player)
-            // 源 L9579：handleAcquireDetachSkills "-st_xinrou|st_qianye|st_fennu|st_renzang|st_jinchang"
-            //（移除薪肉，取得千冶形态四技）
+            // 源 L9579 handleAcquireDetachSkills：移除薪肉、取得千冶形态四技。
             await player.removeSkill('bts_sk_xinrou');
             await player.addSkill('bts_sk_qianye');
             await player.addSkill('bts_sk_fennu');
@@ -45,12 +44,15 @@ export const skill = {
                 lib.bts.api.addAbnormal(target, 'shahuo', 2, player);
         },
         ai: {
+            // AI 口径：怒气≥5 且体力>1 时积极变身（源 AI max_xinrou value/priority 9，StarRail-ai.lua）；
+            // 体力=1 时变身失血即濒死、风险高降档（源 animal.lua L9573-9594）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_xinrou')
-                    ? -1
-                    : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xinrou')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门
+                return player.hp > 1 ? 9 : 6;
             },
-            result: { player: 2 },
+            // 施动方：失5怒气+1体力换千冶/忿怒/尽偿/刃葬四技（形态一体化，代价已计入 order）
+            result: { player: 3 },
         },
     },
 
@@ -81,12 +83,21 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：5怒气必杀，对任意名敌各1点通常伤害；群体收益随敌方数放大（源 AI max_qianye
+            // value/priority 9，StarRail-ai.lua；源 animal.lua L9596-9617）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_qianye')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_qianye')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门
+                const enemies = game.countPlayer(
+                    (t) => t.isAlive() && t !== player && get.attitude(player, t) < 0,
+                );
+                if (!enemies) return -1; // 无敌方目标：纯耗怒
+                return Math.min(9, 5 + enemies); // 1敌=6、2敌=7…（每敌1点伤害）
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损：1点通常伤害；残血（≤1）击杀加权
+                target: (player, target) => -1 - (target.hp <= 1 ? 0.9 : 0),
+            },
         },
     },
 
@@ -97,13 +108,12 @@ export const skill = {
         trigger: { source: 'damageBegin1', player: 'dying' },
         forced: true,
         filter(event, player, triggername) {
-            // 源 L9625-9641：EnterDying（自己濒死）或 ConfirmDamage（自己造成伤害）
-            // triggername 判变体（event.name 为基名 'damage'/'dying'）
+            // 源 L9625-9641：自己濒死/自己造成伤害；triggername 判变体（event.name 仅为基名）。
             return triggername === 'damageBegin1' || (event.player === player && player.hp < 1);
         },
         async content(event, trigger, player) {
             if (event.triggername === 'damageBegin1') {
-                // 源 L9639：AddNew(damage, "_critical_fatal") —— 视为暴击+致命伤害（改触发事件 damage）
+                // 源 L9639：AddNew(damage,"_critical_fatal")——视为暴击+致命（改触发事件 damage）。
                 lib.bts.api.markDamage(trigger, '_critical');
                 lib.bts.api.markDamage(trigger, '_fatal');
                 return;
@@ -120,7 +130,6 @@ export const skill = {
                 if (player.hasSkill(skill)) await player.removeSkill(skill);
             await player.addSkill('bts_sk_xinrou');
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·尽偿（源 st_jinchang = TriggerSkill Compulsory Damage，L9659-9689）──
@@ -163,12 +172,16 @@ export const skill = {
                         .chooseBool(
                             `尽偿（同盟）：是否与${get.translation(source)}共同发动，令其伤害目标附加1层煞火？`,
                         )
+                        // AI 口径：伤害来源为友方才代发（源 AI st_jinchang=asFriend(来源)，StarRail-ai.lua L3441）
+                        .set('ai', () => get.attitude(player, source) > 0)
                         .forResult();
                     if (!mine.bool) return false;
                     const theirs = await source
                         .chooseBool(
                             `尽偿（同盟）：${get.translation(player)}想与你共同发动，是否同意？`,
                         )
+                        // AI 口径：来源视角——持技者是其友方才同意（双方门槛对称，同源 AI）
+                        .set('ai', () => get.attitude(source, player) > 0)
                         .forResult();
                     if (!theirs.bool) return false;
                     event.result = { bool: true };
@@ -182,10 +195,8 @@ export const skill = {
                         trigger.source,
                     );
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 主动技·刃葬（源 st_renzang = SkillCard + ZeroCardViewAsSkill，L9679-9748）──
@@ -211,6 +222,7 @@ export const skill = {
         },
         selectTarget: [1, Infinity],
         async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_renzang');
             const total = game
                 .filterPlayer()
                 .reduce(
@@ -218,11 +230,13 @@ export const skill = {
                         num + lib.bts.api.getAbnor(target, 'shahuo', -1),
                     0,
                 );
-            // 源 L9703-9710：选择「吸收煞火后【杀】」或「地狱决斗」
-            // 修复：控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案改走 set('prompt')
+            // 源 L9703-9710：选择「吸收煞火后【杀】」或「地狱决斗」。
+            // chooseControl 控件须为纯字符串（数组会原样进 result.control 致下游崩溃）；文案走 set('prompt')。
             const choice = await player
                 .chooseControl('地狱决斗', '吸收煞火后【杀】')
                 .set('prompt', '刃葬：选择效果')
+                // AI 口径：煞火≥9 一律取【杀】（吸收全场、输出更稳）；体力=1 时【决斗】分支会空转早退，更须取【杀】
+                .set('ai', () => (total >= 9 ? '吸收煞火后【杀】' : '地狱决斗'))
                 .forResult();
             if (choice.index === 1 && total >= 9) {
                 // 源 L9711-9718：移除其他角色全部煞火，自身保留 (n-9) 层后视为使用【杀】
@@ -244,9 +258,8 @@ export const skill = {
                 );
                 return;
             }
-            // 源 L9720：附加1层地狱；L9730-9732：单张多目标【决斗】
-            //（源 L9744 useCard(CardUseStruct(card, player, targets_list))，地狱 PreCardUsed 每次「使用」只扣1血 L1008-1011）。
-            // 原实现逐目标循环 useCard 决斗 → 地狱每目标扣血一次（选 N 目标扣 N 血），改单次多目标 useCard 对齐源。
+            // 源 L9720/L9730-9732：附加1层地狱 + 单次多目标【决斗】（源 L9744 useCard 单次调用，
+            // 地狱 PreCardUsed 每次「使用」只扣1血；逐目标循环会使 N 目标扣 N 血——必须单次多目标）。
             if (player.hp <= 1) return;
             lib.bts.api.addAbnormal(player, 'diyu', 1, player);
             await player.useCard(
@@ -258,13 +271,35 @@ export const skill = {
                 event.targets,
             );
         },
-        ai: { order: 7, result: { target: -1 } },
+        ai: {
+            // AI 口径：煞火总数≥9 吸收全场群体出【杀】，否则体力>1 附加地狱（手牌视为【决斗】）群出【决斗】；
+            // 读全场煞火与体力（源 animal.lua L10040-10098；源 AI 无本技条目，按收益矩阵补）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_renzang')) return -1;
+                const total = game
+                    .filterPlayer()
+                    .reduce(
+                        (num, target) =>
+                            num + lib.bts.api.getAbnor(target, 'shahuo', -1),
+                        0,
+                    );
+                if (player.hp <= 1 && total < 9) return -1; // filter 同门
+                let value = 6;
+                if (total >= 9) value += 2; // 【杀】分支：吸收全场煞火（余量自留）+群体1点伤害
+                if (player.hp > 1) value += 1; // 【决斗】分支可用
+                return Math.min(9, value);
+            },
+            result: {
+                player: 1, // 吸收后煞火余量自留（炎属性联动资源）
+                // 目标受损：视为【杀】/【决斗】（约1点，可被响应）；残血击杀加权
+                target: (player, target) => -1.2 - (target.hp <= 1 ? 0.8 : 0),
+            },
+        },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_ren_qianye_skin1': '皮肤1',
     'bts_ch_ren_qianye_skin1': '皮肤1',
     bts_ch_ren_qianye: '千冶·刃',
     bts_sk_xinrou: '薪肉',
@@ -280,9 +315,7 @@ export const translate = {
     bts_abnormal_shahuo: '煞火',
 
     // ── 语音台词来源优先级：无名杀既有 > 太阳神（见 文档/文案与语音规范.md §2.1）──
-    // 尽偿#1/2 已配音频（2026-10-02 用户提供素材，台词随素材：恩怨，在此作别 / 迈向终结吧）。
-    // 薪肉#2 仍暂注释：台词为无名杀既有「此行，迈向终结吧」，但太阳神任何版本均无对应音频（源仅 max_xinrou1.ogg 单行）。
-    // 声明键而无 mp3 / 键号超出 mp3 行数会使 rebuild --audio --check 报错；待有源音频再取消注释。
+    // 尽偿#1/2 台词随素材；薪肉#2 暂注释（无对应音频）——声明键而无 mp3 会使 rebuild --audio --check 报错。
     '$bts_sk_xinrou1': "支离血肉，千冶成刃",
     // '$bts_sk_xinrou2': "此行，迈向终结吧",
     '$bts_sk_qianye1': "于万死中归来……",
@@ -326,8 +359,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_shahuo_faq',

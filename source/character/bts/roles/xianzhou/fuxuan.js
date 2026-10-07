@@ -33,10 +33,24 @@ export const skill = {
             player.removeMark('bts_sk_piji', player.countMark('bts_sk_piji'));
         },
         ai: {
+            // AI 口径：怒气≥5且有否极标记（filter 同门）；收益=清空标记重新武装否极——再买一次
+            // 濒死保命，血线越低越需要（源 animal.lua L6629-6646）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_tianlv') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_tianlv')) return -1;
+                if (
+                    !lib.bts.api.getAngry(player, 5) ||
+                    player.countMark('bts_sk_piji') === 0
+                )
+                    return -1;
+                let value = 4; // 标记本身无被动收益：纯保命保险重置
+                if (player.hp <= 2) value += 2; // 低血线：再次濒死概率高
+                if (player.hp === 1) value += 1; // 濒死边缘：保险随时兑现
+                return value;
             },
-            result: { player: 1 },
+            result: {
+                // 施动方：重置否极=多一次濒死回复至仅失1体力（保命）；血线低时更实
+                player: (player) => (player.hp <= 2 ? 2 : 1),
+            },
         },
     },
 
@@ -60,7 +74,18 @@ export const skill = {
                     selectCard: 1,
                     filterTarget: (card, source, target) => target !== source,
                     selectTarget: [1, Infinity],
-                    ai2: (target) => get.attitude(player, target),
+                    // 本技为 cost 型触发技：引擎不走默认 chooseBool、无顶层 check 读取点，发动与否完全由
+                    // 此处 ai1/ai2 决定（两层均以「最高分 ≤0 → 取消」，见引擎 ai/basic.js chooseCard/chooseTarget）。
+                    // AI 口径：ai1=自身体力>2（扛得住代伤）才肯弃价值最低的【杀】；ai2=只选需要保命的友军
+                    //（受伤/血线≤2），满血友军不给分——避免把全队伤害都吸到自己身上（源 L6648-6701）
+                    ai1: (card) => (player.hp > 2 ? 6 : -1) - get.value(card),
+                    ai2: (target) => {
+                        const att = get.attitude(player, target);
+                        if (att <= 0) return att; // 敌方/中立不给分：全员非友军→本次不发动
+                        return target.isDamaged() || target.hp <= 2
+                            ? att + 0.5
+                            : 0;
+                    },
                 })
                 .forResult();
         },
@@ -73,9 +98,8 @@ export const skill = {
             // ②删除冗余 clear 子技：-start 后缀标记由 rules/globalrules.js bts_gamerule_phase
             // 于符玄下个 phaseZhunbeiBegin 统一清除，且其 priority(1)>穷观(0) 先执行、不会误伤
             // 本回合刚添加的标记；原 clear 子技同优先级随后执行，会把新标记当场抹掉（E-03）。
-            // ③动态键（含目标 playerid）运行时注册：引擎 addMark/removeMark 在 log!==false 时
-            // 会 get.info(key)，未注册即告警「孩子，你的技能…」；clearSuffixMarks 的移除走同一
-            // 告警路径，故首次使用时注册为记录型标记（2026-09-26 连续游玩实机警告修复）。
+            // ③动态键（含目标 playerid）运行时注册：addMark/removeMark 在 log!==false 时会 get.info(key)，
+            // 未注册即告警「孩子，你的技能…」；clearSuffixMarks 的移除走同一告警路径，故注册为记录型标记。
             for (const target of event.targets) {
                 const key = `bts_mk_qiongguan_${target.playerid}-start`;
                 lib.skill[key] ??= { markKind: 'record' };
@@ -110,9 +134,9 @@ export const skill = {
                     await damage;
                     trigger.cancel(); // 源 L6693：return true 阻止原伤害
                 },
-                ai: { noe: true },
             },
         },
+        // 触发技（cost 型）：发动决策在 cost 内联 AI；result 供跨技能估值查询（弃1杀换友军整轮代伤）
         ai: { result: { player: 1 } },
     },
 
@@ -137,7 +161,6 @@ export const marks = {
             const amount = Math.max(0, player.maxHp - player.hp - 1);
             if (amount) await player.recover(player, amount);
         },
-        ai: { noe: true },
     },
 };
 
@@ -169,8 +192,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_st_piji_faq',

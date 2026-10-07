@@ -272,8 +272,12 @@
     "md5": "0dc7cf9fe91395b8055c25ddde194f36"
   },
   "audio/bgm/bts_ch_zhigengniao.mp3": {
-    "size": 2651159,
-    "md5": "936fd96ee57d9596da0830cde377c851"
+    "size": 2648611,
+    "md5": "1023213d8288e8e59f7b252afb4dd17b"
+  },
+  "audio/bgm/bts_ch_zhigengniao_qingge.mp3": {
+    "size": 1983199,
+    "md5": "17bb3fbf2f96c7eab5d8bfbe2323984e"
   },
   "audio/bgm/due30.mp3": {
     "size": 1598231,
@@ -3140,7 +3144,7 @@
     "md5": "a79d225b796e8d6f67adc21e47685271"
   },
   "Directory.json": {
-    "size": 165922,
+    "size": 166274,
     "md5": null
   },
   "extension.js": {
@@ -5264,520 +5268,524 @@
     "md5": "d32239bcb673463ab874e80d47fae504"
   },
   "source/bgm-list.js": {
-    "size": 1761,
-    "md5": "93b5e7fd407c4ce35912fe0f7435ae93"
+    "size": 1794,
+    "md5": "23bc1acba29aa730bafb31fd3514b999"
   },
   "source/card/bts_cd/index.js": {
-    "size": 4130,
-    "md5": "64c435df05d34049c558967722d46afa"
+    "size": 4563,
+    "md5": "050c2a7748a2b77e8f47fe4d28ad858a"
   },
   "source/character/bts/audio.js": {
     "size": 7015,
     "md5": "e06d8aec5c2c591330a344a5000dfe6e"
   },
   "source/character/bts/factions.js": {
-    "size": 1577,
-    "md5": "91d2c59c37b3c316eb85ac6095951c85"
+    "size": 1507,
+    "md5": "6654307dc8fc24604c3b5b15c039e831"
   },
   "source/character/bts/index.js": {
-    "size": 15828,
-    "md5": "234a9c8d30ee59670974ec92b0c3fc3e"
+    "size": 15086,
+    "md5": "522c4de394a86ec723b06d867fd850b5"
   },
   "source/character/bts/roles/erxiangleyuan/aha.js": {
-    "size": 15525,
-    "md5": "d1578427deda583ff74216310162bdfa"
+    "size": 17147,
+    "md5": "87e034b988d12d576b3e515a17a3bb3f"
   },
   "source/character/bts/roles/erxiangleyuan/busitu.js": {
-    "size": 12580,
-    "md5": "7893ae89ff0009bc2f022d03b817d2be"
+    "size": 13811,
+    "md5": "9d793fa92406f3c78caf0173d3fbf267"
   },
   "source/character/bts/roles/erxiangleyuan/gilgamesh.js": {
-    "size": 14425,
-    "md5": "a6a5b485206c69a557f9bd5124d4cb6c"
+    "size": 14777,
+    "md5": "7e0271836f220b6f8b097bd2a7c70437"
   },
   "source/character/bts/roles/erxiangleyuan/huohua.js": {
-    "size": 7675,
-    "md5": "1bc3a06434c8ec00f7cd63ba5e224f9b"
+    "size": 10550,
+    "md5": "fd4b294a52a0a43ab978d3792b4e1763"
   },
   "source/character/bts/roles/erxiangleyuan/jizi_qixing.js": {
-    "size": 20428,
-    "md5": "8fb26e44096f79e2ddbe2af4f788fd95"
+    "size": 25208,
+    "md5": "09792357de5c48b8df687117b4c2cd74"
   },
   "source/character/bts/roles/erxiangleyuan/ren_qianye.js": {
-    "size": 17786,
-    "md5": "c7b5e7ca962e437240d5c0be17ccb6f0"
+    "size": 20217,
+    "md5": "8c71d04b417a962c2ffaae2dda89f642"
   },
   "source/character/bts/roles/erxiangleyuan/shajin_xilang.js": {
-    "size": 12516,
-    "md5": "dedad9ec237b4fd47683d14b7fc22f50"
+    "size": 14640,
+    "md5": "871599d9e971099ddabea78b00655bd3"
   },
   "source/character/bts/roles/erxiangleyuan/yinlang_lv999.js": {
-    "size": 11682,
-    "md5": "63c57c80888ac6674f75b14195ebfe8a"
+    "size": 12294,
+    "md5": "25575facba0820a2f266e5ef03330e72"
   },
   "source/character/bts/roles/erxiangleyuan/yuanbanlin.js": {
-    "size": 14983,
-    "md5": "c9ef85cfaf125074b361a301c041cb4a"
+    "size": 19079,
+    "md5": "bd5064cdcaf05f1dbab52b210a219ff9"
   },
   "source/character/bts/roles/erxiangleyuan/zhigengniao_qingge.js": {
-    "size": 20147,
-    "md5": "f1041ff6a98c7cf489c44e61da5a0098"
+    "size": 22584,
+    "md5": "5a604800cac368d6aa1f4a0d56492a8a"
   },
   "source/character/bts/roles/heitakongjianzhan/aisida.js": {
-    "size": 9285,
-    "md5": "41248bf0170afdfb57f1113defe0e64e"
+    "size": 10668,
+    "md5": "d681d2bdacc5081ddfea525c46a6c4a7"
   },
   "source/character/bts/roles/heitakongjianzhan/alan.js": {
-    "size": 7884,
-    "md5": "6592a12eb8d30311cb72c7fc8cba9264"
+    "size": 9325,
+    "md5": "34595052f91848366d19785a75477df4"
   },
   "source/character/bts/roles/heitakongjianzhan/daheita.js": {
-    "size": 15346,
-    "md5": "0ba54357cad2a778dad4fc8f80d07b5d"
+    "size": 15421,
+    "md5": "381ba67b7ed63740c310ee24908ea595"
   },
   "source/character/bts/roles/heitakongjianzhan/heita.js": {
-    "size": 10225,
-    "md5": "80d71341fabdf478a970702ac6a8fabc"
+    "size": 13928,
+    "md5": "a189d6d186f7d36911501290385ab282"
   },
   "source/character/bts/roles/heitakongjianzhan/ruanmei.js": {
-    "size": 12494,
-    "md5": "8d6469a2a79cdfd126a1096b78292d24"
+    "size": 14758,
+    "md5": "3c274e230dfeb9de0c6b661aae33fd87"
   },
   "source/character/bts/roles/heitakongjianzhan/zhenliyisheng.js": {
-    "size": 10507,
-    "md5": "ea08472f8759fee4185cf783b7b8a63b"
+    "size": 13022,
+    "md5": "13c12cb6a872b912234cda78ca8e438d"
   },
   "source/character/bts/roles/huangjinyi/agelaiya.js": {
-    "size": 15929,
-    "md5": "b964116825cb2a8136b6a99d344084b7"
+    "size": 16950,
+    "md5": "a10c98c014b37c74019a66a09d67761f"
   },
   "source/character/bts/roles/huangjinyi/baie.js": {
-    "size": 67119,
-    "md5": "fd2ec70208ad6f9e211a80986688c677"
+    "size": 62138,
+    "md5": "ab9d321366f0b4b0a3afe47347479d5a"
   },
   "source/character/bts/roles/huangjinyi/changyeyue.js": {
-    "size": 15733,
-    "md5": "cb96d03f305ecc334e3fee983a2c6e6c"
+    "size": 15187,
+    "md5": "e6ef12659bbcb1334a1342f3cdd0c23a"
   },
   "source/character/bts/roles/huangjinyi/danheng_tenghuang.js": {
-    "size": 12984,
-    "md5": "a2cc4229e7631c64b8773a97d90ef6e6"
+    "size": 14966,
+    "md5": "e1dcb3d4f4f5b33baf3c7aa3eef98255"
   },
   "source/character/bts/roles/huangjinyi/fengjin.js": {
-    "size": 17118,
-    "md5": "b9a7cfba2a74990785bdc42a5192fe06"
+    "size": 21152,
+    "md5": "a02ab4c33fcc5d0742d5d348d11e47b7"
   },
   "source/character/bts/roles/huangjinyi/haiseyin.js": {
-    "size": 12875,
-    "md5": "fccf172ee494e56298130f9e0fb569e3"
+    "size": 14659,
+    "md5": "2874c0b82b7abfd5366daf81a82415ab"
   },
   "source/character/bts/roles/huangjinyi/kelvdela.js": {
-    "size": 17133,
-    "md5": "892fc5f438e92d14e473f786940e235c"
+    "size": 18405,
+    "md5": "a81a3089c7e565c13a75ec0400349627"
   },
   "source/character/bts/roles/huangjinyi/nakexia.js": {
-    "size": 11709,
-    "md5": "b5f57a33f30d92d50e7e3adafeb1c803"
+    "size": 15159,
+    "md5": "28ca6b5c95add8507873cb4af88c6ba8"
   },
   "source/character/bts/roles/huangjinyi/saifeier.js": {
-    "size": 13746,
-    "md5": "c6fedf32cad55fb496a7d4cbbea58755"
+    "size": 15666,
+    "md5": "038b0aef02a5f6225898421417056979"
   },
   "source/character/bts/roles/huangjinyi/tibao.js": {
-    "size": 11190,
-    "md5": "4bdf192f6f7b5931acfa4ace98bb1522"
+    "size": 13610,
+    "md5": "24fe324e8e90cedec4862f7c13a4b546"
   },
   "source/character/bts/roles/huangjinyi/wandi.js": {
-    "size": 13720,
-    "md5": "fe6dd5abd1c088e6d9eef7ccd0af2e8b"
+    "size": 13970,
+    "md5": "ee879e9e020e6f4bba83e4a056d21128"
   },
   "source/character/bts/roles/huangjinyi/xiadie.js": {
-    "size": 17181,
-    "md5": "29ebb828e647c44abc3783fa63f7396b"
+    "size": 20999,
+    "md5": "36764636d62e285aaa3aed79e906aab7"
   },
   "source/character/bts/roles/huangjinyi/xilian.js": {
-    "size": 26131,
-    "md5": "c1b3039c60065249bc18b04dc8d504f9"
+    "size": 29772,
+    "md5": "b2d282ad45f2e334bcfbd71ed128efe6"
   },
   "source/character/bts/roles/pinuokangni/archer.js": {
-    "size": 9586,
-    "md5": "8287a4e9ec9335861e96293e58d5f22c"
+    "size": 13439,
+    "md5": "ba87fe5445d25b42f286a2d64049ff98"
   },
   "source/character/bts/roles/pinuokangni/botiou.js": {
-    "size": 13085,
-    "md5": "60b71831f0a7bbdc7a7ebd51684f82a5"
+    "size": 17037,
+    "md5": "784bd8ae5d14f583b55b7969a1c9e4d3"
   },
   "source/character/bts/roles/pinuokangni/dalihua.js": {
-    "size": 12838,
-    "md5": "36a6a169d2cb23e3b47a5bd10ca5e5e6"
+    "size": 14260,
+    "md5": "601cbf112af92edf1350695486b1727b"
   },
   "source/character/bts/roles/pinuokangni/feicui.js": {
-    "size": 10359,
-    "md5": "790535c480550bd8f79741dfb6b76516"
+    "size": 12411,
+    "md5": "20e2369455801f2ebc91a71482497d9b"
   },
   "source/character/bts/roles/pinuokangni/heitiane.js": {
-    "size": 10126,
-    "md5": "be22f1bd90c5d574ecdac0f08627523a"
+    "size": 12459,
+    "md5": "dc8b41e5dc8d931e64da517258096287"
   },
   "source/character/bts/roles/pinuokangni/huahuo.js": {
-    "size": 8072,
-    "md5": "06813bfa0505abdcead8d89bcd16426a"
+    "size": 10209,
+    "md5": "c26a901b377aa0915b8bd4139e6580a2"
   },
   "source/character/bts/roles/pinuokangni/huangquan.js": {
-    "size": 15400,
-    "md5": "5ac1f75f008cb2be209f7a3f2fb2b7ed"
+    "size": 17146,
+    "md5": "1ffee2c1707c7f4efd88a9fe6a0c7000"
   },
   "source/character/bts/roles/pinuokangni/jialahe.js": {
-    "size": 8340,
-    "md5": "ebb5822af965af6beacb966fb155772c"
+    "size": 10010,
+    "md5": "c7f1e806f70f8a38c7017eb6b7ab7035"
   },
   "source/character/bts/roles/pinuokangni/luanpo.js": {
-    "size": 10903,
-    "md5": "1d5e1846bdcfdbb6dee036cbd1555a42"
+    "size": 14293,
+    "md5": "b33ab4aab7abfd8d7059d9190669277c"
   },
   "source/character/bts/roles/pinuokangni/misha.js": {
-    "size": 9471,
-    "md5": "0c1cc74dff36f3e3f0f1da5b2455e8ef"
+    "size": 11903,
+    "md5": "aa37297e4d0802cdb65c8d2713553d0d"
   },
   "source/character/bts/roles/pinuokangni/saber.js": {
-    "size": 14498,
-    "md5": "92877a3cbd4299979724a143ec6108de"
+    "size": 19329,
+    "md5": "94df2906a679fa48ae9a4447981ff741"
   },
   "source/character/bts/roles/pinuokangni/shajin.js": {
-    "size": 11619,
-    "md5": "8429b4d12f4a3456381caba76cce0d9c"
+    "size": 15117,
+    "md5": "86603645d011b2f05bbc93323009a389"
   },
   "source/character/bts/roles/pinuokangni/tuopa.js": {
-    "size": 9187,
-    "md5": "1774e91c9ac86d8f6c533d85183bbd5e"
+    "size": 10637,
+    "md5": "537b0befcec1ee20b5697b66754a8d62"
   },
   "source/character/bts/roles/pinuokangni/xingqiri.js": {
-    "size": 13693,
-    "md5": "d102403e170e6412135e43329547ee8c"
+    "size": 16937,
+    "md5": "be8cd80f97b1d7fb317404ba33b27974"
   },
   "source/character/bts/roles/pinuokangni/yinzhi.js": {
-    "size": 8626,
-    "md5": "c229c69ca742049e82dac06b80a82a16"
+    "size": 10563,
+    "md5": "cd5a17f5c5c759640f28b7f8d5067609"
   },
   "source/character/bts/roles/pinuokangni/zhigengniao.js": {
-    "size": 13221,
-    "md5": "f86c4dff0c4373d2dd9beb852c5661a0"
+    "size": 16513,
+    "md5": "0663e3eddca598cc217e1162f413c890"
   },
   "source/character/bts/roles/xianzhou/bailu.js": {
-    "size": 10146,
-    "md5": "29f08346571e172b9b3a448ca126f4c8"
+    "size": 13296,
+    "md5": "a8eb99d953c155a6e3ce110379621a27"
   },
   "source/character/bts/roles/xianzhou/danheng_yinyue.js": {
-    "size": 7873,
-    "md5": "d4f2af5a3e761cdb839d583ef541f785"
+    "size": 9887,
+    "md5": "da32695d6ac9cf5016699052006730ec"
   },
   "source/character/bts/roles/xianzhou/feixiao.js": {
-    "size": 18585,
-    "md5": "3e18a839c893a0b5201ed73f5f74554a"
+    "size": 22641,
+    "md5": "bcaa8b3089c42bd7682ba7e22038cb16"
   },
   "source/character/bts/roles/xianzhou/fuxuan.js": {
-    "size": 9803,
-    "md5": "2ba6d61cae005287ef14cc6a52b0a6b9"
+    "size": 11523,
+    "md5": "333ce65d2da9cc27a0bd2762e310d226"
   },
   "source/character/bts/roles/xianzhou/guinaifen.js": {
-    "size": 9194,
-    "md5": "d879363f27228334bbd83c1b89b22d0a"
+    "size": 11243,
+    "md5": "9e2322966cce3d011fce3e1f8eee05e8"
   },
   "source/character/bts/roles/xianzhou/hanya.js": {
-    "size": 6821,
-    "md5": "5044afb4a37806b243308a12973f1d91"
+    "size": 8388,
+    "md5": "bfcfce42c146353029308e59e4ea8b36"
   },
   "source/character/bts/roles/xianzhou/huohuo.js": {
-    "size": 7573,
-    "md5": "e0587d6cfa9ef12b0923a257db931923"
+    "size": 9564,
+    "md5": "c643d49c9a00b784bcd144c372df9436"
   },
   "source/character/bts/roles/xianzhou/jiaoqiu.js": {
-    "size": 9981,
-    "md5": "f8cb4839f83be1f79fc5e5fc2dd17b48"
+    "size": 13107,
+    "md5": "73f5a2d02f6f0bd6bc66339a4ccd4eda"
   },
   "source/character/bts/roles/xianzhou/jingliu.js": {
-    "size": 15181,
-    "md5": "314c05dfc7f4ca4738317e2243bef0ef"
+    "size": 17956,
+    "md5": "d4959accedb571e0a97e6360dcf269d3"
   },
   "source/character/bts/roles/xianzhou/jingyuan.js": {
-    "size": 13238,
-    "md5": "4c553265893cccf58bf2b1f5b2d800a8"
+    "size": 15436,
+    "md5": "6c6dd741534a2e03e3a2758bbb3c8e1f"
   },
   "source/character/bts/roles/xianzhou/lingsha.js": {
-    "size": 15168,
-    "md5": "17355d866cd23bc0f8b660406f014580"
+    "size": 18828,
+    "md5": "50ec83c17224a439d97f12be9b81c30f"
   },
   "source/character/bts/roles/xianzhou/luocha.js": {
-    "size": 13352,
-    "md5": "b5ef56298f41d42e8e47553cc5a1e2ed"
+    "size": 14903,
+    "md5": "b855268401188780c74ec248489c9cd8"
   },
   "source/character/bts/roles/xianzhou/moze.js": {
-    "size": 21624,
-    "md5": "1613e92497140588bb36070f78f1b0ef"
+    "size": 22854,
+    "md5": "b5ef30fa5c13fac2e6f21725b7d157e2"
   },
   "source/character/bts/roles/xianzhou/qingque.js": {
-    "size": 7740,
-    "md5": "c3e392e9adad65d974d5a9e1210474f0"
+    "size": 10900,
+    "md5": "8bbb79aca5375a66111af4f50c425a54"
   },
   "source/character/bts/roles/xianzhou/sushang.js": {
-    "size": 9296,
-    "md5": "f504fd47cfc671ac4de450542ed0df33"
+    "size": 11727,
+    "md5": "009b7d4cb4dcd893683b774973fd5f1c"
   },
   "source/character/bts/roles/xianzhou/tingyun.js": {
-    "size": 6550,
-    "md5": "5239adf57e85db967a61d4eaf739e5ea"
+    "size": 8965,
+    "md5": "5669bc4f582824177584a80888aa82b4"
   },
   "source/character/bts/roles/xianzhou/tingyun_wangguiren.js": {
-    "size": 16128,
-    "md5": "0cbfc52b111c1688434474e3c2e4ef39"
+    "size": 16946,
+    "md5": "130a7852c691217bdfce6eefe1abb5d5"
   },
   "source/character/bts/roles/xianzhou/xueyi.js": {
-    "size": 9586,
-    "md5": "5e96d0d55a60b07f758cb21b09fd94aa"
+    "size": 11320,
+    "md5": "8604d2035466f0e73ccfb4406e74bb62"
   },
   "source/character/bts/roles/xianzhou/yanqing.js": {
-    "size": 9388,
-    "md5": "da9e8e6cd741d9b1466d707dcd0b129d"
+    "size": 10837,
+    "md5": "259a22def58f73f6d2b82218a4b1e80e"
   },
   "source/character/bts/roles/xianzhou/yukong.js": {
-    "size": 7381,
-    "md5": "5e1feb6ae18e6d4ea13e600e17a5be44"
+    "size": 9798,
+    "md5": "c50c55f90a57bab1ac5aaf418453ce4c"
   },
   "source/character/bts/roles/xianzhou/yunli.js": {
-    "size": 8130,
-    "md5": "615f468d2c06ec4919720338135da05c"
+    "size": 9374,
+    "md5": "b4b39add2ae0121fc96f13392dcdd844"
   },
   "source/character/bts/roles/xinghelieshou/kafuka.js": {
-    "size": 12853,
-    "md5": "d8f6ca49639cfbc67e40f3c5ae0a1674"
+    "size": 16851,
+    "md5": "62a9ceb7ca28e545db741ef172d1fceb"
   },
   "source/character/bts/roles/xinghelieshou/liuying.js": {
-    "size": 13936,
-    "md5": "380ee72f0600356f641b775fc1ac216c"
+    "size": 15459,
+    "md5": "90147e7ef78e1b016592e1cc06524638"
   },
   "source/character/bts/roles/xinghelieshou/ren.js": {
-    "size": 7756,
-    "md5": "1c3a4fd2e2c6c24dc56b52a1f7561113"
+    "size": 10631,
+    "md5": "3d87f6dd29b76cf8c25f287ca426f56a"
   },
   "source/character/bts/roles/xinghelieshou/yinlang.js": {
-    "size": 9179,
-    "md5": "5914207e521df6105a72b8ff288766db"
+    "size": 12286,
+    "md5": "f0a59cae11dfe1aa88c4db7858db4fe0"
   },
   "source/character/bts/roles/xingqionglieche/danheng.js": {
-    "size": 11695,
-    "md5": "201807b8925e52acea863e21d636277a"
+    "size": 13027,
+    "md5": "8136ab2aa4cdbc04d405933f6ecc7bcb"
   },
   "source/character/bts/roles/xingqionglieche/himiko.js": {
-    "size": 10522,
-    "md5": "84e08ede887b01208332eadd8b5aeaa2"
+    "size": 13316,
+    "md5": "45d5e30df18859a4fe457d51a6601b45"
   },
   "source/character/bts/roles/xingqionglieche/kaituozhe.js": {
-    "size": 12931,
-    "md5": "a4fad50382a92df6fd8c9fe1f29f92a5"
+    "size": 16385,
+    "md5": "29bf9d7319bec9a2fd13d8dbc0b5e4ad"
   },
   "source/character/bts/roles/xingqionglieche/sanyueqi.js": {
-    "size": 8621,
-    "md5": "7ee67c3274130cc35e13e4889dab1867"
+    "size": 9813,
+    "md5": "684c2b2a5f9e7838e30519cad7f9d9ff"
   },
   "source/character/bts/roles/xingqionglieche/welt.js": {
-    "size": 11254,
-    "md5": "0e4c4ec043cf6d6139ef50fef87a2b47"
+    "size": 13166,
+    "md5": "ec89dce4526d61be3ffa5a63fb4bcbd2"
   },
   "source/character/bts/roles/yaliluo/buluoniya.js": {
-    "size": 9208,
-    "md5": "9effea0a36bc9d685c03a2011a61ed4b"
+    "size": 12459,
+    "md5": "16522643dfa46280018e7aa9d9a9e4ca"
   },
   "source/character/bts/roles/yaliluo/huke.js": {
-    "size": 7541,
-    "md5": "6062834183487acc04ad369f8654fc60"
+    "size": 11255,
+    "md5": "1217bfc5a37a329aed919bc5d4a86fec"
   },
   "source/character/bts/roles/yaliluo/jiepade.js": {
-    "size": 8042,
-    "md5": "2fae318a4bf0fc05c107ec548623d11b"
+    "size": 9583,
+    "md5": "94be9376f1825d562af03455d7a289cd"
   },
   "source/character/bts/roles/yaliluo/kelala.js": {
-    "size": 11508,
-    "md5": "985232600964f2a735be36ef4101c1ec"
+    "size": 14365,
+    "md5": "0b82ae4e3621acc284e8a0eff6bb2572"
   },
   "source/character/bts/roles/yaliluo/lingke.js": {
-    "size": 11821,
-    "md5": "3b84f3303f12402ed4f7a2c684026c64"
+    "size": 14253,
+    "md5": "0f6c251596ed96ba293ef81377ee4660"
   },
   "source/character/bts/roles/yaliluo/luka.js": {
-    "size": 11157,
-    "md5": "839dfe352bd3bc29bbd1c21711fb00a6"
+    "size": 13950,
+    "md5": "53685e6485ecccf3640e15d617194288"
   },
   "source/character/bts/roles/yaliluo/natasha.js": {
-    "size": 7630,
-    "md5": "7172fa02aaf939fe800883a336055460"
+    "size": 10413,
+    "md5": "04f0162fc20fa748be40eee65d6fe12a"
   },
   "source/character/bts/roles/yaliluo/peila.js": {
-    "size": 8601,
-    "md5": "7ad89d3429b8cbb133c6166bb46e7ead"
+    "size": 12019,
+    "md5": "2abbcd09cf09a8e58d9c19ef3509f0e7"
   },
   "source/character/bts/roles/yaliluo/sangbo.js": {
-    "size": 8077,
-    "md5": "9130a75051b5b3de32addac6363112ef"
+    "size": 11402,
+    "md5": "5457ff22db1481be095c5f9b7e3aa1e0"
   },
   "source/character/bts/roles/yaliluo/xier.js": {
-    "size": 16244,
-    "md5": "f1a2323c5e63572e1ff808a374888504"
+    "size": 19717,
+    "md5": "490a19fca0c154a3d85818d6b4b7d64b"
   },
   "source/character/bts/roles/yaliluo/xiluwa.js": {
-    "size": 8799,
-    "md5": "69624df9ce958e66f2e235ade91b0043"
+    "size": 12543,
+    "md5": "437a05f6550630dc64833a743d405215"
   },
   "source/character/bts/shared.js": {
     "size": 709,
     "md5": "069eff213bfe2dbaf2828ffa515cd694"
   },
   "source/config.js": {
-    "size": 5868,
-    "md5": "34911cd29cb0e0c7b206906ffd0f4b66"
+    "size": 5973,
+    "md5": "be7e29cb9278064740c8002d9cbdfd58"
   },
   "source/content.js": {
-    "size": 7837,
-    "md5": "d775af10d3c0138119c061e3cd7bcb55"
+    "size": 7921,
+    "md5": "acc25716039ab92765af12e9884eb27d"
   },
   "source/generated/buffRegistry.js": {
-    "size": 12063,
-    "md5": "e94cda6bfb38a784695e6ca74595d858"
+    "size": 12035,
+    "md5": "480fa855b5443673a366579c9880c099"
   },
   "source/help.js": {
-    "size": 14884,
-    "md5": "ae1533edfd83ebd55f2759d981b13d14"
+    "size": 14936,
+    "md5": "79a904eccc963b7cbf3dfd21a1ac59d0"
   },
   "source/precontent.js": {
-    "size": 1535,
-    "md5": "ddf13ef31c365ded70a3ac546c9bf762"
+    "size": 1974,
+    "md5": "6bbb3f1563607cea7b8c69f2f8e90bc4"
   },
   "source/rules/globalBuffs.js": {
-    "size": 25719,
-    "md5": "1291c900433d50780afddfdceee2411b"
+    "size": 25791,
+    "md5": "9b9056f54eca4a6f04b7b2519792d59d"
   },
   "source/rules/globalMarks.js": {
-    "size": 2752,
-    "md5": "fccbebbc39cf8dbc12f795d47504830a"
+    "size": 2563,
+    "md5": "4da960ce474ed1481e12bcd2cb206c8b"
   },
   "source/rules/globalrules.js": {
-    "size": 24096,
-    "md5": "7b340517e1eae3c5e09c1fc7eee8468f"
+    "size": 22284,
+    "md5": "f89c739818033e947e66ccbe23dee88a"
   },
   "source/rules/index.js": {
-    "size": 24463,
-    "md5": "2538205ba361a9c18ee5b5d3e899f403"
+    "size": 32551,
+    "md5": "8cb1854446f6b171f66621e89726aae8"
   },
   "source/rules/markRegistry.js": {
-    "size": 12826,
-    "md5": "6f9480685abb5cf75615b70b53d22bfa"
+    "size": 10121,
+    "md5": "00c5b32c1b96f3811318f3ffcd413040"
   },
   "source/rules/natures.js": {
-    "size": 1780,
-    "md5": "c40082abe5bca4c618eb8652f9c601e5"
+    "size": 1540,
+    "md5": "9d1a46280e3e681c5cd8afa89e9f773f"
   },
   "source/rules/utils.js": {
-    "size": 60438,
-    "md5": "62169c5213ed163b8c4877020cd012e4"
+    "size": 49759,
+    "md5": "f8a0f37743202872dcf88937e7a817f9"
   },
   "source/tool/ai/aiGuard.js": {
-    "size": 3497,
-    "md5": "536e4743fdce61dce05b553b6f3c8a23"
+    "size": 2797,
+    "md5": "111640932f4bbb32ed7342cc09b594b4"
+  },
+  "source/tool/ai/aiHelpers.js": {
+    "size": 2292,
+    "md5": "23794a8ca3f30ca2f06cb4546f9f0c83"
   },
   "source/tool/ai/characterPick.js": {
-    "size": 16470,
-    "md5": "990bedb792d2c91cac8a6a9e8926b97f"
+    "size": 15724,
+    "md5": "6d7b0f3bd484d5e15012feadcddcc891"
   },
   "source/tool/ai/characterPickWeights.js": {
-    "size": 11202,
-    "md5": "3e9a3a84b01a843f333ebf07b8455026"
+    "size": 11107,
+    "md5": "2e7289d55eab6cb813aed03a618eb0cf"
   },
   "source/tool/configuration/configManager.js": {
-    "size": 15045,
-    "md5": "010568e28ae125e420b8bcae1ebc83a7"
+    "size": 15040,
+    "md5": "086bc7f3424789aabdb55abf0bf0e45e"
   },
   "source/tool/configuration/configService.js": {
-    "size": 11717,
-    "md5": "a2fa60de539fb5163a3bd46cebd19a0b"
+    "size": 12471,
+    "md5": "5e95c51e18603119b1776f0a5f1520e9"
   },
   "source/tool/pack/manifest.js": {
-    "size": 300,
-    "md5": "ab13addb8541c268953da4d3e21bc84e"
+    "size": 273,
+    "md5": "3a5f1d2365159c9acef7068f87188137"
   },
   "source/tool/pack/registry.js": {
-    "size": 8631,
-    "md5": "fb33488eaeb10bb35cee0288db130468"
+    "size": 8382,
+    "md5": "ddf7990c3037edd4eb7a99f8c77fc8bc"
   },
   "source/tool/pack/rolePack.js": {
-    "size": 3258,
-    "md5": "982c0c11f5e56a7e3160783574d1d63f"
+    "size": 3247,
+    "md5": "cb99aefc534fcb5afb9965a25ea0830f"
   },
   "source/tool/ui/cardsInfo.js": {
-    "size": 8580,
-    "md5": "674649fd0ec8dba356b46fbe3145e1b2"
+    "size": 7938,
+    "md5": "6bc57db304ad188b453f8c81c201e048"
   },
   "source/tool/ui/dialogManager.js": {
-    "size": 62049,
-    "md5": "88fbff452ec8a856daf6dabc74adbc58"
+    "size": 61401,
+    "md5": "e7d8b813d35a50017df0d5db9aac9d97"
   },
   "source/tool/ui/nodeintroWidth.js": {
-    "size": 2681,
-    "md5": "cd08ad11d2d16de7cb4d98566e68e273"
+    "size": 2369,
+    "md5": "ae5bbca1e74026731e74b6745e8b3d4c"
   },
   "source/tool/ui/poptips.js": {
-    "size": 2773,
-    "md5": "d466481c402af249e9f462c77ef8c49d"
+    "size": 2464,
+    "md5": "cc818a6b0c3c6fae5f7e9266387a35d4"
   },
   "source/tool/ui/themeManager.js": {
     "size": 3985,
     "md5": "2e79f2c9f14957039bd8453e5d3fc0a6"
   },
   "source/tool/ui/title.js": {
-    "size": 5339,
-    "md5": "3c9be2e3acdb0c247a77aec4ede80a2d"
+    "size": 4486,
+    "md5": "31da8078e7ac19d42f0766eee416844d"
   },
   "source/tool/update/backupManager.js": {
     "size": 5742,
     "md5": "7920a4976cb9d01ccc690b78456e08a1"
   },
   "source/tool/update/config.js": {
-    "size": 2428,
-    "md5": "769f6e0fed320935738524764d7a6ea6"
+    "size": 2149,
+    "md5": "481f50732cae59b577bacbc6a645ddca"
   },
   "source/tool/update/downloader.js": {
-    "size": 15872,
-    "md5": "5838f7cc80295c23c190edf469ae0592"
+    "size": 15701,
+    "md5": "d3526abf0a4792a7ebefe9371b276554"
   },
   "source/tool/update/extensionUpdater.js": {
-    "size": 66132,
-    "md5": "797f31dc37f143c41eba12347a5535c8"
+    "size": 65930,
+    "md5": "f88515b5d921ee837913f79c8be32a29"
   },
   "source/tool/update/index.js": {
     "size": 20422,
     "md5": "d04ac63c25ae6d695f0c6bd8cea524b6"
   },
   "source/tool/update/logger.js": {
-    "size": 3717,
-    "md5": "eb2e90203abff3667600ece742a927ae"
+    "size": 3657,
+    "md5": "bdfdd72d0b81a970e456285aeb976934"
   },
   "source/tool/update/md5.js": {
-    "size": 3119,
-    "md5": "4a161a893a949751a2b1aa3a85de8fee"
+    "size": 3027,
+    "md5": "c423c147f3343414a6b6b0ac89a0691d"
   },
   "source/tool/update/repository.js": {
-    "size": 7104,
-    "md5": "2492f475d0af3d886f528e1649864f08"
+    "size": 6756,
+    "md5": "c35218bbb6822507c84081ccdccbdbf7"
   },
   "source/tool/update/stallWatchdog.js": {
-    "size": 1340,
-    "md5": "4a27b7ded7ad32acb9e4de856cdb5dc8"
+    "size": 1302,
+    "md5": "c95ee4ce14200008430a0e94d1a53aa0"
   },
   "source/tool/update/stateManager.js": {
     "size": 9476,
     "md5": "def737612911f229ddd97732089bfaa2"
   },
   "source/tool/update/updateDialogs.js": {
-    "size": 38847,
-    "md5": "a47efbd0388aa038eeca95ece199f6a7"
+    "size": 38696,
+    "md5": "e078e00e930e88ba65df5027e58e5afd"
   },
   "source/tool/update/utils.js": {
     "size": 5212,
@@ -5788,20 +5796,24 @@
     "md5": "ee7dd593ec3d0856c7eff7b5ab65eec4"
   },
   "source/tool/utils/audioPaths.js": {
-    "size": 3703,
-    "md5": "74f2e1ca8183da5286fe618afe63fd4f"
+    "size": 3320,
+    "md5": "75f16550318568893b5455506ec7bf58"
   },
   "source/tool/utils/cordovaCompat.js": {
-    "size": 3482,
-    "md5": "a9aa291d32ca17981e01b15bb2f5b183"
+    "size": 3108,
+    "md5": "5ee47f5b004356b3dab720d2410032fd"
+  },
+  "source/tool/utils/dbCompat.js": {
+    "size": 6124,
+    "md5": "685a173f49e94011a84fa694b65dd333"
   },
   "source/tool/utils/fileSystem.js": {
-    "size": 1284,
-    "md5": "91988315f6e306e66f2d98f091692f2c"
+    "size": 1169,
+    "md5": "59de0aaca83f7deeb898ace766cfb7b8"
   },
   "source/tool/utils/paths.js": {
-    "size": 807,
-    "md5": "3c40361a8cbca38997c4e10385b33d5c"
+    "size": 665,
+    "md5": "98943e5d12800b560fef094c2b0d596a"
   },
   "source/tool/utils/textFormat.js": {
     "size": 890,
@@ -5816,19 +5828,19 @@
     "md5": "5883945e587509888ad673b639b6b72a"
   },
   "style/html/help.html": {
-    "size": 37916,
-    "md5": "8cec2e589d43ff4adde441bbfbc4593d"
+    "size": 42115,
+    "md5": "6d9c8eadc1e257088671217be07f421a"
   },
   "style/html/update.html": {
     "size": 3882,
     "md5": "c02cf2a2bfac418242786859464b7424"
   },
   "style/nncfg/android_wide11.0.nncfg": {
-    "size": 2340,
-    "md5": "0a508f47c39063446c09e423ee03bb36"
+    "size": 2336,
+    "md5": "8ba31f791047497f3b1a9471cfadec41"
   },
   "style/nncfg/win11.0.nncfg": {
-    "size": 2068,
-    "md5": "f94f816543c54694251779885799cdf6"
+    "size": 2064,
+    "md5": "f65b01e547bb33c0cd2823047606d022"
   }
 }

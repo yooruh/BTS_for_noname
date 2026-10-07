@@ -1,12 +1,7 @@
-// 崩铁杀规则核心注册 + 运行时结算注册表（2026-09-23 重构定稿）。
-// 职责分两部分：
-//  ── 运行时注册表 ruleService：通用结算器只处理 animal.lua 的公共机制；
-//     角色/祝福专属分支由角色模块按事件或 mod 钩子注册（registerEvent / registerMod）。
-//  ── 规则类注册（本文件直接命名导出）：全局技能实现的（gamerule 规则技能、
-//     标记来源追踪、BGM 跟随、AI 守卫、buff/标记生命周期）与游戏规则数据
-//     （资源/势力/属性），由 precontent.js / content.js 直接 import 调用（注册均幂等）。
-//     非游戏规则注册（工具函数/无名杀通用注册/UI/AI/音频特性/延迟包/poptip）在 content.js 内联；
-//     扩展设置项定义在 source/config.js（不迁移）。
+// 崩铁杀规则核心注册 + 运行时结算注册表。
+//  ── ruleService：通用结算只处理源公共机制；角色/祝福专属分支由角色模块按事件/mod 钩子注册。
+//  ── 命名导出：gamerule 技能、来源追踪、BGM 跟随、AI 守卫、buff/标记生命周期与规则数据，
+//     由 precontent.js / content.js import 调用（幂等）；非游戏规则注册在 content.js 内联。
 import { lib, game, get, ui } from '../../../../noname.js';
 import { extensionPath } from '../tool/utils/paths.js';
 import { KINGDOMS, KINGDOM_COLORS } from '../character/bts/factions.js';
@@ -94,11 +89,8 @@ export function registerAssets() {
 export function registerKingdoms() {
     for (const [id, short, name] of KINGDOMS) {
         if (!lib.group.includes(id)) {
-            // type 'default'：只加入 lib.group（普通势力）。⚠ 不能传 'all'——
-            // 'all' 会把势力加入 lib.selectGroup（自选势力列表，默认仅含 shen/devil），
-            // 使身份模式把崩铁杀角色当作"神"（get.selectGroup 返回全部势力自选、
-            // 身份选将池 identity.js L1025 直接 continue 排除）。
-            // config.image → 引擎 addGroup 钩子注册 group_<id> 势力牌（PNG 图标）。
+            // type 用 'default'（只入 lib.group）；传 'all' 会进 lib.selectGroup（自选势力）并把身份
+            // 选将池按「神」处理、排除崩铁杀角色（identity.js L1025）。config.image → 势力牌图标。
             game.addGroup(
                 id,
                 short,
@@ -116,11 +108,9 @@ export function registerKingdoms() {
 }
 
 /**
- * 属性伤害注册（game.addNature；数据源 rules/natures.js）。
- * 崩铁杀属性 7 键（earth/flame/frost/elec/wind/dark/light = 物理/炎/霜/电/风/量子/虚数）
- * 以 natures.js 为单一来源；角色属性用 bts_n_<key> 标记跟踪，伤害属性经 damage._btsNature 传递。
- * 为避免属性伤害在引擎层面"未注册"（lib.nature 无对应项，属性翻译/判断/排序不可用），
- * 按本体机制把全部 7 键注册进 lib.nature（属性名/颜色/排序见 natures.js NATURE_CONFIG）。
+ * 属性伤害注册（game.addNature；数据源 rules/natures.js）。属性 7 键（earth/flame/frost/elec/
+ * wind/dark/light）全部注册进 lib.nature（否则翻译/判断/排序不可用）；角色属性用 bts_n_<key>
+ * 标记跟踪，伤害属性经 damage._btsNature 传递（颜色/排序见 NATURE_CONFIG）。
  */
 export function registerNatures() {
     for (const nature of NATURES) {
@@ -145,9 +135,8 @@ function registerGlossary(glossary) {
 }
 
 /**
- * 全局规则技能注册 + 全局 API 挂载（bts_gamerule_* 全局技能 + 词条）。
- * 标记技能（全局 globalMarks / 角色 marks / buff）已随角色包 info.skill 注册，
- * 不再经本函数（registerRules 只负责全局规则技能与来源追踪）。
+ * 全局规则技能注册 + 全局 API 挂载（bts_gamerule_* 与词条）。标记技能已随角色包
+ * info.skill 注册，不经本函数（只负责全局规则技能与来源追踪）。
  */
 export function registerRules() {
     registerGlossary(RULE_GLOSSARY);
@@ -159,15 +148,11 @@ export function registerRules() {
     // 全局 API 挂载（技能代码统一经 lib.bts.* 访问，规避重编译丢包级绑定）。
     lib.bts.api = bts;
     lib.bts.rules = ruleService;
-    // 原 lib.bts.dispatch（resolver HANDLERS 派发）已随 bts_gamerule_ex 拆分移除——
-    // 全局规则各自为独立技能（bts_gamerule_damage/recover/phase/decay，见 globalrules.js）。
 }
 
 /**
- * 标记来源维护全局技能（gameStart 初始化来源并挂摘来源驱动标记）。
- * 单独以「守卫 + addGlobalSkill」安装（同主公开局 BGM 技能 installBgmFollow 的写法），
- * 不并入 RULE_SKILLS 的纯注册流程。游戏中的来源增量（如星启祝福加/减层）由
- * buff 生命周期的 addMark/removeMark 钩子经 lib.bts.api.godSync → syncMarkSources 同步。
+ * 标记来源维护全局技能（gameStart 初始化来源并挂摘来源驱动标记；单独安装，不并入 RULE_SKILLS）。
+ * 运行时来源增量由 buff 生命周期钩子经 godSync → syncMarkSources 同步。
  */
 export function installMarkSourceTrack() {
     if (lib.skill[SOURCE_TRACK]) return;
@@ -176,9 +161,7 @@ export function installMarkSourceTrack() {
         forced: true,
         silent: true,
         async content(event, trigger, player) {
-            // 全局技能对每名玩家各触发一次 → 本实例只执行一次。
-            // 联机下内容在主机结算：game.me 为主机座位，主机无座位（旁观开房）时回退
-            // 首个玩家，保证同步仍恰好执行一次（旧守卫在无座位实例上会永不执行）。
+            // 全局技能对每名玩家各触发一次 → 本实例只执行一次（锚点 game.me，无座位回退首个玩家）。
             const anchor = game.me ?? game.players[0];
             if (player !== anchor) return;
             for (const p of game.players) lib.bts.api?.godSync?.(p);
@@ -188,24 +171,14 @@ export function installMarkSourceTrack() {
 }
 
 // ── BGM 跟随主公（移植源 btsbgm 技能，animal.lua L955-972）─────────────────────
-// 开启设置「BGM跟随主公」后，身份模式开始游戏时把背景音乐切换为主公的
-// 专属 BGM（audio/bgm/<主公id>.mp3，由 scripts/migrate-bgm.mjs 迁移）。
-// 匹配规则：主公有专属 BGM（source/bgm-list.js 清单，由 rebuild 扫描生成）
-// → 播放专属 BGM；崩铁主公无专属文件 → 随机对战音乐（duel1-12）；非崩铁主公
-// 不干预（保持引擎默认）。源里「AI 主公且体力上限 <10 → duel」的分支已取消，
-// 改按「主公有无专属 BGM」判断，AI/人类不再区分。
-// 循环：切到崩铁杀 BGM 时设 loop=true（引擎默认靠 ended→playBackgroundMusic
-// 换曲，会把主公 BGM 覆盖成配置曲，需以 loop 抑制）；非崩铁杀主公恢复 loop=false。
+// 身份模式开局且开启「BGM跟随与切换」时，切为主公专属 BGM（清单 source/bgm-list.js 由
+// rebuild 生成）；崩铁主公无专属文件 → 随机对战音乐（duel1-12）；非崩铁主公不干预。
+// 循环：崩铁杀 BGM 设 loop=true，抑制引擎 ended→playBackgroundMusic 换曲覆盖。
 //
-// 注意1：gameStart 事件没有 event.player，触发角色必须用 global（引擎所有
-// 内置技能均为 trigger: { global: 'gameStart' }）；原实现误用 player 导致永不触发。
-// 注意2：content 必须是 async——引擎 StepCompiler 会把同步 content 字符串化重编译
-// （新函数只能访问 _status/lib/game/ui/get/ai 全局），模块变量（如 extensionPath）
-// 在重编译后不可见会抛 ReferenceError；async content 不参与重编译，闭包保留。
-// 注意3（联机，2026-10-03）：ui.backgroundMusic 是各端本地媒体，切换/回滚须经
-// game.broadcastAll 广播到所有客户端（引擎约定：载荷函数禁引用模块作用域变量，
-// 只用引擎全局与入参）；执行锚点 game.me ?? game.players[0]（主机无座位时旧
-// game.me 守卫会漏跑，BGM 则任何一端都切不了）。
+// 实现约束：① gameStart 无 event.player，触发用 global；② content 必须 async——StepCompiler
+// 会字符串化重编译同步 content，模块变量（如 extensionPath）重编译后不可见；③ ui.backgroundMusic
+// 是各端本地媒体，切换/回滚经 broadcastAll 广播（载荷禁闭包）；锚点 game.me ?? game.players[0]；
+// ④ 开关 bts_bgm_control 为「各端本地」语义：广播只传方法名+数据，各端 _local* 按本端开关应用。
 export function installBgmFollow() {
     if (lib.skill.bts_bgm_follow) return;
     lib.skill.bts_bgm_follow = {
@@ -214,60 +187,364 @@ export function installBgmFollow() {
         silent: true,
         async content(event, trigger, player) {
             if (get.mode() !== 'identity') return;
-            if (!game.getExtensionConfig('崩铁杀', 'bts_bgm_follow_zhu'))
-                return;
-            // 全局技能对每名玩家各触发一次 → 本实例只执行一次；联机下内容在主机结算，
-            // 主机无座位时回退首个玩家（保证仍触发一次）。
+            // 开关不在发起端判定：广播照发，各端 _localFollow/_localFollowReset 按本端开关应用。
+            // 全局技能每名玩家各触发一次 → 本实例只执行一次（锚点同 installMarkSourceTrack）。
             const anchor = game.me ?? game.players[0];
             if (player !== anchor) return;
             const zhu = game.zhu;
             if (!zhu) return;
             const id = zhu.name;
             if (!id || !id.startsWith('bts_') || !lib.character[id]) {
-                // 非崩铁杀主公：恢复引擎默认行为（ended → game.playBackgroundMusic 换曲）。
-                // 各端本地媒体：经 broadcastAll 广播（单机时等价本地执行）。
-                game.broadcastAll(() => {
-                    ui.backgroundMusic.loop = false;
-                });
+                // 非崩铁杀主公：恢复引擎默认行为（ended → playBackgroundMusic）；经 broadcastLocal 广播。
+                broadcastLocal('_localFollowReset');
                 return;
             }
             const file = BGM_LIST.has(id)
                 ? id
                 : `duel${1 + Math.floor(Math.random() * 12)}`;
-            // 循环播放：引擎的 backgroundMusic 不设 loop，而是监听 ended 调
-            // game.playBackgroundMusic() 按配置重设 src（会覆盖主公 BGM，导致
-            // 播一遍就没了）；loop 为 true 时 ended 事件不触发，换曲监听随之失效。
-            // 与引擎 playBackgroundMusic 的 ext: 分支一致（lib.assetURL + extension/<目录名>/）。
-            // 兜底：极端情况下（如 duel 曲也被删除）加载失败时恢复原 BGM，避免音乐中断。
-            const url = `${lib.assetURL}extension/崩铁杀/audio/bgm/${file}.mp3`;
-            // 联机：ui.backgroundMusic 是各端本地 <audio>，须经 broadcastAll 同步执行
-            //（引擎约定：载荷函数禁引用模块作用域变量，只用引擎全局与入参；
-            // 错误回滚在各端就地读取 prev、就地回滚，跨端自洽）。
-            game.broadcastAll((bgmUrl) => {
-                ui.backgroundMusic.loop = true;
-                const prev = ui.backgroundMusic.src;
-                ui.backgroundMusic.onerror = () => {
-                    ui.backgroundMusic.onerror = null;
-                    if (ui.backgroundMusic.src !== prev) {
-                        // 恢复原 BGM 时同步恢复引擎默认的循环行为（loop 关闭）。
-                        ui.backgroundMusic.loop = false;
-                        ui.backgroundMusic.src = prev;
-                    }
-                };
-                ui.backgroundMusic.src = bgmUrl;
-            }, url);
+            // 循环：引擎 ended 监听会重设 src 覆盖主公 BGM，loop=true 时 ended 不触发。
+            // 联机：broadcastLocal 调各端 _localFollow（开关判定、失败回滚、渐变就地完成）。
+            broadcastLocal('_localFollow', { file });
         },
     };
     game.addGlobalSkill('bts_bgm_follow');
 }
 
+// ── BGM 切换/还原机制（技能级；lib.bts.bgm）── 接口：switch(file[, expire[, owner]]) /
+// restore(file) / reset()。开关为「各端本地」语义：广播只传意图（方法名+Ref 数据），各端按本端
+// 开关应用；关闭端 switch 不应用不记栈，restore 以本端栈为凭据（中途关设置仍能还原）。
+//
+// 数据：lib.bts.bgm.stack = [ [prevRef, nextRef], ... ]（模块级；每局由 bts_bgm_stack_reset
+// 清空防跨局残留）。Ref 为可跨端解析的引用（载荷禁闭包）：{ file } 崩铁杀 BGM / { engine } 内置 /
+// { off } 停播 / { raw } 其他 src 原文（跨端不保证可还原）；可附 { loop }（缺省 file→true，抑制
+// ended 换曲）与 { startAt } 秒（就绪后 seek；「从副歌开始」由调用方声明，机制不查曲目表；restore
+// 不带起点）。切换/跟随统一「淡出 BGM_FADE_MS → 换源（含 seek）→ 淡入」（各端本地渐变）。
+//
+// switch：各开启端捕获本端当前播放为 prevRef 压栈并应用 nextRef；传 expire 时注册一次性自动
+// 还原（owner.when(expire,false).step(移除监听→restore).finish()，到期事件名补 lib.hookmap）。
+// expire 与技能 trigger 同构（字符串/数组默认挂 player 域）；owner 为监听锚点（缺失报错）。
+// restore：栈尾找最近 [X, file]——其后有 [file, Z] 则合并为 [X, Z] 放回原位（不切歌）；否则
+// 移除并切回 X；栈空/未命中不动作（幂等）。
+const BGM_SETTING = 'bts_bgm_control';
+const BGM_RESET_SKILL = 'bts_bgm_stack_reset';
+
+// ── 渐变与起点（实现细节）：起点由调用方参数给出（Ref.startAt）；未指定从头播。渐变各端本地
+// 线性进行；被后续应用打断时旧渐变作废（token），连切不跳音量（基准沿用）。
+const BGM_FADE_MS = 600; // 单侧渐变时长（淡出/淡入各一段）
+const BGM_FADE_STEP_MS = 40;
+
+// 本端渐变状态：定时器 + 代际 token + 满音量基准。
+let bgmFadeTimer = null;
+let bgmFadeToken = 0;
+let bgmBaseVolume = null;
+
+/** 停止本端进行中的渐变（新应用接管时调用）。 */
+function stopBgmFade() {
+    if (bgmFadeTimer) {
+        clearInterval(bgmFadeTimer);
+        bgmFadeTimer = null;
+    }
+    bgmFadeToken++;
+}
+
+function bgmEnabled() {
+    return Boolean(game.getExtensionConfig('崩铁杀', BGM_SETTING));
+}
+
+/**
+ * 目标标识 → Ref：字符串（'music_off' / bgm 文件名 / 引擎 BGM ID）或 Ref 对象直传
+ *（如 { file, startAt }；拷贝一份防外部对象被就地改写）。
+ */
+function resolveBgmRef(target) {
+    if (target && typeof target === 'object') {
+        if (!target.file && !target.engine && !target.off && !target.raw)
+            throw new TypeError(`BGM 标识无效：${JSON.stringify(target)}`);
+        return { ...target };
+    }
+    if (typeof target !== 'string' || !target)
+        throw new TypeError(`BGM 标识无效：${target}`);
+    if (target === 'music_off') return { off: true };
+    if (BGM_LIST.has(target) || /^duel\d+$/.test(target)) return { file: target };
+    return { engine: target };
+}
+
+/** 捕获当前播放为 Ref（主机侧读取；归一为可跨端解析的引用）。 */
+function captureBgmRef() {
+    const el = ui.backgroundMusic;
+    // 判空须查 getAttribute('src')：无属性时 IDL src 返回文档 URL（非空），会把「无 BGM」
+    // 误记成 { raw }；解析后等于本页 URL 的同样视为无 BGM。
+    const raw = el.getAttribute('src');
+    if (!raw) return { off: true };
+    const src = el.src;
+    if (src === location.href) return { off: true };
+    const loop = Boolean(el.loop);
+    let decoded = src;
+    try {
+        decoded = decodeURIComponent(src);
+    } catch (error) {
+        // src 含非法百分号转义时保持原样（仅影响路径匹配，转为 raw 记录）
+    }
+    const matched = /extension\/崩铁杀\/audio\/bgm\/([^/]+)\.mp3$/.exec(decoded);
+    if (matched) return { file: matched[1], loop };
+    return { raw: src, loop };
+}
+
+/**
+ * 换源（纯设置）：off 清源；其余设 src 与 loop，起点在元数据就绪后 seek（覆盖式单 handler，
+ * 连切时旧回调天然作废）；opts.onError 挂一次性失败回滚。
+ */
+function setBgmSource(el, ref, opts = {}) {
+    if (ref.off) {
+        el.onloadedmetadata = null;
+        el.onerror = null;
+        el.src = '';
+        return;
+    }
+    let url = '';
+    if (ref.file) {
+        el.loop = ref.loop ?? true;
+        url = `${lib.assetURL}extension/崩铁杀/audio/bgm/${ref.file}.mp3`;
+    } else {
+        el.loop = ref.loop ?? false;
+        if (ref.engine) {
+            url = `${lib.assetURL}audio/background/${ref.engine}.mp3`;
+        } else if (ref.raw) {
+            url = ref.raw;
+        }
+    }
+    const startAt = ref.startAt ?? 0; // 起点=Ref 显式参数（跟随/还原不带 → 从 0 起）
+    if (startAt > 0) {
+        el.onloadedmetadata = () => {
+            el.onloadedmetadata = null;
+            try {
+                el.currentTime = startAt; // 元数据就绪后 seek
+            } catch (error) {
+                // 媒体不支持 seek 时忽略（保持从头播放）
+            }
+        };
+    } else {
+        el.onloadedmetadata = null;
+    }
+    if (opts.onError) {
+        el.onerror = () => {
+            el.onerror = null;
+            opts.onError();
+        };
+    } else {
+        el.onerror = null;
+    }
+    el.src = url;
+}
+
+/**
+ * 本端应用 Ref：淡出 → 换源（含 seek）→ 淡入（不做开关判定）。时间驱动（performance.now）：
+ * tick 延迟时总时长仍≈BGM_FADE_MS。基准音量仅无进行中渐变时重取；淡出从当前实际音量续降。
+ */
+function applyBgm(ref, opts = {}) {
+    const el = ui.backgroundMusic;
+    if (bgmFadeTimer == null) bgmBaseVolume = el.volume;
+    const startVol = el.volume; // 淡出起点＝当前实际音量（打断续切时不跳音，从现位继续降）
+    stopBgmFade();
+    const base = bgmBaseVolume ?? el.volume;
+    const token = bgmFadeToken;
+    const fadeStart = performance.now();
+    let swapAt = 0; // 换源时刻（>0 即进入淡入阶段）
+    bgmFadeTimer = setInterval(() => {
+        if (token !== bgmFadeToken) return; // 已被新应用接管（stop 已清定时器，双保险）
+        const now = performance.now();
+        if (!swapAt) {
+            const k = Math.min(1, (now - fadeStart) / BGM_FADE_MS);
+            el.volume = Math.max(0, startVol * (1 - k));
+            if (k >= 1) {
+                el.volume = 0;
+                setBgmSource(el, ref, opts);
+                swapAt = now;
+            }
+            return;
+        }
+        const k = Math.min(1, (now - swapAt) / BGM_FADE_MS);
+        el.volume = Math.min(base, base * k);
+        if (k >= 1) {
+            el.volume = base;
+            clearInterval(bgmFadeTimer);
+            bgmFadeTimer = null;
+        }
+    }, BGM_FADE_STEP_MS);
+}
+
+/**
+ * 广播「调用各端本地实现」：载荷只引用引擎全局 lib 与入参——各端执行 lib.bts.bgm[method](payload)，
+ * 开关判定/压栈/还原均在各端本地完成。
+ */
+function broadcastLocal(method, payload) {
+    game.broadcastAll((name, data) => {
+        lib.bts.bgm[name](data);
+    }, method, payload);
+}
+
+/** 两个 Ref 是否指向同一 BGM（栈查找/合并用）。 */
+function sameBgmRef(a, b) {
+    if (!a || !b) return false;
+    if (a.off || b.off) return Boolean(a.off && b.off);
+    if (a.file !== undefined || b.file !== undefined) return a.file === b.file;
+    if (a.engine !== undefined || b.engine !== undefined) return a.engine === b.engine;
+    return a.raw === b.raw;
+}
+
+/** 注册一次性自动还原（owner.when 动态监听；参照 tempBanSkill 写法）。 */
+function registerBgmExpire(expire, owner, target) {
+    let spec = expire;
+    if (typeof spec === 'string' || Array.isArray(spec)) spec = { player: spec };
+    const anchor = owner ?? spec?.owner;
+    const trigger = {};
+    for (const role of ['player', 'source', 'target', 'global']) {
+        if (spec?.[role] != null) trigger[role] = spec[role];
+    }
+    if (!anchor || !Object.keys(trigger).length)
+        throw new Error('BGM 自动还原需要 expire 与 owner（监听锚点玩家）');
+    // 参照 addTempSkill：到期事件名补 lib.hookmap（含 relatedTrigger 复合名展开），
+    // 无监听的事件也能派发到本动态监听。
+    for (const role of Object.keys(trigger)) {
+        let names = trigger[role];
+        if (!Array.isArray(names)) names = [names];
+        for (const name of names) {
+            if (typeof name !== 'string') continue;
+            lib.hookmap[name] = true;
+            const prefix = Object.keys(lib.relatedTrigger).find((key) =>
+                name.startsWith(key),
+            );
+            if (prefix) {
+                for (const rawTrigger of lib.relatedTrigger[prefix]) {
+                    lib.hookmap[`${rawTrigger}${name.slice(prefix.length)}`] = true;
+                }
+            }
+        }
+    }
+    // 一次性自动还原：when 动态技能常驻，step 先移除自身再 restore（offline_piracyE 范式；重复触发幂等）。
+    anchor
+        .when(trigger, false)
+        // 死亡后触发器默认被引擎拦下（createTrigger：isDead 且无 forceDie 不派发）；BGM 还原
+        // 属全局状态维护，须 forceDie 才能到达本 step（参照引擎延迟牌 when 范式 content.js:7353）。
+        .assign({ forceDie: true })
+        .step(async (event, triggerEvent, player) => {
+            player.removeSkill(event.name);
+            restoreBgm(target);
+        })
+        .finish();
+}
+
+/**
+ * 切换 BGM 并广播意图（开关按各端本地判定；开启端记录入栈）。
+ * @param {string|object} target 崩铁杀 bgm 文件名（audio/bgm 下）或无名杀 BGM ID；
+ *   需指定播放起点时传 Ref 对象：{ file: 'bts_ch_zhigengniao', startAt: 33.7 }
+ * @param {string|string[]|object} [expire] 自动还原时机（技能 trigger 同构；见顶部注释）
+ * @param {object} [owner] 监听锚点玩家（expire 为对象时也可写在其 owner 字段）
+ */
+function switchBgm(target, expire, owner) {
+    const next = resolveBgmRef(target);
+    // 不设发起端门（主机没开客机开时客机仍须切换；关闭端 _localSwitch no-op）；broadcastAll 在
+    // 主机本地同步执行一次，主机与客机同走 _localSwitch。
+    broadcastLocal('_localSwitch', next);
+    if (expire != null) registerBgmExpire(expire, owner, target);
+}
+
+/** 还原 BGM（合并/回退规则见顶部注释；各端按本端栈执行，栈空或未命中不动作）。 */
+function restoreBgm(target) {
+    const key = resolveBgmRef(target);
+    broadcastLocal('_localRestore', key);
+}
+
+/** 安装 BGM 切换/还原机制（挂载 lib.bts.bgm + 每局清栈全局技能；幂等）。 */
+export function installBgmControl() {
+    lib.bts.bgm.switch = switchBgm;
+    lib.bts.bgm.restore = restoreBgm;
+    lib.bts.bgm.reset = () => {
+        lib.bts.bgm.stack.length = 0;
+    };
+    // ── 各端本地实现（广播只传方法名+数据；本地函数可引用模块作用域——禁闭包只约束载荷）──
+    // 本端应用切换：关闭端不应用、不记栈；开启端捕获本端当前 BGM 压栈后应用。
+    lib.bts.bgm._localSwitch = (ref) => {
+        if (!bgmEnabled()) return;
+        lib.bts.bgm.stack.push([captureBgmRef(), ref]);
+        applyBgm(ref);
+    };
+    // 本端还原：以本端栈为凭据（没切过的端栈空天然 no-op；中途关设置的端仍能还原）。
+    lib.bts.bgm._localRestore = (ref) => {
+        const stack = lib.bts.bgm.stack;
+        if (!stack.length) return;
+        let hit = -1;
+        for (let i = stack.length - 1; i >= 0; i--) {
+            if (sameBgmRef(stack[i][1], ref)) {
+                hit = i;
+                break;
+            }
+        }
+        if (hit < 0) return;
+        // 自己已被另一个切换叠掉：[X, 自己]+[自己, Z] 合并为 [X, Z] 放回原位、播放不动
+        //（链条保持完整，便于 Z 还原时找回 X）。
+        let merged = -1;
+        for (let i = hit + 1; i < stack.length; i++) {
+            if (sameBgmRef(stack[i][0], ref)) {
+                merged = i;
+                break;
+            }
+        }
+        if (merged >= 0) {
+            const entry = [stack[hit][0], stack[merged][1]];
+            stack.splice(merged, 1);
+            stack.splice(hit, 1, entry);
+            return;
+        }
+        // 自己是最近一次切换：移除并切回原 BGM（含捕获 loop）；splice 返回元素数组（外层包
+        // 元组），需双层解构取 prevRef。
+        const [[prev]] = stack.splice(hit, 1);
+        applyBgm(prev);
+    };
+    // 本端清栈（跨局回收；无开关门——残留清理不改变播放，不涉及开关语义）。
+    lib.bts.bgm._localReset = () => {
+        lib.bts.bgm.stack.length = 0;
+    };
+    // 本端「跟随主公」应用：payload={file} 走 applyBgm、不带起点；加载失败回滚原曲目与
+    // 循环状态（兜底优先「有声音」，不补渐变）。
+    lib.bts.bgm._localFollow = (payload) => {
+        if (!bgmEnabled()) return;
+        const el = ui.backgroundMusic;
+        const prevSrc = el.src;
+        const prevLoop = el.loop;
+        applyBgm(
+            { file: payload.file },
+            {
+                onError() {
+                    el.loop = prevLoop;
+                    el.src = prevSrc;
+                },
+            },
+        );
+    };
+    // 本端「跟随复位」（非崩铁主公：恢复引擎默认循环行为；关闭端保持本端现状）。
+    lib.bts.bgm._localFollowReset = () => {
+        if (!bgmEnabled()) return;
+        ui.backgroundMusic.loop = false;
+    };
+    if (lib.skill[BGM_RESET_SKILL]) return;
+    lib.skill[BGM_RESET_SKILL] = {
+        trigger: { global: 'gameStart' },
+        forced: true,
+        silent: true,
+        async content(event, trigger, player) {
+            // 全局技能对每名玩家各触发一次 → 本实例只执行一次（同 installBgmFollow）。
+            const anchor = game.me ?? game.players[0];
+            if (player !== anchor) return;
+            // 各端清各自的栈（客机残余栈会让「还原」误操作）。
+            broadcastLocal('_localReset');
+        },
+    };
+    game.addGlobalSkill(BGM_RESET_SKILL);
+}
+
 // ── 场景曲注册（源 due30.mp3 → 设置·音效·背景音乐可选）──────────────────────
-// 引擎可选背景音乐列表 = lib.configMenu.audio.config.background_music.item（显示名）
-// + lib.config.all.background_music（合法值/随机池；init 阶段导入 game/package.js 的
-// music 目录）。扩展把自带场景曲登记进二者：文件随扩展发布（audio/bgm/due30.mp3），
-// 链接用 ext: 形式（playBackgroundMusic 对 ext: 分支解析 extension/<路径>），
-// 不改动无名杀安装目录，重装引擎不丢失。扩展加载（init 的 loadExtension）晚于
-// 音乐目录导入、早于设置菜单构建，故登记后打开设置即可见。
+// 登记进 lib.configMenu.audio.config.background_music.item（显示名）与 lib.config.all.
+// background_music（合法值/随机池）；链接用 ext: 形式（引擎解析 extension/<路径>），不改安装目录。
 const SCENE_BGM_LINK = 'ext:崩铁杀/audio/bgm/due30.mp3';
 const SCENE_BGM_NAME = '崩铁杀·场景曲（due30）';
 export function installSceneBgm() {
@@ -280,22 +557,11 @@ export function installSceneBgm() {
 }
 
 // ── buff 标记技能生命周期（叁岛 buff 技能模式）────────────────────────────
-// 所有显示类标记（RULE_MARKS，mark: true + hiddenSkill）以「技能」形式挂载：
-// 标记层数 > 0 时 addSkill（技能不可见，承载标记显示与触发效果），
-// 层数归零时 removeSkill（标记用完删除技能）。包装 player.addMark/removeMark
-// 统一处理（含角色代码直接 addMark 的标记，如赌注/朔望/残梦/飞黄等）。
-//
-// 扩展自定义标记触发（任务6，TODO 任务6）：本包技能不再监听引擎内建
-// addMark/removeMark 触发（跨无名杀 fork 该二内建触发不一定存在/规范），改为
-// 监听自定义事件 bts_mark_add/bts_mark_remove。此二事件在此处（引擎
-// addMark/removeMark 实际改变存储后）手动派发：构造镜像引擎 addMark/removeMark
-// 的事件（emptyEvent content → event.trigger(event.name)），仅对 bts_ 前缀标记
-// 派发（16 处监听对象皆 bts_*，减少无关开销、不干扰引擎其他 mark 监听）。
-// 事件在 godSync 之后创建；移除侧在 removeSkill 之前派发（保证自身 buffSkill 仍挂载可收到）；
-// 附加侧在 addSkill（同步生效：skills.add + addSkillTrigger 立即执行）之后派发（同理保证挂载，
-// 2026-10-02 修正：原顺序下「自身标记首次被附加」的 buffSkill 收不到事件）。
-// 派发事件名需命中 lib.hookmap 门禁（gameEvent trigger L955），故安装期强制置位；
-// 具体技能侧已把 trigger 的 addMark/removeMark 字面量改为 bts_mark_add/bts_mark_remove。
+// 显示类标记（mark:true + hiddenSkill）以「技能」形式挂载：层数>0 addSkill（承载显示与触发）、
+// 归零 removeSkill；包装 player.addMark/removeMark 统一处理（含角色代码直接 addMark 的标记）。
+// 标记变化走自定义事件 bts_mark_add/bts_mark_remove（不依赖引擎内建触发，跨 fork 不可靠）：
+// 在引擎改存储后手动派发镜像事件，仅 bts_ 前缀。时序：godSync 之后创建；移除侧在 removeSkill
+// 前派发、附加侧在 addSkill 后派发（保证自身 buffSkill 已挂载可收到）；安装期置 lib.hookmap。
 const MARK_EVT_ADD = 'bts_mark_add';
 const MARK_EVT_REMOVE = 'bts_mark_remove';
 
@@ -321,15 +587,13 @@ export function installBuffSkillLifecycle() {
     const origRemoveMark = proto.removeMark;
     proto.addMark = function (name, num, log) {
         const before = this.countMark(name);
-        // 标记变更 log 策略（2026-09-26 用户定夺）：仅记录类（不显示 UI 的内部簿记，
-        // 如燔世系列）静默；资源/效果类保留；显式传参优先（false 静默 / true 记录）。
+        // log 策略（定夺）：记录类静默、资源/效果类保留；显式传参优先。
         const effectiveLog = log === undefined ? shouldLogMark(name) : log;
         const result = origAddMark.call(this, name, num, effectiveLog);
         const added = this.countMark(name) - before;
         // 星启祝福层数变化 → 重算星启来源并挂摘统一「星启」标记（godSync）。
         if (name === MARKS.bless('god')) lib.bts.api?.godSync?.(this);
-        // 先挂载「标记技能」（addSkill 同步生效），再派发 bts_mark_add——保证自身 buffSkill
-        //（如生息/升格：监听自身 bts_ 标记被「附加」）在派发时已完成挂载可收到。
+        // 先 addSkill（同步生效）再派发 bts_mark_add——保证自身 buffSkill（如生息/升格）已挂载可收到。
         if (lib.skill[name]?.mark && !this.hasSkill(name)) {
             this.addSkill(name);
         }
@@ -340,7 +604,7 @@ export function installBuffSkillLifecycle() {
     };
     proto.removeMark = function (name, num, log) {
         const before = this.countMark(name);
-        // 标记变更 log 策略（同 addMark；2026-09-26 用户定夺）。
+        // log 策略同 addMark。
         const effectiveLog = log === undefined ? shouldLogMark(name) : log;
         const result = origRemoveMark.call(this, name, num, effectiveLog);
         const removed = before - this.countMark(name);
@@ -360,12 +624,9 @@ export function installBuffSkillLifecycle() {
 }
 
 /**
- * 崩铁杀自定义事件注册（2026-10-02 技能效果自注册重构）。
- * 除 bts_mark_add/bts_mark_remove（见 installBuffSkillLifecycle）外的自派发事件：
- *   bts_pet_add / bts_pet_remove / bts_resource_add / bts_shield_removed / bts_funny_act_after
- * 派发点见 rules/utils.js emit()；消费技能以 trigger: { player/global: '<名>' } 监听。
- * 事件名须命中 lib.hookmap 门禁（引擎 gameEvent.js trigger 门禁），故安装期统一置位；
- * 幂等：重复赋值无副作用。
+ * 崩铁杀自定义事件注册：bts_pet_add / bts_pet_remove / bts_resource_add /
+ * bts_shield_removed / bts_funny_act_after（bts_mark_add/remove 见 installBuffSkillLifecycle）。
+ * 派发点见 rules/utils.js emit()；事件名须命中 lib.hookmap 门禁，安装期统一置位（幂等）。
  */
 const CUSTOM_EVENTS = [
     'bts_pet_add', // 忆灵登场/重复召唤（utils.addPet）
@@ -387,18 +648,12 @@ export function installAiGuard() {
         game.addGlobalSkill('bts_aiGuardReset');
 }
 
-// ── 「不可被指定为目标」目标封锁挂载（2026-10-01；貊泽·掠袭·潜行先行，实现通用化）──
-// 源版以 alive=false 让潜行者从一切目标选择与指定中消失；无名杀逐路径等价实现：
-//   ① 卡牌选目标：技能自带 targetEnabled mod（moze.js）——引擎在 canUse 与 chooseToUse
-//      的默认目标过滤器里读；但技能声明了自定义 filterTarget 时会整体替换默认过滤器
-//      （不读 targetEnabled，黑塔·魔法/剑制 等全走该路径）→ 需 ② ③ 覆盖。
-//   ② 技能选目标：chooseToUse/chooseTarget 的候选统一由 Check.processSelection 计算
-//      （isSelectable → event.filterTarget；AI 的 get.selectableTargets 读同一份
-//      selectable 名单）——在此追加判据，UI 与 AI 双端一并生效。
-//   ③ 自动「视为使用」（技能以固定目标直接 useCard，不经选目标流程，如黑塔·效率、
-//      Archer·螺旋 反击追杀）：useCard 内容首步过滤目标；全部目标被滤空时中止本次
-//      使用（源 ViewAsCard「目标为空则 return false」同语义）。
-// 判据统一为 lib.bts.api.untargetable(target)（utils.js）；自身指定自身不受限。
+// ── 「不可被指定为目标」目标封锁挂载（貊泽·掠袭·潜行先行，实现通用化）──
+// 源版以 alive=false 让潜行者从一切目标选择中消失；无名杀逐路径等价实现：
+//   ① 卡牌选目标：targetEnabled mod（自定义 filterTarget 会整体替换默认过滤器 → 由 ②③ 覆盖）；
+//   ② 技能选目标：Check.processSelection 候选判据（UI 与 AI 同一份 selectable 名单）；
+//   ③ 自动「视为使用」：useCard 内容首步过滤目标，全滤空时中止（源「目标为空则 return false」同义）。
+// 判据统一 lib.bts.api.untargetable(target)；自身指定自身不受限。
 let untargetableGuardInstalled = false;
 
 export function installUntargetableGuard() {
@@ -421,10 +676,8 @@ export function installUntargetableGuard() {
             return origProcess.call(this, options);
         };
     }
-    // ③ 自动「视为使用」封锁（就地包裹 useCard 内容首步）。
-    //    不能 insert 新步骤：该内容内部用绝对索引 event.goto(11)/goto(12)，插步会使跳转
-    //    错位；就地包裹则步骤索引布局不变。事件在播放前同步构造，首步能读到最终 targets；
-    //    数组元素在编译产物里按运行时索引读取，安装早于任何对局，时序安全。
+    // ③ 就地包裹 useCard 首步（不能 insert 新步骤：内容用绝对索引 goto，插步会错位；就地包裹
+    // 保持索引不变；事件播放前同步构造，首步读到最终 targets）。
     const steps = lib.element.content?.useCard;
     if (Array.isArray(steps) && !steps.btsTargetGuard) {
         const first = steps[0];

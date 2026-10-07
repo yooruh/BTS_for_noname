@@ -45,12 +45,20 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：5怒气换「敌各1点虚数通常伤害」；无敌人不发动，敌数≥2 时群体收益最高
+            //（源 max_guaili，animal.lua L9922-9945）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_guaili')
-                    ? -1
-                    : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_guaili')) return -1;
+                const enemies = game.countPlayer(
+                    (t) => t.isAlive() && t !== player && get.attitude(player, t) < 0,
+                );
+                if (!enemies) return -1;
+                return enemies >= 2 ? 9 : 8;
             },
-            result: { target: -1 },
+            result: {
+                // 每目标1点（目标受损；态度加权负责在多人目标间排除友方）
+                target: -1,
+            },
         },
     },
 
@@ -58,8 +66,8 @@ export const skill = {
     // 锁定技，你跳过摸牌阶段；其他角色回合结束时，其可以令你获得1枚兴致，
     // 兴致达到10后你获得承认、允许、背负（并移除财宝）。
     bts_sk_caibao: {
-        // 源 L9952-9955：EventPhaseChanging to Draw 时 skip(Player_Draw) 整段跳摸牌；
-        // 无名杀以自己准备阶段 player.skip('phaseDraw') 预标（skipList 于摸牌阶段起始检查，等效整段跳）。
+        // 源 L9952-9955：EventPhaseChanging to Draw 跳过摸牌；无名杀以准备阶段 player.skip('phaseDraw')
+        // 预标（skipList 于摸牌阶段起始检查，等效整段跳）。
         trigger: { global: 'phaseAfter', player: 'phaseZhunbeiBegin' },
         forced: true,
         filter(event, player, triggername) {
@@ -78,15 +86,13 @@ export const skill = {
                 .chooseBool(
                     `财宝：是否令${get.translation(player)}获得1枚兴致？`,
                 )
+                // AI 口径：无代价给予，对吉尔伽美什态度为正即同意（源 st_caibao，L9933-9960）
                 .set('ai', () => get.attitude(trigger.player, player) > 0)
                 .forResult();
             if (!result.bool) return;
             player.addMark('bts_mk_xingzhi', 1); // 源 L9942：p:gainMark("@xingzhi")
-            // 源 L9943：setPlayerMark(p, "wanglai_chengren"..同意者.."-start") —— 同意标记，
-            // 允许据此判定「令你获得过兴致标记的角色」（已修正：原实现漏打同意标记、允许无条件给）
-            // 动态键（含同意者 playerid）为内部簿记：固定键镜像已承担显示（下一行），
-            // log=false 关闭日志与 get.info 校验（否则未注册键触发「孩子，你的技能…」告警；
-            // 2026-09-26 实机警告同类修复——此调用跨行，此前单行版扫描器漏检）。
+            // 源 L9943：记同意标记（动态键含同意者 playerid）→「允许」据此判定（已修正原漏打）。
+            // 固定键镜像承担显示（下一行）；log=false 规避未注册键告警。动态键不能静态注册。
             player.addMark(
                 `bts_mk_wanglai_chengren_${trigger.player.playerid}`,
                 1,
@@ -101,7 +107,6 @@ export const skill = {
             await player.addSkill('bts_sk_wanglai_yunxu');
             await player.addSkill('bts_sk_wanglai_beifu');
         },
-        ai: { noe: true },
     },
 
     // ── 关联技·承认（源 wanglai_chengren = TriggerSkill Compulsory DrawNCards，L9979-9991）──
@@ -118,7 +123,6 @@ export const skill = {
             trigger.num += player.countMark('bts_mk_xingzhi');
             player.removeMark('bts_mk_xingzhi', player.countMark('bts_mk_xingzhi'));
         },
-        ai: { noe: true },
     },
 
     // ── 关联技·允许（源 wanglai_yunxu = TriggerSkill Compulsory EventPhaseStart，L9961-9978）──
@@ -128,8 +132,7 @@ export const skill = {
         trigger: { global: 'phaseAfter' },
         forced: true,
         filter(event, player) {
-            // 源 L9967-9972：仅「令你获得过兴致标记的角色」（曾同意财宝者）回合结束时才给。
-            // 无名杀以同意标记 bts_mk_wanglai_chengren_<id> 门控（已修正：原实现无条件给）
+            // 源 L9967-9972：仅「曾同意财宝者」回合结束时才给；以同意标记 bts_mk_wanglai_chengren_<id> 门控。
             return (
                 event.player !== player &&
                 player.countMark(`bts_mk_wanglai_chengren_${event.player.playerid}`) >
@@ -139,7 +142,6 @@ export const skill = {
         async content(event, trigger, player) {
             player.addMark('bts_mk_xingzhi', 1); // 源 L9970：p:gainMark("@xingzhi")
         },
-        ai: { noe: true },
     },
 
     // ── 关联技·背负（源 wanglai_beifu = FilterSkill，L10005-10017）──
@@ -166,7 +168,20 @@ export const skill = {
                     return false;
             },
         },
-        ai: { order: 6, result: { target: -1 } },
+        ai: {
+            // ai-guard: skip：viewAs 无独立 content（弃牌转化在使用流程内结算，无内层选择可空转）
+            // AI 口径：手牌【杀】已被 mod 禁用使用/响应，当【过河拆桥】打出是唯一用法——有杀即拆牌
+            //（源 FilterSkill wanglai_beifu，L10005-10017）
+            order(item, player) {
+                return player.countCards('h', (c) => get.name(c) === 'sha') > 0
+                    ? 6
+                    : -1;
+            },
+            result: {
+                // 拆目标1张牌（目标受损）
+                target: -1,
+            },
+        },
     },
 
     // ── 触发技·悦王（源 st_yuewang = TriggerSkill Compulsory CardFinished，L10012-10031）──
@@ -176,8 +191,7 @@ export const skill = {
         trigger: { global: 'useSkillAfter' },
         forced: true,
         filter(event, player) {
-            // 源 L10018-10020：使用 SkillCard 且技能名含 "max_"（必杀技），且使用者 ≠ 你。
-            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）。
+            // 源 L10018-10020：他人使用含 "max_" 的 SkillCard；无名杀改以 bts_bisha 标签判定。
             return (
                 event.player !== player &&
                 lib.skill[event.skill]?.bts_bisha === true
@@ -187,7 +201,6 @@ export const skill = {
             // 源 L10023：AddBless(p, "@bless_zengfu")
             await lib.bts.api.addBless(player, 'zengfu', 1, player);
         },
-        ai: { noe: true },
     },
 };
 
@@ -209,9 +222,6 @@ export const translate = {
     'bts_ch_gilgamesh_skin2': '皮肤2',
     'bts_ch_gilgamesh_skin3': '皮肤3',
     bts_mk_caibao_done: '财宝达成',
-    'bts_ch_gilgamesh_skin1': '皮肤1',
-    'bts_ch_gilgamesh_skin2': '皮肤2',
-    'bts_ch_gilgamesh_skin3': '皮肤3',
     bts_ch_gilgamesh: '吉尔伽美什',
     bts_sk_guaili: '乖离',
     bts_sk_guaili_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，对这些角色各造成1点${get.poptip('bts_glossary_nature_light_dmg_faq')}通常伤害。`,
@@ -256,8 +266,7 @@ export const pinyins = {
     '吉尔伽美什': ['jí', 'ěr', 'jiā', 'měi', 'shí'],
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_xingzhi_faq',

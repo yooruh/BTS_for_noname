@@ -40,9 +40,9 @@ export const skill = {
             // 源 L4888：AddAbnormal(targets[1], "@abnormal_scary", 1, player)
             lib.bts.api.addAbnormal(target, 'scary', 1, player);
             // 源 L4889-4894：判定并获 ceil(点数/2) 赌注
-            // 判定「无结果」契约（2026-10-03）：角色死亡（judge() 不设 forceDie）/离场除名/被移除时，
-            // 事件被引擎逐步骤拦截并 finish（ContentCompilerBase.isPrevented）→ forResult() 为
-            // undefined = 判定未发生 → 不获得赌注、不进后续（不以 || 0 伪造成 0 点）。
+            // 判定「无结果」契约：角色死亡（judge() 不设 forceDie）/离场除名/被移除时，事件被引擎逐步骤拦截
+            //（ContentCompilerBase.isPrevented）→ forResult()=undefined = 判定未发生 → 不获得赌注、不进后续
+            //（不以 || 0 伪造成 0 点）。
             const judge = await player.judge().forResult();
             if (!judge) return;
             player.addMark('bts_mk_duzhu', Math.ceil(judge.number / 2));
@@ -54,10 +54,47 @@ export const skill = {
                     lib.bts.api.addShield(candidate, 1, player);
         },
         ai: {
+            // AI 口径：代价=失5怒气；收益=目标1层恐惧（不能弃牌）＋判定期望≈4枚赌注（点数一半上取整）；
+            // 星启时全场有盾者各+1盾（净收益按友/敌态度：敌方持盾为负）。赌注逼近7枚（宾果群杀）时
+            // 边际价值递增；无攻击范围内有牌敌方不发动（源 L4878-4913）。
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_xunjue') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xunjue')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1;
+                const hasEnemy = game.hasPlayer(
+                    (target) =>
+                        target !== player &&
+                        target.isAlive() &&
+                        get.attitude(player, target) < 0 &&
+                        player.inRange(target) &&
+                        target.countCards('hej') > 0,
+                );
+                if (!hasEnemy) return -1;
+                let value = 5; // 恐惧＋期望≈4枚赌注
+                const duzhu = player.countMark('bts_mk_duzhu');
+                if (duzhu >= 4) value += 1; // 逼近7枚：边际价值递增
+                if (duzhu >= 6) value += 1;
+                if (lib.bts.api.god(player)) {
+                    let shieldNet = 0;
+                    for (const target of game.players) {
+                        if (!target.isAlive() || !lib.bts.api.getShield(target))
+                            continue;
+                        shieldNet += get.attitude(player, target) >= 0 ? 1 : -1;
+                    }
+                    value += shieldNet > 0 ? 1 : shieldNet < 0 ? -1 : 0;
+                }
+                return Math.max(1, Math.min(9, value));
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损=1层恐惧（不能弃牌）＋为砂金输送期望赌注；敌方独享（源 L4888-4894）
+                target: (player, target) => {
+                    if (target === player) return -1;
+                    if (get.attitude(player, target) >= 0) return -1.5;
+                    let value = 1.3; // 恐惧封锁弃牌≈1＋赌注进度≈0.3
+                    if (player.countMark('bts_mk_duzhu') >= 4) value += 0.3; // 逼近宾果
+                    if (target.countCards('h') > 2) value += 0.2; // 高牌量：不能弃牌更疼
+                    return -value;
+                },
+            },
         },
     },
 
@@ -111,7 +148,6 @@ export const skill = {
                     await player.useCard({ name: 'sha', isCard: true }, targets);
             }
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·基石（源 st_jishil = TriggerSkill EventPhaseStart Start + OneCardViewAsSkill，L4949-4981）──
@@ -123,14 +159,38 @@ export const skill = {
             return player.getCards('h').some((card) => get.name(card) === 'sha');
         },
         async cost(event, trigger, player) {
-            // 源 L4978：askForUseCard("@@st_jishil") —— 弃【杀】选目标
+            // 源 L4978：askForUseCard("@@st_jishil") —— 弃【杀】选目标。
+            // cost 型触发技无顶层 check 读取点：发动与否=本处 ai1/ai2（最高分≤0→取消，引擎 ai/basic.js）。
+            // AI 口径：ai1=【杀】富余（≥2）才换盾，独一张保留进攻/响应；ai2=只给友方/自己，
+            // 受伤者更急（护盾≈1点减伤；源 L4949-4981）。
             event.result = await player
                 .chooseCardTarget({
                     prompt: '基石：弃置一张【杀】令一名角色获得1点护盾',
                     position: 'h',
                     filterCard: (card) => get.name(card) === 'sha',
                     filterTarget: () => true,
-                    ai2: (target) => get.attitude(player, target),
+                    ai1: (card) => {
+                        if (!card || typeof card !== 'object')
+                            return -1; // 技能按钮候选（非牌）不选
+                        if (get.name(card) !== 'sha') return -1;
+                        if (
+                            player.countCards(
+                                'h',
+                                (c) => get.name(c) === 'sha',
+                            ) < 2
+                        )
+                            return -1; // 只处理多余【杀】
+                        return 5 - get.value(card); // 富余杀换1盾：按牌值折价
+                    },
+                    ai2: (target) => {
+                        const attitude = get.attitude(player, target);
+                        if (attitude <= 0) return attitude; // 敌方/中立不给分（全员无友→取消）
+                        let value = attitude;
+                        if (target.isDamaged())
+                            value +=
+                                Math.min(2, target.maxHp - target.hp) * 0.5; // 受伤者更急
+                        return value;
+                    },
                 })
                 .forResult();
         },
@@ -141,7 +201,14 @@ export const skill = {
             // 源 L4955：AddAShield(targets[1], player)
             lib.bts.api.addShield(event.targets[0], 1, player);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动决策在 cost 的 ai1/ai2（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值：
+            // 目标获得1点护盾（+1点减伤=受益）；施动方以弃一张【杀】为代价（源 L4949-4981）。
+            result: {
+                player: -0.5,
+                target: 1,
+            },
+        },
     },
 };
 
@@ -154,16 +221,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_shajin_skin1': '皮肤1',
-    'bts_ch_shajin_skin10': '皮肤10',
-    'bts_ch_shajin_skin2': '皮肤2',
-    'bts_ch_shajin_skin3': '皮肤3',
-    'bts_ch_shajin_skin4': '皮肤4',
-    'bts_ch_shajin_skin5': '皮肤5',
-    'bts_ch_shajin_skin6': '皮肤6',
-    'bts_ch_shajin_skin7': '皮肤7',
-    'bts_ch_shajin_skin8': '皮肤8',
-    'bts_ch_shajin_skin9': '皮肤9',
     'bts_ch_shajin_skin1': '皮肤1',
     'bts_ch_shajin_skin10': '皮肤10',
     'bts_ch_shajin_skin2': '皮肤2',
@@ -201,8 +258,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_duzhu_faq',

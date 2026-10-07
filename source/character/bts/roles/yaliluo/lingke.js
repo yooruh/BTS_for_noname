@@ -25,24 +25,51 @@ export const skill = {
         },
         // 源 Card filter（L3993）：仅 #targets < 2（一至两名），无 ~=Self → 自指允许（S5）
         selectTarget: [1, 2],
+        // 显式全通过（一至两名、自指允许，同上源语义）：缺省会让引擎技能态目标选择
+        // 短路为「无目标放行」——白耗3怒且 AI 无法正常选取目标
+        filterTarget: true,
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_fangan');
             lib.bts.api.loseAngry(player, 3);
             for (const t of event.targets || []) {
                 await t.recover(player, 1);
-                // 定夺 2026-09-12（F-05）：源 L4002-4004 RemoveAbnormal(p,"choice",1,player)
+                // 定夺（F-05）：源 L4002-4004 RemoveAbnormal(p,"choice",1,player)
                 // 由玲可选择移除哪种异常（技能选择界面，见 api.removeAbnormalChoice/chooseAbnormal），
                 // 不再自动取首键。
                 await lib.bts.api.removeAbnormalChoice(t, player);
             }
         },
         ai: {
+            // AI 口径：3怒=至多2名角色各回复1点并移除1层异常（由玲可选层）；仅受伤/带异常者入选
+            //（源 max_fangan L3992-4021；源 AI StarRail-ai.lua #max_fangan：Friends_AI 取
+            // min(2, #friends)，自指允许）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_fangan')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_fangan')) return -1;
+                const score = (t) => {
+                    let v = t.isDamaged() ? 1.5 : 0; // 回复1点（满血浪费）
+                    if (lib.bts.api.abnormalCount(t)) v += 0.7; // 可移除1层异常
+                    return v;
+                };
+                let v = score(player); // 源 filter 允许自指
+                let bestFriend = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player || get.attitude(player, t) <= 0) continue;
+                    bestFriend = Math.max(bestFriend, score(t));
+                }
+                v += bestFriend; // 两个名额：自身+最需要友军为典型下界
+                if (!v) return -1; // 无可治目标：不空放（白费3怒）
+                return Math.min(8, Math.round(4 + v));
             },
-            result: { player: 1, target: 1 },
+            result: {
+                // 状态倍率自算（关引擎血线/手牌倍率，同风堇·晨昏口径）；下限1.5防敌方被洗正
+                ignoreStatus: true,
+                player: 0.6,
+                target: (player, target) => {
+                    let v = target.isDamaged() ? 2 : 1.5;
+                    if (lib.bts.api.abnormalCount(target)) v += 0.7; // 移除1层异常
+                    return v;
+                },
+            },
         },
     },
 
@@ -66,7 +93,6 @@ export const skill = {
             await lib.bts.api.addBless(trigger.player, 'zhiyu', trigger.num, player);
             trigger.cancel();
         },
-        ai: { noe: true },
     },
 
     // ── 罐头（源 st_guantou = TriggerSkill DamageInflicted + OneCardViewAsSkill，L4041-4090）：
@@ -93,13 +119,22 @@ export const skill = {
                     filterTarget: (c, s, x) =>
                         x !== s && (x.isDamaged() || lib.bts.api.getShield(x)),
                     selectTarget: 1,
+                    // 本技为 cost 型触发技：发动与否由本处 ai1/ai2 决定（最高分≤0→取消）。
+                    // AI 口径：ai1=弃估值最低的【杀】；ai2=只选友军（源 AI Friends_ThrowSlash_AI：
+                    // 需受伤或持盾的友方，hp 序）；受伤越重/持盾者优先（源 st_guantou L4041-4090）
                     ai1: (c) => 6 - get.value(c),
-                    ai2: (x) => get.attitude(player, x),
+                    ai2: (x) => {
+                        const att = get.attitude(player, x);
+                        if (att <= 0) return att; // 敌方/中立不给分：全非友军→本次取消
+                        let v = att + 0.5; // 摸1牌基本收益
+                        if (x.isDamaged()) v += 0.5; // 回复1点不浪费
+                        if (lib.bts.api.getShield(x)) v += 0.3; // 持盾者更可能作为承伤位
+                        return v;
+                    },
                 })
                 .forResult();
         },
         async content(event, trigger, player) {
-            lib.bts.aiGuard.record(player, 'bts_sk_guantou');
             if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
             const target = event.targets[0]; // event=技能事件，cost 结果目标
             // 源 L4048-4049：targets[1]:drawCards(1) + room:recover(targets[1], 玲可)
@@ -107,9 +142,8 @@ export const skill = {
             await target.recover(player, 1);
             // 源 L4050：room:setPlayerFlag(target, "st_guantou"..玲可id) —— 持久标记
             //（无名杀以 mark + 子技能清除模拟；窗口至目标「下回合结束」前，见 bts_sk_guantou_clear）
-            // 动态键（含来源 playerid）运行时注册：引擎 addMark/removeMark 在 log!==false 时
-            // 会 get.info(key)，未注册即告警「孩子，你的技能…」（2026-09-26 实机警告修复，
-            // 含下文 clear 子技的移除路径）。
+            // 动态键（含来源 playerid）运行时注册：引擎 addMark/removeMark 在 log!==false 时会 get.info(key)，
+            // 未注册即告警「孩子，你的技能…」（含下文 clear 子技的移除路径）。
             const guardMark = `bts_guantou_${player.playerid}`;
             lib.skill[guardMark] ??= { markKind: 'record' };
             lib.translate[guardMark] ??= '罐头庇护';
@@ -150,7 +184,7 @@ export const skill = {
         group: ['bts_sk_guantou_clear'],
         subSkill: {
             clear: {
-                // 定夺 2026-09-12（F-04）：按无名杀，窗口到目标下回合结束即清——
+                // 定夺（F-04）：按无名杀，窗口到目标下回合结束即清——
                 // 源代码为永久 flag（无清除），源描述「下回合结束前」与代码矛盾；维持描述化窗口，
                 // 不跟随源永久标记。
                 // 源翻译「于其下回合结束前」：标记持续至目标下一次回合结束时清除。
@@ -178,16 +212,15 @@ export const skill = {
                         `bts_guantou_set_${player.playerid}`
                     ];
                 },
-                ai: { noe: true },
             },
         },
+        // 触发技（cost 型）：发动决策在 cost 内联 AI；result 供跨技能估值查询（弃1杀换配牌+承伤链条）
         ai: { result: { player: 1 } },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_lingke_skin1': '皮肤1',
     'bts_ch_lingke_skin1': '皮肤1',
     bts_ch_lingke: '玲可',
     bts_sk_fangan: '方案',

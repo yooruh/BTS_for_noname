@@ -2,7 +2,8 @@
 
 // 崩铁杀源码索引提取器：从太阳神 Lua 源（animal.lua）提取武将/技能/翻译锚点，生成结构化 JSON。
 // 用法：node scripts/extract-index.mjs <animal.lua 路径> [输出目录]
-// 输出：<输出目录>/generals.json（武将+技能+行号）、translations.json（角色名/称号/技能名/描述/台词）
+// 输出（写至 <输出目录>/）：generals.json（武将+技能+行号）、translations.json（角色名/称号/技能名/描述/台词）、
+//   index.json（武将+翻译+元统计的汇总）
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -88,7 +89,7 @@ for (const m of transBody.matchAll(entryRe)) {
     }
 }
 
-// 4. 补充：把技能名与描述直接按 key 记录（便于迁移时查找）
+// 4. 汇总输出：generals / translations / index 三份 JSON
 const out = {
     sourceLineCount: lines.length,
     generals,

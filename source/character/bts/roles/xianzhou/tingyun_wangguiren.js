@@ -43,10 +43,8 @@ export const skill = {
                     await target.chooseToDiscard('照世：弃置一张手牌', 'h', 1, true); // 源 L7278
                 await lib.bts.api.addNature(target, 'flame'); // 源 L7280：AddNature(p, "fire")
             }
-            // 源 L7283-7287（God 分支 L7633-7637）：星启时未被选择的其他角色各获得额外出牌阶段。
-            // 源为 addPlayerMark(p,"extra_play")，由 gamerule_ex 于回合末 NotActive 统一
-            // ExtraPhase 消费；无名杀全库无该惰性标记消费方，直接调 extraPhase 开额外出牌
-            // 阶段（同姬子·启行 L59 等库内范式，以功能真实生效为要）。
+            // 源 L7283-7287（God 分支 L7633-7637）：星启时未被选择者各获得额外出牌阶段。源以标记在
+            // 回合末统一消费，本库无该消费方，直接 extraPhase（同姬子·启行 L59 范式）。
             if (lib.bts.api.god(player))
                 for (const target of lib.bts.api.seatOrder(
                     game.filterPlayer(
@@ -56,10 +54,28 @@ export const skill = {
                     lib.bts.api.extraPhase(target, 'phaseUse');
         },
         ai: {
+            // AI 口径：怒气≥5 且场上有敌方；每名目标弃1手牌+失1怒，星启时未被选者各得额外出牌阶段
+            //（源 AI max_zhaoshi：GetAngry(5) 且 #enemies>0，StarRail-ai L3645-3661）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhaoshi') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zhaoshi'))
+                    return -1;
+                const enemies = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) < 0,
+                );
+                if (!enemies) return -1; // 无敌不白清5怒
+                let val = 6; // 单敌：弃1手牌(≈1.2)+失1怒(≈0.5)
+                if (enemies >= 2) val += 1;
+                if (lib.bts.api.god(player)) val += 1; // 星启：未选友方各得额外出牌阶段
+                return Math.min(8, val);
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损：弃1手牌+失1怒；空手目标少弃一档
+                target: (player, target) =>
+                    target.countCards('h') ? -2 : -1,
+            },
         },
     },
 
@@ -69,9 +85,8 @@ export const skill = {
         trigger: { global: 'phaseZhunbeiBegin' },
         logTarget: 'player',
         filter(event, player) {
-            // 源 L7305-7312：其他角色准备阶段开始且全场无狐祈祝福。
-            // 定夺 2026-09-12（E-07）：均不允许自指——源代码放开（可自得狐祈）但源描述
-            // 写「其他角色」，与禳命统一口径，按描述排除（event.player !== player）。
+            // 源 L7305-7312：其他角色准备阶段开始且全场无狐祈祝福（定夺 E-07：按描述排除自指，
+            // 与禩命统一口径——源代码放开自得，但描述写「其他角色」）。
             return (
                 event.player &&
                 event.player !== player &&
@@ -80,10 +95,10 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L7316：askForCard(p, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）。
-            // AI 决策（函数式 ai，等价源 StarRail-ai L3722-3727 ai_skill_cardask["@st_yaofeng"]）：
-            // 受益者须为属性/元素系角色（NaturePlayer 判定）且为友方（ThrowSlash_AI typ=2 的
-            // asFriend 检查）才弃【杀】相助；两者任一不满足 → 最佳牌估值 ≤0 → 引擎整体取消。
+            // 源 L7316：askForCard(p, "Slash")——只选弃【杀】，弃置在 content。发动 AI 在本内联选择
+            //（cost 型触发技引擎不询顶层 check）：受益者须为属性/元素系（naturePlayer，狐祈只放大
+            // 属性伤害）且友方（源 AI st_yaofeng→ThrowSlash_AI typ2 只助友方，StarRail-ai L3663-3665）
+            // 才相助；否则最佳估值 ≤0 → 引擎整体取消。
             const target = trigger.player;
             const helpful =
                 lib.bts.api.naturePlayer(target) &&
@@ -95,7 +110,10 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                     `摇风：是否弃置一张【杀】令${get.translation(target)}获得3层狐祈？`,
-                    (card) => (helpful ? 6 - get.value(card) : -1),
+                    (card) =>
+                        helpful && typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
                 )
                 .forResult();
         },
@@ -104,7 +122,8 @@ export const skill = {
             // 源 L7319：AddBless(player=准备阶段角色, "@bless_huqi", 3, p)
             await lib.bts.api.addBless(trigger.player, 'huqi', 3, player);
         },
-        ai: { result: { player: 1 } },
+        // 供跨技能估值（发动决策在 cost 内联选择）：代价1【杀】；3层狐祈给属性系友方≈2分
+        ai: { result: { player: 1, target: 2 } },
     },
 
     // ── 锁定技·流布（源 st_liubu = TriggerSkill Compulsory CardsMoveOneTime，L7330-7347）──
@@ -113,9 +132,8 @@ export const skill = {
     bts_sk_liubu: {
         trigger: { global: 'loseAfter' },
         filter(event, player) {
-            // 源 L7336：其他角色因弃置从手牌失去最后一张手牌。
-            // 定夺 2026-09-12（E-04）：补「本次失去含手牌」校验（event.hs），
-            // 避免已空手角色仅弃装备牌时误触发。
+            // 源 L7336：其他角色因弃置失去最后一张手牌；补 hs 校验（定夺 E-04）——避免空手
+            // 角色仅弃装备时误触发。
             return (
                 event.type === 'discard' &&
                 event.hs?.length > 0 &&
@@ -124,15 +142,23 @@ export const skill = {
                 event.player.countCards('h') === 0
             );
         },
-        async content(event, trigger, player) {
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             const target = trigger.player;
             // 源 L7336：askForSkillInvoke —— 是否发动
-            const result = await player
+            event.result = await player
                 .chooseBool(
                     `流布：是否令${get.translation(target)}摸一张牌并记录该牌？`,
                 )
+                // AI 口径：只对存活友方发动（其摸1张；若本回合受伤则你收回记录牌、其失1体）
+                //（源 AI st_liubu：仅友方发动，StarRail-ai L4149-4154）
+                .set('ai', () =>
+                    target.isAlive() && get.attitude(player, target) > 0,
+                )
                 .forResult();
-            if (!result.bool) return;
+        },
+        async content(event, trigger, player) {
+            const target = trigger.player;
             // 源 L7689-7692：getNCards(1) + obtainCard + showCard —— 目标摸一张牌并展示之
             await target.draw(player);
             const card = target.getCards('h').at(-1);
@@ -146,9 +172,8 @@ export const skill = {
         group: ['bts_sk_liubu_take', 'bts_sk_liubu_clear'],
         subSkill: {
             take: {
-                // 定夺 2026-09-12（E-04）：按用户描述「当其于此回合内受到伤害时」——
-                // 不限定伤害来源（源 L1276-1281 经 damage.from 匹配标记、实际仅你，按描述放开）；
-                // 夺牌后目标失去1点体力（源描述 L13410 含、源代码未实现，按描述补）。
+                // 定夺 E-04：按描述「其于本回合内受到伤害时」——不限定来源（源经 damage.from 匹配、
+                // 实际仅你）；夺牌后失 1 体力按描述补（源代码未实现）。
                 trigger: { global: 'damageEnd' },
                 forced: true,
                 filter(event, player) {
@@ -156,8 +181,7 @@ export const skill = {
                         event.num > 0 &&
                         event.player?.storage?.bts_liubu_owner === player.playerid &&
                         event.player.storage.bts_liubu_card &&
-                        // 注意：countCards 返回数字（旧写 countCards('h').some 实机崩溃，
-                        // 2026-09-26 连续游玩实机修复）；取牌数组须用 getCards。
+                        // 取牌数组须用 getCards（countCards 返回数字，误用 .some 会崩）。
                         event.player
                             .getCards('h')
                             .some(
@@ -185,7 +209,6 @@ export const skill = {
                         target.countMark('bts_mk_liubu-clear'),
                     );
                 },
-                ai: { noe: true },
             },
             clear: {
                 // 源 -Clear 标记于回合末自动清除：记录未在当回合内被夺走则移除。
@@ -265,27 +288,24 @@ export const buffSkills = {
         filter(event, player) {
             return (
                 event.source === player &&
-                // 2026-09-28：按描述「对其他角色」补门控（源描述参照本 L13581；源条件未显式自查，
-                // 无名杀存在自伤带来源路径〔xiadie.js:179〕→ 不门控会弃自己手牌）。
+                // 按描述「对其他角色」门控（源描述 L13581）——存在自伤带来源路径（xiadie.js:179），
+                // 不门控会弃自己手牌。
                 event.player !== player &&
                 event.num > 0 &&
-                // 源版 L1162-1165：狐祈无 _common 排除，_common 属性伤害照样触发弃牌
-                //（2026-09-13 回退至源版）。
+                // 源 L1162-1165：狐祈无 _common 排除，_common 属性伤害照样触发弃牌（定夺回退源版）。
                 lib.bts.api.getNature(event) &&
                 event.player.countCards('h') > 0
             );
         },
         async content(event, trigger, player) {
             game.log(player, '触发了狐祈祝福');
-            // 源 L1157-1158：askForCardChosen(player, damage.to, "h") + throwCard ——
-            // 由狐祈持有者（伤害来源）选择受伤角色的一张手牌弃置（V2.2 由受伤角色自选改为来源选择）
+            // 源 L1157-1158：由狐祈持有者（伤害来源）选受伤角色一张手牌弃置（V2.2 改为来源选择）。
             await player.discardPlayerCard(trigger.player, 'h', true);
         },
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_huqi_faq',

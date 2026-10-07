@@ -40,10 +40,9 @@ export const skill = {
             // 源 L10599-10600：自己附加8层热意、4层契约祝福
             await lib.bts.api.addBless(player, 'reyi', 8, player);
             await lib.bts.api.addBless(player, 'yingzi', 4, player);
-            // 源 L10601-10612：各目标 15.6%（+欢愉祝福×10%）失1点体力，
-            // 若全部成功则移除一半欢愉祝福并重复，任一失败即停止。
-            // 循环以「目标仍在且尚有欢愉祝福可半减」为前提：祝福耗尽即 break，
-            // 否则 event.targets.length 恒不减、只靠概率失败退出 → 理论可无限循环卡死（已修）。
+            // 源 L10601-10612：各目标 15.6%（+欢愉祝福×10%）失1点体力；全成功则移除一半欢愉祝福并
+            // 重复、任一失败停止。循环以「尚有欢愉祝福可半减」为前提（祝福耗尽即 break）——否则
+            // targets 恒不减、只能靠概率失败退出，理论可无限循环（防回归）。
             while (event.targets.length) {
                 let success = true;
                 for (const target of event.targets) {
@@ -61,12 +60,36 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：5怒气必杀，目标各附量子（重附→睡眠）并进概率失血循环（15.6%+欢愉每层10%，全成功弃半数续轮）；
+            // 自身+8热意（≥2层时补至10触发抛注补牌）/+4影子；只打敌方（源 AI max_shengju value 8，StarRail-ai.lua；
+            // 源 animal.lua L10594-10632）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_shengju')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shengju')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() && t !== player && get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1; // 无敌方目标：附暗/失血循环对友方无正收益
+                let value = 6;
+                if (lib.bts.api.getBless(player, 'funny', -1) >= 2) value += 1; // 欢愉≥2：概率+20%
+                if (lib.bts.api.getBless(player, 'reyi', -1) >= 2) value += 1; // 热意补至10触发抛注
+                return Math.min(9, value);
             },
-            result: { target: -1 },
+            result: {
+                // 施动方：8层热意（热意≥2时本次触发抛注补牌）与4层影子
+                player: (player) =>
+                    lib.bts.api.getBless(player, 'reyi', -1) >= 2 ? 2 : 1.5,
+                // 目标受损：概率失血期望（首轮≈0.16+0.1×欢愉）；重附量子→睡眠异常
+                target: (player, target) => {
+                    const funny = lib.bts.api.getBless(player, 'funny', -1);
+                    let v = 0.6 + Math.min(1, 0.156 + 0.1 * funny) * 1.5;
+                    if (lib.bts.api.getNature(null, target) === 'dark') v += 0.5;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -75,9 +98,8 @@ export const skill = {
     bts_sk_resha: {
         trigger: { player: 'damageBegin2' },
         filter(event, player) {
-            // 源 L10263-10265 + L10274：受到伤害且可弃【杀】（无名杀把弃牌放进 cost）。
-            // 目标集 = 量子/睡眠角色 ∪ 伤害来源（见 content/logTarget）；集为空则不触发
-            //（避免白弃【杀】却无任何角色可附加量子属性）。
+            // 源 L10263-10265 + L10274：受伤且可弃【杀】（弃牌放 cost）；目标集 = 量子/睡眠角色 ∪
+            // 伤害来源，集为空不触发（免白弃）。
             return (
                 event.num > 0 &&
                 player.getCards('h').some((card) => get.name(card) === 'sha') &&
@@ -99,6 +121,20 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                 )
+                // AI 口径：弃1【杀】换4层热意（热意≥6时补至10触发抛注补牌）+量子/睡眠角色与来源各附暗；
+                // 分数≤0 引擎取消=不发动（源 AI st_resha 有【杀】即愿挨打换收益，StarRail-ai.lua L3829）
+                .set('ai', (card) => {
+                    let value = 4;
+                    if (lib.bts.api.getBless(player, 'reyi', -1) >= 6)
+                        value += 1;
+                    const spread = game.countPlayer(
+                        (t) =>
+                            lib.bts.api.getNature(null, t) === 'dark' ||
+                            lib.bts.api.getAbnor(t, 'sleep'),
+                    );
+                    value += Math.min(3, spread) * 0.5;
+                    return value - get.value(card);
+                })
                 .forResult();
         },
         logTarget(trigger, player) {
@@ -146,12 +182,11 @@ export const skill = {
         async content(event, trigger, player) {
             // 源 L10671：记录已发动（@st_paozhu_funny 标记）
             player.setStorage('bts_mk_paozhu_funny_used', true, true);
-            // 源 L10672：FunnyAct(player)——执行欢愉行动（抛注效果见本技能 bts_funny 注册项）。
-            // initiator=event.name：本技能自动日志已由引擎记录，行动时不再重复 logSkill。
+            // 源 L10672：执行欢愉行动（效果见本技能 bts_funny 注册项）。initiator=event.name——
+            // 自动日志已由引擎记录，行动时不再重复 logSkill。
             await lib.bts.api.funnyAct(player, null, null, event.name);
         },
-        // 欢愉行动注册（自注册重构）：funnyAct 泛化派发时执行——手牌补至5张
-        //（不设 ctx.done，跟随旧 if 链行为）。
+        // 欢愉行动注册：funnyAct 泛化派发时执行——手牌补至5张（不设 ctx.done，跟随旧 if 链）。
         bts_funny: {
             order: 40,
             async act(ctx) {
@@ -164,7 +199,6 @@ export const skill = {
                     );
             },
         },
-        ai: { noe: true },
     },
 };
 
@@ -228,8 +262,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_reyi_faq',

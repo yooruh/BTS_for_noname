@@ -33,11 +33,9 @@ export const skill = {
             );
         },
         selectTarget(card, player) {
-            // 源 L2918-2920 feasible：#targets == X or God —— 非星启硬性恰好 X 名，
-            // 星启不限目标数。无名杀 selectTarget 函数式返回 [min,max]。
-            // 引擎解析技能配置的函数式 selectTarget 一律零参（get.select(fn) → fn()；技能按钮评估
-            // game.check 与实际选目标流程皆然），使用者从事件栈取（官方范式 _status.event.player；
-            // 与 mod.selectTarget(card, player, range) 的 checkMod 带参约定区分——本函数两种姿势兼容）。
+            // 源 L2918-2920：#targets == X or God —— 非星启恰好 X 名、星启不限目标数，返回 [min,max]。
+            // 函数式 selectTarget 被引擎零参调用（get.select(fn) 与 game.check 皆然），故自事件栈取
+            // player（_status.event.player；与 mod.selectTarget 带参 checkMod 约定区分——两种调用姿势兼容）。
             player ??= _status.event?.player;
             if (!player) return [1, 1]; // 兜底：无上下文（异常调用）不崩；正常流程由 filterTarget 控上限
             return lib.bts.api.god(player)
@@ -53,16 +51,37 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：3怒气换「至多X名敌方各一张牌」（X=已损体力，星启不限）；目标牌越多越优先；
+            // 非星启 selectTarget 恰需X名且只选敌方，敌数不足X时不可用（源 st_kuangcai，animal.lua L2815-2838）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_kuangcai')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_kuangcai'))
+                    return -1;
+                let avail = 0; // 可拿牌的敌方数（filterTarget 要求有手牌）
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    if (t.countCards('h') > 0) avail++;
+                }
+                if (!avail) return -1;
+                const x = Math.max(player.maxHp - player.hp, 1);
+                if (!lib.bts.api.god(player) && avail < x) return -1;
+                const cap = lib.bts.api.god(player) ? avail : x; // 预期可得牌数
+                if (cap >= 3) return 7;
+                if (cap >= 2) return 6;
+                return 5;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1,
+                // 目标受损=失去一张牌；牌越多可选价值越高（细化首选顺序）；空目标兜底不抛错
+                target: (player, target) =>
+                    -1 -
+                    Math.min(1, (target?.countCards('he') ?? 0) * 0.25),
+            },
         },
     },
 
     // ── 锁定技·至痛（源 st_zhitong = TriggerSkill Compulsory DamageInflicted/Damaged，L2839-2861）──
+    // 锁定技（forced，含 lose 子技）：防止异常伤害与仪式失技能均自动结算 → 不配 ai。
     bts_sk_zhitong: {
         trigger: { player: 'damageBegin2' },
         forced: true,
@@ -87,10 +106,8 @@ export const skill = {
                     );
                     player.removeSkill('bts_sk_zhitong'); // 源 detachSkillFromPlayer：失去此技能
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 解禁（源 st_jiejin = TriggerSkill Damaged，L2862-2880）──
@@ -102,9 +119,16 @@ export const skill = {
             return player.hp >= 1 && event.num > 0;
         },
         async cost(event, trigger, player) {
-            // 源 askForSkillInvoke 可选（描述「你可以」）；无名杀原实现自动发动，补选择权
+            // 源 askForSkillInvoke 可选（描述「你可以」）——须保留选择权，勿自动发动
+            // AI 口径：+1不死祝福为纯收益；仅来源为友方且体力>1时不还手（避免内耗），
+            // 体力≤1时保命优先（源 st_jiejin，animal.lua L2862-2880）
+            const src = trigger.source;
+            const accept = !src || player.hp <= 1 || get.attitude(player, src) <= 0;
             event.result = await player
-                .chooseBool('解禁：是否附加1层不死祝福并对来源造成1点伤害？')
+                .chooseBool(
+                    '解禁：是否附加1层不死祝福并对来源造成1点伤害？',
+                    () => accept,
+                )
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -121,8 +145,6 @@ export const skill = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_alan_skin1': '皮肤1',
-    'bts_ch_alan_skin1': '皮肤1',
     'bts_ch_alan_skin1': '皮肤1',
     bts_ch_alan: '阿兰',
     bts_sk_kuangcai: '狂裁',

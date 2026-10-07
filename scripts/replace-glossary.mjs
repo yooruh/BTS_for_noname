@@ -3,23 +3,21 @@
 /**
  * 崩铁杀 描述专有名词 → poptip 替换脚本（词条 / 技能 / 角色 三类引用统一超链接化）。
  *
- * 覆盖范围：角色文件的 `intro`（角色简介）、`_info` 键（技能完整说明，含跨行 `+` 拼接值的
- * 延续行）、`simpleTranslate` 的 `_info`（简略说明）、`dynamicTranslate` 返回值（动态简写）、
- * `glossary` 的 `info`（标记/词条 intro）；以及全局规则文件（globalrules / globalBuffs /
- * globalMarks）的 `_info` 与 `info`。
+ * 覆盖范围：角色文件的 `intro`（角色简介）、`_info`（技能说明，含跨行 `+` 拼接值的延续行）、
+ * `simpleTranslate` 的 `_info`（简略说明）、`dynamicTranslate` 返回值、`glossary` 的 `info`；
+ * 以及全局规则文件（globalrules / globalBuffs / globalMarks）的 `_info` 与 `info`。
  *
  * 替换源（三者合并，长词优先）：
  *  - 静态词条表（下方 REPLACEMENTS，术语/祝福/异常等 `bts_glossary_*_faq`）；
- *  - 技能名（从角色模块导入：`bts_sk_*` 且存在 `<id>_info` —— 点击可见技能说明）；
- *  - 角色名（`bts_ch_*` 非皮肤、长度 ≥2 —— 点击打开角色资料卡）。
- * 说明：角色文件自身的主角色名保持纯文本（玩家就在看该角色，不自我链接）；
- * 单字角色名（刃）不入表（子串误伤风险，人工处理）。
+ *  - 技能名（`bts_sk_*` 且有 `<id>_info`，点击可见技能说明）；
+ *  - 角色名（`bts_ch_*` 非皮肤、长度 ≥2，点击打开角色资料卡）。
+ * 本文件主角色名保持纯文本（无需自链接）；单字名（刃）不入表（子串误伤，人工处理）。
  *
  * 机制：
- *  - 逐字符串字面量处理：模板字符串直接插值 `${get.poptip('id')}`；普通字符串在
- *    内容不含反引号/`${`/反斜杠时转换为模板字符串后插值，否则跳过；
- *  - 长词优先 + 跳过 `get.poptip(...)` 已有区间；一名多 id 时优先本文件所属，
- *    仍多者取最短 id 并输出提示（远征 base/friend 等）;
+ *  - 逐字符串字面量处理：模板字符串直接插值 `${get.poptip('id')}`；普通字符串内容不含
+ *    反引号/`${`/反斜杠时转换为模板字符串，否则跳过；
+ *  - 长词优先 + 跳过 `get.poptip(...)` 已有区间；一名多 id 优先本文件所属，仍多者取
+ *    最短 id 并提示（远征 base/friend 等）；
  *  - 幂等：替换结果为 `get.poptip` 调用/`⟨id⟩` 标记，重跑不再命中。
  *
  * 用法：node scripts/replace-glossary.mjs [--dry-run]

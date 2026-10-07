@@ -53,7 +53,7 @@ export const skill = {
     bts_sk_wumian: {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02）
+        // 召唤忆灵的技能均为 unique:true（定夺）
         unique: true,
         enable: 'phaseUse',
         filter(event, player) {
@@ -74,12 +74,22 @@ export const skill = {
             await lib.bts.api.addPet(player, 'changye');
         },
         ai: {
+            // AI 口径：怒气≥5 发动；收益=至暗之谜（扣血获忆质×7；星启 2层→4层）+召唤长夜
+            //（+1体力上限/体力；首召另得余露/夜影；重复召唤由漆黑回复1点）（源 animal.lua L8846-8868）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_wumian')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_wumian'))
+                    return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门：怒气不足不可用
+                let value = 7; // 基础：至暗之谜 + 长夜召唤
+                if (!lib.bts.api.getPet(player, 'changye')) value += 1; // 首召：+1体力上限/体力并得余露/夜影
+                if (lib.bts.api.god(player)) value += 1; // 星启：至暗之谜 2层→4层（×7忆质窗口翻倍）
+                if (lib.bts.api.getBless(player, 'zhianzhimi')) value -= 1; // 已有层数：刷新延长而非首入
+                return Math.min(9, value);
             },
-            result: { player: 2 },
+            result: {
+                // 供跨技能估值：至暗之谜（星启4层）+长夜召唤
+                player: (player) => (lib.bts.api.god(player) ? 3 : 2),
+            },
         },
     },
 
@@ -93,9 +103,8 @@ export const skill = {
             return lib.bts.api.getLostHp(event) > 0;
         },
         async content(event, trigger, player) {
-            // 源 L9236-9240：n=1，有至暗之谜则 ×7，gainMark("@yizhi", n)（trigger=伤害/失血事件）。
-            // 定夺 2026-09-12（C-03）：倍率对齐源改 ×7；源基数固定 1/7（按事件计），
-            // 端口沿用 lostHp 失血量作基数（既有取舍，仅倍率按定夺对齐）。
+            // 源 L9236-9240：n=1（有至暗之谜 ×7）gainMark。定夺 C-03：倍率 ×7；基数沿用
+            // lostHp 失血量（既有取舍，仅倍率对齐）。
             const amount =
                 lib.bts.api.getLostHp(trigger) *
                 (lib.bts.api.getBless(player, 'zhianzhimi') ? 7 : 1);
@@ -104,13 +113,12 @@ export const skill = {
             if (!lib.bts.api.getBless(player, 'fatal'))
                 await lib.bts.api.addBless(player, 'fatal', 1, player);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·咒礼（源 st_zhouli = TriggerSkill EventPhaseStart Finish，L8892-8905）──
     // 结束阶段开始时，可失去1点体力，召唤长夜。
     bts_sk_zhouli: {
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02）
+        // 召唤忆灵的技能均为 unique:true（定夺）
         unique: true,
         trigger: { player: 'phaseJieshuBegin' },
         filter(event, player) {
@@ -121,6 +129,12 @@ export const skill = {
             // 源 L8896-8898：askForSkillInvoke 确认（仅选择），失体移入 content 结算
             const result = await player
                 .chooseBool('咒礼：是否失去1点体力并召唤长夜？')
+                .set(
+                    'ai',
+                    // AI 口径：体力>1 才发动——失体后靠合体回复1（净 hp 不变、上限+1），
+                    // hp=1 时会先濒死；有至暗之谜时另得 7 忆质（同行）（源 L8892-8905）
+                    () => player.hp > 1,
+                )
                 .forResult();
             event.result = { bool: result.bool };
         },
@@ -135,8 +149,7 @@ export const skill = {
     },
 
     // ── 锁定技·漆黑（源 st_qihei = TriggerSkill Compulsory Damaged，L8908-8914）──
-    // 源技能壳为空、效果硬编码在 AddPet；2026-10-02 自注册重构：改为监听 bts_pet_add
-    //（rules/utils.js addPet 在重复召唤时派发）——长夜重复召唤时，你回复1点体力（源 L807-810）。
+    // 源壳为空（效果硬编码在 AddPet）；监听 bts_pet_add——长夜重复召唤时回复 1 体力（源 L807-810）。
     bts_sk_qihei: {
         charlotte: true,
         trigger: { player: 'bts_pet_add' },
@@ -147,12 +160,11 @@ export const skill = {
         async content(event, trigger, player) {
             await player.recover(player);
         },
-        ai: { noe: true },
     },
 
-    // ── 锁定技·余露（源 st_yulu = TriggerSkill Compulsory MarkChanged，L8916-8933）──
-    // 忆质不少于8枚时，移除全部忆质与长夜，对上个对你造成伤害的角色造成1点霜属性伤害。
-    // 源在 MarkChanged（忆质累计>7）时触发、无需实际扣血；无名杀以 addMark（忆质增加）近似之。
+    // ── 锁定技·余露（源 st_yulu，L8916-8933）──
+    // 忆质≥8 时移除全部忆质与长夜，对上个伤害你者造成 1 点霜伤害。源在 MarkChanged（累计>7）
+    // 触发、无需实际扣血——以 bts_mark_add 近似。
     bts_sk_yulu: {
         trigger: { player: 'bts_mark_add' },
         forced: true,
@@ -169,9 +181,8 @@ export const skill = {
             );
         },
         async content(event, trigger, player) {
-            // 源 L8923-8929：对 LastDamagedLink 目标（记被伤者/键=来源/只记最近）造成 "_frost"
-            // 霜属性伤害——只打「上个伤害你且存活者」（同风堇·走开范式；批1原实现误用
-            // getAllHistory('damage') 全部来源，把伤过你的所有角色都打了）
+            // 源 L8923-8929：对上个伤害你且存活者造成霜属性伤害（LastDamagedLink 只记最近，
+            // 同风堇·走开范式）。
             const last = player
                 .getAllHistory('damage')
                 .filter((ev) => ev.source)
@@ -186,7 +197,6 @@ export const skill = {
                 await damage;
             }
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·夜影（源 st_yeying = DistanceSkill，L8935-8952）──
@@ -202,7 +212,6 @@ export const skill = {
                     return distance + 1;
             },
         },
-        ai: { noe: true },
     },
 };
 
@@ -219,30 +228,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_changyeyue_skin1': '皮肤1',
-    'bts_ch_changyeyue_skin10': '皮肤10',
-    'bts_ch_changyeyue_skin11': '皮肤11',
-    'bts_ch_changyeyue_skin12': '皮肤12',
-    'bts_ch_changyeyue_skin2': '皮肤2',
-    'bts_ch_changyeyue_skin3': '皮肤3',
-    'bts_ch_changyeyue_skin4': '皮肤4',
-    'bts_ch_changyeyue_skin5': '皮肤5',
-    'bts_ch_changyeyue_skin6': '皮肤6',
-    'bts_ch_changyeyue_skin7': '皮肤7',
-    'bts_ch_changyeyue_skin8': '皮肤8',
-    'bts_ch_changyeyue_skin9': '皮肤9',
-    'bts_ch_changyeyue_skin1': '皮肤1',
-    'bts_ch_changyeyue_skin10': '皮肤10',
-    'bts_ch_changyeyue_skin11': '皮肤11',
-    'bts_ch_changyeyue_skin12': '皮肤12',
-    'bts_ch_changyeyue_skin2': '皮肤2',
-    'bts_ch_changyeyue_skin3': '皮肤3',
-    'bts_ch_changyeyue_skin4': '皮肤4',
-    'bts_ch_changyeyue_skin5': '皮肤5',
-    'bts_ch_changyeyue_skin6': '皮肤6',
-    'bts_ch_changyeyue_skin7': '皮肤7',
-    'bts_ch_changyeyue_skin8': '皮肤8',
-    'bts_ch_changyeyue_skin9': '皮肤9',
     'bts_ch_changyeyue_skin1': '皮肤1',
     'bts_ch_changyeyue_skin10': '皮肤10',
     'bts_ch_changyeyue_skin11': '皮肤11',
@@ -285,7 +270,7 @@ export const translate = {
     '$bts_sk_yulu2': "诸位，后会有期~",
     '~bts_ch_changye': "没能…保护好……",
     '~bts_ch_changyeyue': "没能…保护好……",
-    // 2026-09-28：×6→×7 对齐源（参照本 L14486「7倍」）与实现（定夺 C-03 ×7）。
+    // ×6→×7 对齐源 L14486（定夺 C-03）。
     bts_bless_zhianzhimi_info: `来源：${get.poptip('bts_sk_wumian')}赋予；扣血获${get.poptip('bts_glossary_yizhi_faq')}×7；回合结束自然减少1层`,
 
     '~bts_ch_changyeyue_and_changye': "没能…保护好……",
@@ -307,13 +292,12 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_zhianzhimi_faq',
         name: '至暗之谜祝福',
-        // 2026-09-28：×6→×7 对齐源（参照本 L14486）与实现（定夺 C-03）。
+        // ×6→×7 对齐源 L14486（定夺 C-03）。
         info: `你扣减体力获得${get.poptip('bts_glossary_yizhi_faq')}时，获得量×7。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {

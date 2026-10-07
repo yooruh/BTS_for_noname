@@ -37,7 +37,7 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_shengjian');
             lib.bts.api.loseAngry(player, 5); // 源 L9270：LoseAngry(player, 5)
             // 源 L9271-9273：星启时附加贯通祝福
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             if (lib.bts.api.god(player)) await lib.bts.api.addBless(player, 'through', 2);
             for (const target of event.targets) {
                 // 源 L9275：reason 含 "_wind_common"（风属性 + 通常伤害）
@@ -104,10 +104,25 @@ export const skill = {
                     },
                 },
                 group: ['bts_sk_shengjian_buff_clear'],
-                ai: { order: 6, result: { target: -1 } },
+                ai: {
+                    // AI 口径：viewAs 型（无独立 content，不空转）：手牌【杀】当【决斗】（挂载期有杀即可用）；
+                    // order 6=圣剑在身时愿意转化，目标由【决斗】卡牌 AI 与下方 result 决定（源 L9264-9327）。
+                    order: 6,
+                    // 目标：只决斗敌方；手牌少者更易落败、低血=击杀窗口
+                    result: {
+                        target: (player, target) => {
+                            if (target === player) return -1;
+                            if (get.attitude(player, target) >= 0) return -2;
+                            let value = 1.2;
+                            if (target.hp <= 1) value += 0.8; // 击杀窗口
+                            if (target.countCards('h') === 0) value += 0.8; // 无手牌直接吃亏
+                            return -value;
+                        },
+                    },
+                },
             },
-            // ── 关联技·圣剑解除（原 bts_sk_shengjian_buff.subSkill.clear；父技能并入本 parent
-            //    的 subSkill 后按注册名规则升为兄弟键，保留 bts_sk_shengjian_buff_clear 注册名）──
+            // ── 关联技·圣剑解除（注册名 bts_sk_shengjian_buff_clear；父技能并入 subSkill 后
+            //    按注册名规则升为兄弟键）──
             buff_clear: {
                 sub: true,
                 sourceSkill: 'bts_sk_shengjian_buff',
@@ -129,16 +144,46 @@ export const skill = {
                     player.removeSkill('bts_sk_shengjian_buff');
                     player.removeSkill('bts_sk_shengjian_buff_clear');
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：代价=失5怒气；收益=对任意名角色各1点风伤（星启必杀+1、目标带异属性再相克+1）
+            // ＋圣剑状态（手牌【杀】当【决斗】、无目标数限制，使用【决斗】后解除）。
+            // 敌方越多/有击杀窗口/手握【杀】可转化时越积极；无敌方目标不发动（源 L9264-9327）。
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_shengjian')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shengjian')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1;
+                const isGod = lib.bts.api.god(player);
+                let value = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    let damage = isGod ? 2 : 1; // 星启：必杀伤害+1（rules/globalrules.js L54-55）
+                    const nature = lib.bts.api.getNature(null, target);
+                    if (nature && nature !== 'wind') damage += 1; // 风与异属性相克+1（同文件 L56-64）
+                    let v = damage * 1.5; // 1点伤害≈1.5评估单位
+                    if (target.hp <= damage) v += 2.5; // 击杀
+                    value += v;
+                }
+                if (!value) return -1; // 无敌方目标：不对友军出手
+                if (player.countCards('h', 'sha') > 0) value += 1.5; // 圣剑状态有【杀】变现
+                if (isGod) value += 0.5; // 贯通祝福+命运回复的小幅溢出
+                return Math.max(1, Math.min(9, value));
             },
-            result: { target: -1 },
+            result: {
+                player: 1,
+                // 目标受损=伤害d（星启+1、风相克+1）+击杀加分；友军/自己排除（源 L9267）
+                target: (player, target) => {
+                    if (target === player) return -1;
+                    if (get.attitude(player, target) >= 0) return -2;
+                    let damage = lib.bts.api.god(player) ? 2 : 1;
+                    const nature = lib.bts.api.getNature(null, target);
+                    if (nature && nature !== 'wind') damage += 1;
+                    let v = damage * 1.5;
+                    if (target.hp <= damage) v += 2.5;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -172,10 +217,44 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：代价=弃一张【杀】（filterCard 保证）＋出牌阶段限一次；收益=对范围内一名敌方
+            // 1点风伤（目标带异属性相克+1；非必杀伤害，无星启加成）+炉心进度（满3层回收1怒气）。
+            // 无范围内敌方不发动；有击杀窗口/满炉心时更积极（源 L9329-9360）。
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_fengwang') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_fengwang')) return -1;
+                let hasEnemy = false;
+                let killWindow = false;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    if (!player.inRange(target)) continue;
+                    hasEnemy = true;
+                    let damage = 1;
+                    const nature = lib.bts.api.getNature(null, target);
+                    if (nature && nature !== 'wind') damage += 1;
+                    if (target.hp <= damage) killWindow = true;
+                }
+                if (!hasEnemy) return -1;
+                let value = 4; // 1点风伤（≈1.5）+炉心累积
+                if (killWindow) value += 2;
+                const luxin = player.countMark('bts_sk_luxin');
+                if (luxin >= 3) value += 1; // 满3层：本击回收1怒气
+                else if (luxin === 2) value += 0.5; // 下击即满
+                return Math.min(9, value);
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损=1点风伤（相克+1）；友军/自己排除（源 L9337）
+                target: (player, target) => {
+                    if (target === player) return -1;
+                    if (get.attitude(player, target) >= 0) return -1.5;
+                    let damage = 1;
+                    const nature = lib.bts.api.getNature(null, target);
+                    if (nature && nature !== 'wind') damage += 1;
+                    let v = damage * 1.5;
+                    if (target.hp <= damage) v += 2;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -205,7 +284,6 @@ export const skill = {
             content: (storage) => `当前有${storage}枚炉心。`,
         },
         markimage: `${extensionPath}/image/mark/bts_sk_luxin.png`,
-        ai: { noe: true },
     },
 
 };
@@ -222,7 +300,6 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_saber_skin1': '皮肤1',
     bts_mk_shengjian: '圣剑状态',
-    'bts_ch_saber_skin1': '皮肤1',
     bts_ch_saber: 'Saber',
     bts_sk_shengjian: '圣剑',
     bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对至少一名其他角色各造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，令你的【杀】于下次使用【决斗】前视为【决斗】（无目标数限制），然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你附加2层${get.poptip('bts_glossary_bless_through_faq')}，获得1枚${get.poptip('bts_glossary_fate_faq')}标记，然后若标记数为：1，你回复4点${get.poptip('bts_glossary_nuqi_faq')}；3，你弃全部${get.poptip('bts_glossary_fate_faq')}标记。`,
@@ -253,8 +330,7 @@ export const pinyins = {
     'Saber': ['Saber'],
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_fate_faq',

@@ -50,13 +50,44 @@ export const skill = {
             await damage;
         },
         ai: {
+            // AI 口径：需5怒气+敌人在攻击范围内；收益=1点风属性暴击伤害（异属性相克+1/同风转中毒）
+            // +体力调整（低于半血回复、高于半血掉血推进倏忽祝福）（源 animal.lua L2560-2585）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_wansi')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_wansi'))
+                    return -1;
+                let best = 0; // 最佳敌方单次收益（1点伤害≈1.5评估单位）
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    if (get.distance(player, t) > player.getAttackRange())
+                        continue;
+                    let v = 1.5; // 1点风属性暴击伤害
+                    const nat = lib.bts.api.getNature(null, t);
+                    if (nat && nat !== 'wind') v += 1.5; // 元素相克：伤害+1
+                    else if (nat === 'wind') v += 0.8; // 同属性结算转为附加1层中毒
+                    if (v > best) best = v;
+                }
+                if (!best) return -1;
+                const half = Math.floor(player.maxHp / 2);
+                if (player.hp > half)
+                    // 掉血推进倏忽（4层时本次必触发满层回血+反杀）
+                    best += lib.bts.api.getBless(player, 'busi', 4) ? 1.5 : 0.4;
+                else if (player.hp < half)
+                    best += Math.min(2, half - player.hp) * 0.8; // 回复至上限一半
+                return best >= 4.5 ? 8 : best >= 3.5 ? 6 : best >= 2.5 ? 4 : 2;
             },
             threaten: 2.5,
-            result: { player: 1, target: -2 },
+            result: {
+                player: 1,
+                // 目标受损=风伤+属性互动（相克+1/同风转中毒）
+                target: (player, target) => {
+                    let v = 1.5;
+                    const nat = lib.bts.api.getNature(null, target);
+                    if (nat && nat !== 'wind') v += 1.5;
+                    else if (nat === 'wind') v += 0.8;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -86,7 +117,6 @@ export const skill = {
             ); // 视为对上个伤害你的角色使用【杀】
             await use;
         },
-        ai: { noe: true },
     },
 
     // ── 狱变（源 st_yubian = TriggerSkill EventPhaseStart，L2617-2627）──
@@ -108,10 +138,25 @@ export const skill = {
             lib.bts.api.addAbnormal(player, 'diyu', 3, player); // 源 AddAbnormal(@abnormal_diyu, 3)
         },
         ai: {
+            // AI 口径：弃1杀+失1体力，换取约3回合「手牌当【决斗】」（地狱异常至多3层、每层1回合）；
+            // 可转化手牌越多越值，且失血推进倏忽祝福；残血（≤1）禁用（源 animal.lua L2617-2627）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yubian')
-                    ? -1
-                    : 3;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yubian'))
+                    return -1;
+                if (player.hp <= 1) return -1; // 再失1体力即濒死
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1; // 无敌方目标时【决斗】无处可用
+                const fuel = Math.max(0, player.countCards('h') - 1); // 扣除弃置的1张【杀】
+                let v = 1 + Math.min(3, fuel * 0.7);
+                v += lib.bts.api.getBless(player, 'busi', 4) ? 1.5 : 0.4; // 推进倏忽（4层时本次触发满层效果）
+                return Math.min(7, v);
             },
             result: { player: 1 },
         },

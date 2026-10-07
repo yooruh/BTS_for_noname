@@ -17,7 +17,7 @@ export const character = {
 
 export const skill = {
     // ── 必杀技·诛天（源 max_zhutian = SkillCard + ZeroCardViewAsSkill，L7904-7925）──
-    // 出牌阶段，失5怒气，获得2枚血仇标记；若受伤，回复1点体力（源 RecoverStruct 默认 1，V2.2 描述同步改「回复1点」）。
+    // 出牌阶段，失5怒气获得2枚血仇；若受伤回复1点体力（源 RecoverStruct 默认 1，V2.2 描述同步）。
     bts_sk_zhutian: {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
@@ -30,21 +30,37 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_zhutian');
             lib.bts.api.loseAngry(player, 5); // 源 L7908：LoseAngry(player, 5)
             player.addMark('bts_mk_xuechou', 2); // 源 L7909：addPlayerMark(@st_xuechou, 2)
-            // 源 L7910-7912：若受伤回复1点体力（RecoverStruct(player) 默认 1；V2.0 描述「回复已损失一半」与代码不符，V2.2 已修正为「回复1点」）
+            // 源 L7910-7912：受伤回复1点（RecoverStruct 默认 1；V2.0 描述与代码不符，V2.2 已修正）。
             if (player.hp < player.maxHp) await player.recover(player, 1);
         },
         ai: {
+            // AI 口径：5怒气换2枚血仇（受伤时回复1）；血仇将触体力上限阈值时更积极——未登神即
+            // 登神（上限祝福/回满/额外回合），已登神即反击1点（爱诗『纷争』再取回血仇，可循环）
+            //（源 max_zhutian StarRail-ai.lua L3913 估值9；阈值源 st_xuechou L7946-7988）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhutian')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zhutian')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门（含怒气豁免）
+                let value = 6; // 基础：2枚血仇层数
+                if (player.hp < player.maxHp) value += 1; // 回复1可兑现
+                if (player.maxHp - player.countMark('bts_mk_xuechou') <= 2)
+                    value += 2; // 本次即触阈值（未登神→登神；已登神→反击）
+                if (
+                    player.hasSkill('bts_sk_dengshen') &&
+                    player.hasSkill('bts_sk_aishi')
+                )
+                    value += 1; // 『纷争』诗：反击后取回血仇，压线可循环
+                return Math.min(9, value);
             },
-            result: { player: 2 },
+            result: {
+                // 施动方：2枚血仇＋（受伤时）回复1
+                player: (player) =>
+                    2 + (player.hp < player.maxHp ? 1 : 0),
+            },
         },
     },
 
     // ── 锁定技·无悔（源 st_wuhui = TriggerSkill Compulsory EventPhaseStart Play，L7926-7940）──
-    // 出牌阶段开始时，失去2点体力，获得1枚血仇标记（V2.2 重做：原「+体力上限祝福+跳弃牌」删去）。
+    // 出牌阶段开始时失去2点体力、获得1枚血仇（V2.2 重做：原「+体力上限祝福+跳弃牌」删去）。
     bts_sk_wuhui: {
         trigger: { player: 'phaseUseBegin' },
         forced: true,
@@ -53,20 +69,18 @@ export const skill = {
             await player.loseHp(2);
             // 源 L7934：player:gainMark("@st_xuechou")
             player.addMark('bts_mk_xuechou', 1);
-            // 源 L7936 return true → 立即终止出牌阶段。trigger 即 phaseUse 事件本身
-            //（phaseUseBegin 为阶段事件 loop 的 Begin 派生点，见核实 F-07）；
-            // 勿用 getParent（排除自身、恒返回 {}，跳过块永不执行）。
+            // 源 L7936 return true → 立即终止出牌阶段。trigger 即 phaseUse 事件本身（Begin 派生点，
+            // 见核实 F-07）；勿用 getParent（排除自身、恒返回 {}，跳过块永不执行）。
             if (trigger.name === 'phaseUse') {
                 trigger.isSkipped = true;
                 trigger.finish();
             }
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·血仇（源 st_xuechou = TriggerSkill Compulsory HpChanged，L7941-7988）──
-    // 扣减体力后获得等量血仇；达到体力上限时：未登神则附加等量体力上限祝福、回复等量体力、
-    // 获得登神并在回合结束时额外出回合；已登神则对伤过你的来源各造成1点暴击伤害。
+    // 扣减体力后获得等量血仇；达体力上限时：未登神 → 附加等量上限祝福、回复等量、获得
+    // 登神并于回合结束时额外出回合；已登神 → 对最近伤害来源造成1点暴击伤害。
     bts_sk_xuechou: {
         trigger: { player: ['damageEnd', 'loseHpEnd'] },
         forced: true,
@@ -81,19 +95,18 @@ export const skill = {
             // 源 L7965/7976：清空血仇
             player.removeMark('bts_mk_xuechou', player.countMark('bts_mk_xuechou'));
             if (!player.hasSkill('bts_sk_dengshen')) {
-                // 源 L7975-7981：未登神 → n=旧体力上限，附加 n 层体力上限祝福、回复 n、
-                // 获得登神、额外回合。注意 n 取加祝福前的体力上限（先记旧值再 addBless）。
+                // 源 L7975-7981：未登神 → n 取加祝福前的体力上限；附加 n 层上限祝福、回复 n、
+                // 获得登神、额外回合。
                 const n = player.maxHp;
                 await lib.bts.api.addBless(player, 'maxhp', n, player);
                 await player.recover(player, n);
                 await player.addSkill('bts_sk_dengshen');
                 lib.bts.api.extraTurn(player, 'bts_extra_turn');
             } else {
-                // 源 L7959-7969：已登神 → 对最近一名伤害来源造成1点 "_critical" 伤害
-                //（V2.2 由 getBless(maxhp) 改为固定 1 点）。源 LastDamagedLink（L1282-1290）为
-                // 单槽：每次伤害先把全部键清空、再只记最近来源 → 目标恒为「最近一名伤害者」。
-                // 用引擎 damage 历史取最后一个有来源的事件替代「全部来源」（原实现遍历全部历史
-                // 来源各打一次，目标数错——C-01；参照 ren.js 倏忽同款取末事件 source）。
+                // 源 L7959-7969：已登神 → 对最近一名伤害来源造成1点 "_critical" 伤害（V2.2 改为
+                // 固定 1 点）。源 LastDamagedLink 为单槽（每次伤害先清键再只记最近来源）→ 目标恒为
+                // 最近伤害者；以 damage 历史末条有来源事件替代（原实现对全部历史来源各打一次，
+                // 目标数错——C-01；参照 ren.js 倏忽同款取末事件 source）。
                 const last = player
                     .getAllHistory('damage')
                     .filter((event) => event.source)
@@ -113,12 +126,11 @@ export const skill = {
                 }
             }
         },
-        ai: { noe: true },
     },
 
-    // ── 锁定技·登神（源 st_dengshen = TriggerSkill Compulsory MarkChanged(@angry/@st_xuechou)/EnterDying，L7989-8054）──
-    // 登神期间：怒气势≥5自动触发诛天；获得血仇标记后弃全部手牌并回复等量体力；
-    // 进入濒死时回复1点体力、移除全部体力上限祝福、退出登神。
+    // ── 锁定技·登神（源 st_dengshen = TriggerSkill Compulsory MarkChanged/EnterDying，L7989-8054）──
+    // 登神期间：怒气≥5 自动触发诛天；获得血仇后弃全部手牌并回复等量体力；濒死时回复1点、
+    // 移除全部上限祝福、退出登神。
     bts_sk_dengshen: {
         charlotte: true,
         trigger: { player: ['dying', 'bts_mark_add', 'bts_mark_remove'] },
@@ -129,9 +141,8 @@ export const skill = {
         },
         async content(event, trigger, player) {
             if (event.triggername === 'dying') {
-                // 源 L8036-8048：回复1点体力（RecoverStruct 默认 1）、移除全部体力上限祝福、退出登神。
-                // 对致死父事件设 nodying 阻断濒死（busi 范式，见 rules/globalBuffs.js）：不 cancel 濒死
-                // 事件，否则濒死未完成结算、_status.dying 不移除；回复至 hp>0 后 dying step2 自然收尾。
+                // 源 L8036-8048：回复1点、移除全部上限祝福、退出登神。对致死父事件设 nodying 阻断濒死
+                //（busi 范式：不 cancel 濒死事件，否则结算不完、_status.dying 不清；hp>0 后 step2 收尾）。
                 const evt = trigger.getParent();
                 if (evt && (evt.name === 'damage' || evt.name === 'loseHp')) evt.nodying = true;
                 await player.recover(player, 1);
@@ -156,7 +167,6 @@ export const skill = {
                 await player.recover(player, n);
             }
         },
-        ai: { noe: true },
     },
 };
 
@@ -169,13 +179,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_wandi_skin1': '皮肤1',
-    'bts_ch_wandi_skin2': '皮肤2',
-    'bts_ch_wandi_skin3': '皮肤3',
-    'bts_ch_wandi_skin4': '皮肤4',
-    'bts_ch_wandi_skin5': '皮肤5',
-    'bts_ch_wandi_skin6': '皮肤6',
-    'bts_ch_wandi_skin7': '皮肤7',
     'bts_ch_wandi_skin1': '皮肤1',
     'bts_ch_wandi_skin2': '皮肤2',
     'bts_ch_wandi_skin3': '皮肤3',
@@ -214,8 +217,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_xuechou_faq',

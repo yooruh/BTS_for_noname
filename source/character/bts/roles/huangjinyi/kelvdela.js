@@ -2,10 +2,9 @@
 // 技能：世棋（必杀技·升变标记）、凯撒（失升变后转移/交换牌）、升变（结束阶段弃杀+标记并授予军功）、
 //       军功（用/弃杀积累升变、结束阶段分摊伤害、防止必杀技伤害）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
-// 军功分摊的 sourceDamage 过滤谓词（内联两处使用）：
-// 源 damaged-play 仅在 damage.from 处于出牌阶段时记录（源 L1364-1365），且于每名角色
-// 出牌阶段开始被 -play 清扫清零（源 L1563-1569）——故分摊只计"本出牌阶段"受害者；
-// 无名杀以伤害事件父链中的 phaseUse（属于军功持有者自己）精确判定，排除响应他人回合等非出牌阶段伤害。
+// 军功分摊的 sourceDamage 过滤谓词（内联两处）：源 damaged-play 仅在伤害来源处于出牌阶段时记录
+//（源 L1364-1365），并于每名角色出牌阶段开始被 -play 清扫（源 L1563-1569）→ 只计「本出牌阶段」受害者；
+// 无名杀以伤害事件父链中的 phaseUse（属于军功持有者自己）判定，排除响应他人回合等非出牌阶段伤害。
 
 export const sort = 'huangjinyi';
 export const title = '风·同谐·执棋的君主'; // 属性·命途
@@ -41,10 +40,20 @@ export const skill = {
                 await player.draw(player, 5 - player.countCards('h'));
         },
         ai: {
+            // AI 口径：怒气≥5（filter 同门）且非空转；收益=2枚升变（军功用杀/决斗攒6层分摊的进度）
+            // ＋星启补牌至5张；升变已近6层或血线告急时更积极（源 animal.lua L8710-8730；源 AI max_shiqi
+            // 估值 9/优先 1：仅 isWeak 或手牌≤2 时使用，StarRail-ai.lua L1375-1394）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_shiqi')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shiqi')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 怒气<5 且无额外怒气上限：不可用
+                let value = 4.5; // 2枚升变：长期资源（供军功分摊/凯撒转移）
+                if (player.countMark('bts_mk_shengbian') >= 4) value += 0.8; // 距6层一步：即将兑现
+                if (player.hp <= 2) value += 0.5; // 血线告急：补牌与推进价值上升（源 AI isWeak 分支）
+                if (lib.bts.api.god(player)) {
+                    const drawn = 5 - player.countCards('h');
+                    if (drawn > 0) value += Math.min(1.5, drawn * 0.4); // 星启：补牌（每张≈0.4）
+                }
+                return Math.min(8, value);
             },
             result: { player: 2 },
         },
@@ -54,7 +63,7 @@ export const skill = {
     // 源描述：「当其他角色获得升变标记后，你获得其一张牌，然后交给其一张牌；
     // 当你获得升变标记后，若有其他角色拥有『军功』，你将全部升变标记转移给其。」
     // 源代码作失去方向（gain<0）——同族 7 处 gain 方向与描述相反的系统性笔误，
-    // 2026-10-02 用户定夺按描述方向实现（bts_mark_add，两分支结算对象随描述重构）。
+    // 定夺按描述方向实现（bts_mark_add，两分支结算对象随描述重构）。
     bts_sk_kaisa: {
         trigger: { global: 'bts_mark_add' },
         forced: true,
@@ -87,12 +96,18 @@ export const skill = {
                 if (player.countCards('h')) {
                     const give = await player
                         .chooseCard('h', '凯撒：交给获得升变者一张手牌')
+                        // AI 口径：锁定技必须交出——取分值最低的手牌；分值保底为正，避免引擎按
+                        // 「最高分≤0」取消而令强制交换只执行一半
+                        .set('ai', (card) =>
+                            typeof card === 'object' && card
+                                ? 100 - get.value(card)
+                                : -1,
+                        )
                         .forResult();
                     if (give.bool) await player.give(give.cards, gainer);
                 }
             }
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·升变（源 st_shengbian = TriggerSkill EventPhaseStart Finish，L8819-8842）──
@@ -113,6 +128,10 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '升变：是否弃置一张【杀】？',
                 )
+                // AI 口径：弃1张【杀】换1枚升变；弃分值最低者，垫底也≥6分则放弃（同风堇·虹光 ai1 范式）
+                .set('ai', (card) =>
+                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
+                )
                 .forResult();
             if (!event.result.bool) return;
             // 无军功角色时，授予军功的目标选择也并入 cost（取消则仅弃杀+1升变）
@@ -124,8 +143,15 @@ export const skill = {
                         '升变：选择一名角色获得军功',
                         [1, 1],
                         () => true,
-                        (target) => get.attitude(player, target),
                     )
+                    // AI 口径：只给友方（军功=用杀/决斗攒升变并在出牌阶段结束分摊伤害，敌方持有反成
+                    // 威胁）；自己保底（世棋为非伤害必杀，不受「防止你必杀技伤害」副作用影响）；
+                    // 全负→引擎取消（源 AI 优先持「身炬」的友方、其次任意友方，StarRail-ai.lua L1396-1407）
+                    .set('ai', (t) => {
+                        if (t === player) return 0.5;
+                        const att = get.attitude(player, t);
+                        return att > 0 ? att + 1 : -1;
+                    })
                     .forResult();
                 if (target.bool) event.result.targets = target.targets;
             }
@@ -141,7 +167,11 @@ export const skill = {
                 target.setStorage('bts_mk_jungong_owner', true, true);
             }
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动决策在 cost 内联（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值——
+            // 弃1张【杀】（≈-1）换1枚升变（长期资源≈+1），净期望≈0.5
+            result: { player: 0.5 },
+        },
     },
 
     // ── 锁定技·军功（源 st_jungong = TriggerSkill Compulsory CardUsed/CardsMoveOneTime/EventPhaseEnd/DamageCaused，L8768-8817）──
@@ -167,10 +197,7 @@ export const skill = {
                     event.getl?.(player)?.hs?.some((card) => get.name(card) === 'sha')
                 );
             if (triggername === 'phaseUseEnd')
-                // 源 L8787：出牌阶段结束且升变>5，且本出牌阶段受到过你伤害的角色存在。
-                // 源口径：damaged-play 于每名角色出牌阶段开始被 gamerule 的 -play 清扫清零
-                // （源 L1563-1569），且仅在"伤害来源处于出牌阶段"时记录（源 L1364-1365）；
-                // 无名杀以当前回合 sourceDamage 历史 + 父链 phaseUse 精确判定"你的出牌阶段"造成的伤害。
+                // 源 L8787：出牌阶段结束、升变≥6 且本阶段受到过你伤害的角色存在（谓词见文件头注释）。
                 return (
                     player.countMark('bts_mk_shengbian') >= 6 &&
                     player
@@ -182,8 +209,8 @@ export const skill = {
                         )
                         .length > 0
                 );
-            // 源 L8810-8814：DamageCaused 且 reason 含 "max_"（必杀技）→ return true 防止
-            // （对照混乱/海妖祝福同款 DamageCaused 防止范式；判定用 bts_bisha 标签，勿用 includes('st_')）
+            // 源 L8810-8814：DamageCaused 且为必杀技 → return true 防止（判定用 bts_bisha 标签，
+            // 勿用 includes('st_')；同混乱/海妖祝福 DamageCaused 防止范式）
             return lib.bts.api.isBishaReason(event.reason);
         },
         async content(event, trigger, player) {
@@ -193,16 +220,12 @@ export const skill = {
                 return;
             }
             if (event.triggername === 'damageBegin1') {
-                // 源 L8810-8814：AddNew(damage,"max_") + return true —— 防止你必杀技造成的伤害
-                // （源描述"防止你必杀技造成的伤害"；原实现误标 _fatal 只免怒气仍造成伤害，已改）
+                // 源 L8810-8814：AddNew(damage,"max_") + return true —— 防止（原实现误标 _fatal
+                // 只免怒气仍造成伤害，已改）
                 trigger.cancel();
                 return;
             }
-            // 源 L8787-8808：出牌阶段结束，升变>5 → 弃6枚，对本出牌阶段受到过你伤害的角色
-            // 造成分摊伤害。源口径：damaged-play 于每名角色出牌阶段开始被 -play 清扫清零
-            // （源 L1563-1569），且仅在"伤害来源处于出牌阶段"时记录（源 L1364-1365）；
-            // 无名杀以当前回合 sourceDamage 历史 + 父链 phaseUse 精确判定你的出牌阶段伤害
-            // （原用 bts_damage_link_ 全阶段累计标记、不清理，与源/描述口径不符，已改）。
+            // 源 L8787-8808：弃6枚升变，对本阶段受过你伤害的角色分摊伤害（谓词见文件头注释）。
             const damages = player.getHistory('sourceDamage', (evt) =>
                 evt.num > 0 &&
                 !!evt.player &&
@@ -239,7 +262,6 @@ export const skill = {
                 await damage;
             }
         },
-        ai: { noe: true },
     },
 };
 
@@ -255,12 +277,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_kelvdela_skin1': '皮肤1',
-    'bts_ch_kelvdela_skin2': '皮肤2',
-    'bts_ch_kelvdela_skin3': '皮肤3',
-    'bts_ch_kelvdela_skin4': '皮肤4',
-    'bts_ch_kelvdela_skin5': '皮肤5',
-    'bts_ch_kelvdela_skin6': '皮肤6',
     'bts_ch_kelvdela_skin1': '皮肤1',
     'bts_ch_kelvdela_skin2': '皮肤2',
     'bts_ch_kelvdela_skin3': '皮肤3',
@@ -297,8 +313,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_shengbian_faq',

@@ -1,12 +1,9 @@
 
 
 // ==================== 配置与常量 ====================
-// 更新模式：
-//   auto  自动选择 —— 代码来自代码包，媒体按 md5 比对（未改动则跳过下载）
-//   code  仅代码 —— 只更新代码，媒体完全不管（不下载、不写入、不删除、不校验）
-//   full  完整覆写 —— 代码 + 全部媒体无条件覆盖
-//   retry_failed —— 仅重试上次失败的文件（非独立模式，见 index.js 的 isRetryMode）
-// （兼容旧值：simple → auto）
+
+// 更新模式：auto 代码包+媒体 md5 比对；code 仅代码；full 全覆盖；
+// retry_failed 仅重试失败文件（非独立模式，见 index.js isRetryMode）。
 const MODES = ['auto', 'code', 'full', 'retry_failed'];
 const DEFAULT_MODE = 'auto';
 

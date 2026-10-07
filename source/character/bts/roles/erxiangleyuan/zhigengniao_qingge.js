@@ -71,9 +71,8 @@ export const skill = {
             lib.bts.api.loseAngry(player, 5); // 源 L10133：LoseAngry(player, 5)
             // 源 L10134：AddAngry(targets[1], 1, player) —— 目标回复1点怒气
             lib.bts.api.addAngry(target, 1, player);
-            // 源 L10135：setPlayerMark(player, "max_kuangxiang"..目标.."-start", 1) ——
-            // 目标于你的下个准备阶段开始前额定摸牌数+1（gamerule_draw L1464，无条件）；
-            // 无名杀以挂临时 buff bts_sk_kuangxiang_buff 近似（已修正：原实现漏整块效果）。
+            // 源 L10135：setPlayerMark(player, "max_kuangxiang"..目标.."-start", 1)——目标于你的
+            // 下个准备阶段开始前额定摸牌数+1（gamerule_draw L1464，无条件）；以临时 buff 近似。
             target.storage.bts_kuangxiang_owner = player.playerid;
             await target.addSkill('bts_sk_kuangxiang_buff');
             // 源 L10136：addPlayerMark(target, "extra_turn") —— 目标执行额外回合
@@ -104,7 +103,6 @@ export const skill = {
                         p.removeSkill('bts_sk_kuangxiang_buff');
                     }
                 },
-                ai: { noe: true },
             },
             // ── 临时技·狂想增益（挂在被赠回合角色身上，源 max_kuangxiang<目标>-start 标记 L10135；
             //   gamerule_draw L1464：目标额定摸牌数+1（无条件，非星启限定）；
@@ -124,22 +122,39 @@ export const skill = {
                 async content(event, trigger, player) {
                     event.num += 1; // 源 gamerule_draw L1464：额定摸牌数+1
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：5怒气必杀赐1名其他角色额外回合+回1怒+下回合摸牌+1；只给友方（源 AI max_kuangxiang
+            // Friends_Angry_AI 取怒气最高友方、无友方不发，StarRail-ai.lua L3948；源 animal.lua L10486-10513）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_kuangxiang')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_kuangxiang')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() && t !== player && get.attitude(player, t) > 0,
+                    )
+                )
+                    return -1; // 无友方可赠：给敌方额外回合为负收益
+                return 8;
             },
-            result: { target: 2 },
+            result: {
+                player: -1, // 5怒气必杀代价（收益在受赠方）
+                // 受赠方：整回合+回1怒（怒气越多越优先，源取怒气最高友方）+摸牌+1
+                target: (player, target) => {
+                    let v = 3;
+                    v += Math.min(2, target.countMark('bts_mk_angry')) * 0.5;
+                    v += target.isDamaged() ? 0.5 : 0;
+                    return v;
+                },
+            },
         },
     },
 
     // ── 锁定技·巡游（源 st_xunyou = TriggerSkill Compulsory Damage/HpRecover，L10150-10163）──
     // 一名角色造成伤害、回复体力或附加护盾后，你获得2枚气氛标记。
-    //（「附加护盾」为源描述承诺、源代码缺事件—— 2026-10-02 用户定夺按描述补实现：监听 bts_mark_add）
+    // （「附加护盾」为源描述承诺、源代码缺事件——定夺按描述补：监听 bts_mark_add）
     bts_sk_xunyou: {
         trigger: { global: ['damageEnd', 'recoverEnd', 'bts_mark_add'] },
         forced: true,
@@ -153,23 +168,25 @@ export const skill = {
             // 源 L10157：p:gainMark("@qifen", 2)
             player.addMark('bts_mk_qifen', 2);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·乐手（源 st_yueshou = TriggerSkill TargetSpecified，L10165-10174）──
     // 当你使用牌指定目标后（目标不含自己），可弃置一张【杀】，召唤晴空乐手。
     bts_sk_yueshou: {
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02）
+        // 召唤忆灵的技能均为 unique:true（定夺）
         unique: true,
-        // 源 TargetSpecified 焦点=牌使用者（QSanguosha gamerule.cpp:635
-        // thread->trigger(TargetSpecified, room, card_use.from, data)）——「你使用牌指定目标后」；
-        // 无名杀以 player:'useCard' 近似（原误用 target:'useCardToTargeted' 方向反转）
+        // 源 TargetSpecified 焦点=牌使用者（QSanguosha gamerule.cpp:635）——「你使用牌指定目标后」；
+        // 以 player:'useCard' 近似。
         trigger: { player: 'useCard' },
         filter(event, player) {
             // 源 L10170：使用非技能牌（not isKindOf("SkillCard")）且目标不含自己
-            // （not use.to:contains(player)），当前未召唤乐手
+            // （not use.to:contains(player)），当前未召唤乐手。非技能牌判据：无名杀实体/直用对象卡
+            // isCard:true、经典转化为 falsy——`!isCard` 恰为反向；改「非转化且非虚拟」
+            //（引擎标准武将同款，extra/skill.js:3057）。
             return (
-                !event.card?.isCard &&
+                !!event.card &&
+                !get.is.convertedCard(event.card) &&
+                !get.is.virtualCard(event.card) &&
                 !event.targets?.includes(player) &&
                 player.getCards('h').some((card) => get.name(card) === 'sha') &&
                 !lib.bts.api.getPet(player, 'qingkongyueshou')
@@ -185,6 +202,9 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                 )
+                // AI 口径：弃1【杀】召唤忆灵（组合形态：+3体力池、得晚风/心跳/和声；心跳首召+1怒；
+                // 离场由晚风赐额外回合）——收益远大于1张【杀】（源 animal.lua L10524-10534；源 AI 无条目）
+                .set('ai', (card) => 6 - get.value(card))
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -193,12 +213,15 @@ export const skill = {
             // 源 L10171：AddPet(player, "qingkongyueshou")
             await lib.bts.api.addPet(player, 'qingkongyueshou');
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动决策在 cost 的 ai（cost 型触发技不询顶层 check）；此 result 供跨技能估值——召唤忆灵=
+            // 组合形态（+3体力池+3技），离场另得额外回合（源 animal.lua L10524-10534）
+            result: { player: 2 },
+        },
     },
 
     // ── 锁定技·万风（源 st_wanfeng = TriggerSkill Compulsory，L10177-10183）──
-    // 源实现为空技能（events 为空、on_trigger 无操作），离场效果硬编码在 RemovePet；
-    // 2026-10-02 自注册重构：改为监听 bts_pet_remove——晴空乐手离场时，执行一个额外回合。
+    // 源壳为空（效果硬编码在 RemovePet）；监听 bts_pet_remove——晴空乐手离场时执行一个额外回合。
     bts_sk_wanfeng: {
         charlotte: true,
         trigger: { player: 'bts_pet_remove' },
@@ -209,12 +232,11 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.api.extraTurn(player, 'bts_extra_turn'); // 乐手离场：额外回合（源 st_wanfeng）
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·心跳（源 st_xintiao = TriggerSkill Compulsory，L10185-10191）──
-    // 源技能壳为空、效果硬编码在 AddPet；2026-10-02 自注册重构：改为监听 bts_pet_add——
-    // 首次召唤 +1 怒气（源 st_xintiao 首起分支）、在场重复召唤 +6 气氛（源 L812-814）。
+    // 源壳为空（效果硬编码在 AddPet）；监听 bts_pet_add——首次召唤 +1 怒气（源首起分支）、
+    // 重复召唤 +6 气氛（源 L812-814）。
     bts_sk_xintiao: {
         charlotte: true,
         trigger: { player: 'bts_pet_add' },
@@ -227,15 +249,12 @@ export const skill = {
                 player.addMark('bts_mk_qifen', 6); // 重复召唤：+6 气氛（源 L812-814）
             else lib.bts.api.addAngry(player); // 首次召唤：+1 怒气（源 st_xintiao 首起分支）
         },
-        ai: { noe: true },
     },
 
-    // ── 锁定技·和声（源 st_hesheng = TriggerSkill Compulsory MarkChanged/TurnOver，L10552-10585）──
-    // 气氛达12时翻面；此后每回合开始时结算：弃气氛（min(气氛, max(12, 气氛/2))，向下取整）、
-    // 对上个伤害你的角色造成风属性伤害，气氛耗尽时移除晴空乐手。
-    // 定夺 2026-09-12（A-12）对齐源代码：MarkChanged 当场翻面 + 以 subskill 在每回合开始时结算
-    //（源 TurnOver 分支 return true 防翻回，但无名杀引擎不自动翻回/跳过面朝下角色的回合，
-    //  故无对应防回逻辑；恢复朝上发生在气氛耗尽移除乐手时）。
+    // ── 锁定技·和声（源 st_hesheng，L10552-10585）──
+    // 气氛达 12 时翻面；此后每回合开始结算：弃气氛（min(气氛, max(12, 气氛/2))）、对上个伤害你者
+    // 造成风属性伤害，气氛耗尽移除晴空乐手并恢复朝上。源 TurnOver 的防翻回分支在本引擎无对应
+    //（不自动翻回/跳过面朝下回合）；以 subskill phaseZhunbeiBegin 承载同款结算（定夺 A-12）。
     bts_sk_hesheng: {
         trigger: { player: 'bts_mark_add' },
         forced: true,
@@ -248,9 +267,8 @@ export const skill = {
                 !player.isTurnedOver()
             );
         },
-        group: ['bts_sk_hesheng_turn'],
-        // 源 EventAcquireSkill/LoseSkill 重置 st_hesheng 标记（L10578-10582）——
-        // 无名杀以 init（忆灵形态获得本技能时）清零等效
+        group: ['bts_sk_hesheng_turn', 'bts_sk_hesheng_leave', 'bts_sk_hesheng_die'],
+        // 源 EventAcquireSkill/LoseSkill 重置 st_hesheng（L10578-10582）——以 init（获得本技能时）等效。
         init(player) {
             const n = player.countMark('bts_mk_hesheng_used');
             if (n > 0) player.removeMark('bts_mk_hesheng_used', n);
@@ -259,11 +277,15 @@ export const skill = {
             // 源 L10560-10562：MarkChanged 分支 —— turnOver() 翻面 + 记标记
             player.addMark('bts_mk_hesheng_used', 1);
             await player.turnOver();
+            // 技能 BGM：翻面后切专属曲（从 9s 起播；还原由 leave/die 手动调用）。
+            lib.bts.bgm.switch({
+                file: 'bts_ch_zhigengniao_qingge',
+                startAt: 9,
+            });
         },
         subSkill: {
-            // 每回合开始结算（源 TurnOver 分支 L10564-10577：面朝下角色于自己回合开始时被尝试
-            // 翻回，和声拦截之并结算二重效果）。无名杀引擎 turnOver 仅切换 class、不自动跳回合，
-            // 故以 phaseZhunbeiBegin 触发同款结算。
+            // 每回合开始结算（源 TurnOver L10564-10577：面朝下角色回合开始时被尝试翻回，和声拦截并
+            // 结算二重效果）。本引擎 turnOver 仅切换 class，故以 phaseZhunbeiBegin 承载。
             turn: {
                 trigger: { player: 'phaseZhunbeiBegin' },
                 forced: true,
@@ -272,15 +294,14 @@ export const skill = {
                 },
                 async content(event, trigger, player) {
                     // 源 L10565：loseMark("@qifen", min(气氛, max(12, 气氛/2)))
-                    // 取整：定夺 2026-09-12（A-09）按源浮点截断 → Math.floor（偶/≤24 与 ceil 同值，
-                    // 仅奇 qifen≥25 差 1）
+                    // 取整（定夺 A-09）：按源浮点截断 → Math.floor（仅奇 qifen≥25 与 ceil 差 1）。
                     const spent = Math.min(
                         player.countMark('bts_mk_qifen'),
                         Math.max(12, Math.floor(player.countMark('bts_mk_qifen') / 2)),
                     );
                     player.removeMark('bts_mk_qifen', spent);
-                    // 源 L10566-10572：对 LastDamagedLink>0 者（=上个伤害你者，须存活）造成 "_wind"
-                    // 风属性伤害；用引擎 damage 历史（你受到的伤害）末尾来源取上个伤害者（同风堇·走开范式）
+                    // 源 L10566-10572：对上个伤害你者（须存活）造成风属性伤害；取 damage 历史末尾
+                    // 来源（同风堇·走开范式）。
                     const last = player
                         .getAllHistory('damage')
                         .filter((ev) => ev.source)
@@ -297,10 +318,33 @@ export const skill = {
                         if (player.isTurnedOver()) await player.turnOver();
                     }
                 },
-                ai: { noe: true },
+            },
+            // ── 子技·离场 BGM 还原（和声结算移除 / 忆灵生命归零移除都经 bts_pet_remove：
+            //   removePet 先派发事件、此刻忆灵形态技能仍挂载）──
+            leave: {
+                trigger: { player: 'bts_pet_remove' },
+                forced: true,
+                // 主人已阵亡时如有离场清理（忆灵随主处理等）也须还原——BGM 为全局状态，
+                // 不依赖拥有者存活，同样放开死亡拦截
+                forceDie: true,
+                filter(event, player) {
+                    return event.pet === 'qingkongyueshou';
+                },
+                async content(event, trigger, player) {
+                    lib.bts.bgm.restore('bts_ch_zhigengniao_qingge');
+                },
+            },
+            // ── 子技·阵亡 BGM 还原（和声翻面后未及离场即阵亡）──
+            die: {
+                trigger: { player: 'dieAfter' },
+                forced: true,
+                // 死亡后触发：die 流程先标 dead 再派发 dieAfter，默认触发器被拦，须 forceDie
+                forceDie: true,
+                async content(event, trigger, player) {
+                    lib.bts.bgm.restore('bts_ch_zhigengniao_qingge');
+                },
             },
         },
-        ai: { noe: true },
     },
 };
 
@@ -368,8 +412,7 @@ export const pinyins = {
     '知更鸟&晴空乐手': ['zhī', 'gēng', 'niǎo', '&', 'qíng', 'kōng', 'yuè', 'shǒu'],
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_qifen_faq',

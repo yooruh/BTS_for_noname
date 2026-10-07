@@ -1,20 +1,15 @@
-// 安卓（cordova）文件接口兼容垫片（2026-09-29 手机版实测后新增）。
+// 安卓（cordova）文件接口兼容垫片。
 //
 // 背景：安卓 APP 环境下，引擎 `game.getFileList`（noname/init/cordova.js）经
-// `window.resolveLocalFileSystemURL` 调原生 `resolveLocalFileSystemURI`。在部分路径上
-// （实测：扩展目录含中文的 `extension/崩铁杀/image/skin/...`，即资料卡 charactercard
-// 的「可换肤」目录扫描）原生侧会直接抛 Java 异常：
-//   "Error invoking exec: Java exception was raised during method invocation"
-// 该异常**同步**从 cordova 桥的 exec 抛回 JS —— 失败回调不会执行，而是沿调用栈一路炸到
-// 事件层（无名杀全屏报错弹窗；若发生在长按/点击链路还会连带 UI 爆炸）。
-// （报错栈：resolveLocalFileSystemURL.js:85 → cordova.js:992 → game.getFileList →
-//  Click.charactercard → Click.avatar）
+// `window.resolveLocalFileSystemURL` 调原生 `resolveLocalFileSystemURI`；扩展目录含中文路径
+// （如资料卡换肤扫描 `extension/崩铁杀/image/skin/...`）时原生侧会**同步**抛 Java 异常
+//（"Error invoking exec: Java exception was raised during method invocation"），失败回调
+// 不执行、异常沿调用栈炸到事件层（无名杀全屏报错弹窗；长按/点击链路还会连带 UI 爆炸）。
 //
-// 处理：包装 `window.resolveLocalFileSystemURL`（及旧别名 resolveLocalFileSystemURI）——
-// ① 同步抛错时先按 encodeURI 重试一次（中文/空格路径的 URI 解析修正）；
-// ② 仍失败则把异常转交给失败回调（缺省仅 console.warn）。这样调用方（getFileList 的
-//    failure 分支等）按既有失败路径收尾（如资料卡跳过「可换肤」区块），不再炸 UI。
-// 仅 cordova 环境安装；桌面（Node/Electron）与浏览器环境零影响。
+// 处理：包装 `window.resolveLocalFileSystemURL`（及旧别名 resolveLocalFileSystemURI）：
+// ① 同步抛错先按 encodeURI 重试一次（中文/空格路径的 URI 解析修正）；② 仍失败则把异常
+// 转交失败回调（缺省仅 console.warn），调用方（getFileList 的 failure 分支等）按既有失败
+// 路径收尾（如资料卡跳过「可换肤」区块）。仅 cordova 环境安装；桌面/浏览器环境零影响。
 
 /** 给 cordova 的文件解析函数套一层「同步异常 → 失败回调」的垫片。幂等。 */
 function wrapResolveFile(urlGetter = () => window.resolveLocalFileSystemURL) {

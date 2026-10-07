@@ -32,9 +32,17 @@ export const skill = {
             await player.draw(player, 4); // 源 L5648：player:drawCards(4)
         },
         ai: {
+            // AI 口径：怒气≥3（filter 同门）即接——摸4≈两张【无中生有】（源 AI max_anke 估值
+            // ExNihilo+1、无手牌条件，StarRail-ai.lua L2150-2165）；空手时摸4更能翻盘，
+            // 手牌将溢出（≥6）时降档
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_anke') ? -1 : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_anke')) return -1;
+                let v = 6;
+                if (player.countCards('h') <= 2) v += 1;
+                else if (player.countCards('h') >= 6) v -= 1;
+                return v;
             },
+            // 摸4折算2点摸牌收益（跨技能估值）
             result: { player: 2 },
         },
     },
@@ -49,7 +57,6 @@ export const skill = {
             await player.draw(player);
             lib.bts.api.addAbnormal(player, 'confuse', 1, player);
         },
-        ai: { noe: true },
     },
 
     // ── 主动技·捞月（源 st_laoyue = ViewAsSkill n=4 + SkillCard，L5682-5720）──
@@ -59,9 +66,7 @@ export const skill = {
         enable: 'phaseUse',
         filterCard(card, player) {
             // 源 view_filter（L5693-5699）：首张任意（可单张【杀】），后续须与首张同花色、至多4张。
-            // 已修正：原实现 `get.suit(card) === get.suit(card)` 恒真，同花约束失效（手牌≥4 时任意
-            // 牌可选、选错花色在 content 空转）；现经 ui.selected.cards 读当前选中牌判同花
-            // （参照叁岛 zhangshengjie9 同款"四同花"写法）。
+            // 同花约束须经 ui.selected.cards 读当前选中牌判定（参照叁岛 zhangshengjie9 同款"四同花"写法）。
             const selected = ui.selected?.cards || [];
             if (!selected.length) return true;
             if (selected.length >= 4) return false;
@@ -75,9 +80,8 @@ export const skill = {
             return player.countCards('h') > 0;
         },
         filterTarget(card, player, target) {
-            // 四同花视为【杀】的目标（源 L5708：clone slash；目标须在攻击范围内）。
-            // 源描述"无目标数限制"只放宽目标数、距离仍按正常【杀】判定（canSlash）。
-            // 已修正：补 inRange 距离校验（原实现漏，可隔全场打人，与灵砂·浮元同款判定对照）。
+            // 四同花视为【杀】的目标（源 L5708：clone slash）：距离仍按正常【杀】判定（canSlash），
+            // 仅放宽目标数——须校验 player.inRange（对照灵砂·浮元同款判定）。
             return target !== player && player.inRange(target);
         },
         selectTarget: [0, Infinity],
@@ -95,26 +99,81 @@ export const skill = {
             const suit = get.suit(cards[0]);
             if (cards.some((card) => get.suit(card) !== suit)) return;
             await player.discard(cards);
-            // 源 L5676：RemoveAbnormal(player, "@abnormal_confuse")（默认移除1层，L622-626）
-            // 已修正：原 -1 会移除全部混乱层，源只移除1层。
+            // 源 L5676：RemoveAbnormal 默认移除1层（L622-626）——勿传 -1（会清空全部层）。
             lib.bts.api.removeAbnormal(player, 'confuse', 1);
             // 源 L5674：Global_PlayPhaseTerminated 结束出牌阶段
             lib.bts.api.endPlayPhase(player);
             await player.useCard({ name: 'sha', isCard: true }, event.targets || []);
         },
+        // 捞月选牌决策（顶层 check、非 ai.check——引擎读取点 ai/basic.js chooseCard：非 viewAs 技能
+        // 取 info.check || get.unuseful2）：只对合法牌集计正分，避免默认填满4张导致 content 空转；
+        // 模式判定与 ai.order 同源（参照源 AI st_laoyue，StarRail-ai.lua L2168-2217）
+        check(card) {
+            if (!card || typeof card !== 'object') return 0; // 技能按钮等非牌候选不计分
+            const player = get.player();
+            if (!player) return -1;
+            const groupSuit = laoyueGroupSuit(player);
+            const canB = laoyueCanGroup(player);
+            if (canB && lib.bts.api.getAbnor(player, 'confuse'))
+                return get.suit(card) === groupSuit ? 4 : -1; // 模式 B：同花组填满4张
+            const firstSha = player.getCards('h').find((c) => get.name(c) === 'sha');
+            if (firstSha) return card === firstSha ? 4 : -1; // 模式 A：仅取一张【杀】
+            if (canB) return get.suit(card) === groupSuit ? 4 : -1; // 模式 B 兜底
+            return -1;
+        },
         ai: {
+            // AI 口径：参照源 AI st_laoyue（StarRail-ai.lua L2168-2217）——有【杀】优先模式 A
+            //（弃1【杀】摸2）；否则凑齐同花四张时走模式 B（视为【杀】）；自身带混乱（造成的伤害
+            // 无效）且可走模式 B 时最积极——本技是唯一清混乱手段
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_laoyue') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_laoyue')) return -1;
+                const canA = player.getCards('h').some((card) => get.name(card) === 'sha');
+                const canB = laoyueCanGroup(player);
+                if (!canA && !canB) return -1; // 两种模式均不成立：否决（防空转）
+                if (canB && lib.bts.api.getAbnor(player, 'confuse')) return 6; // 清混乱+当【杀】
+                return 5; // 弃杀摸2 / 四同花当【杀】（源估值 ExNihilo+1 档）
             },
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1, // 模式 A 摸2 / 模式 B 清1层混乱折算
+                // 模式 B 视为【杀】：1点伤害，可击杀加权
+                target: (player, target) => (target.hp <= 1 ? -4 : -1.5),
+            },
         },
     },
 };
 
+// 捞月模式判定（AI order 与选牌 check 共用口径）：手牌中是否凑得齐同花四张（模式 B 前置）。
+// 模式 B 当【杀】须有攻击范围内敌方目标（本库 selectTarget 允许 0 目标，AI 仍要求有目标）。
+export function laoyueCanGroup(player) {
+    if (!laoyueGroupSuit(player)) return false;
+    return game.hasPlayer(
+        (t) =>
+            t.isAlive() &&
+            t !== player &&
+            get.attitude(player, t) < 0 &&
+            player.inRange(t),
+    );
+}
+// 返回手牌中张数≥4的花色（取张数最多者）；无则 null
+export function laoyueGroupSuit(player) {
+    const counts = {};
+    for (const card of player.getCards('h')) {
+        const suit = get.suit(card);
+        counts[suit] = (counts[suit] || 0) + 1;
+    }
+    let suit = null,
+        num = 0;
+    for (const s in counts) {
+        if (counts[s] >= 4 && counts[s] > num) {
+            suit = s;
+            num = counts[s];
+        }
+    }
+    return suit;
+}
+
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_qingque_skin1': '皮肤1',
-    'bts_ch_qingque_skin2': '皮肤2',
     'bts_ch_qingque_skin1': '皮肤1',
     'bts_ch_qingque_skin2': '皮肤2',
     bts_ch_qingque: '青雀',

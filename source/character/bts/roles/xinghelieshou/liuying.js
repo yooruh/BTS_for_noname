@@ -21,8 +21,8 @@ export const skill = {
         bts_bisha: true,
         enable: 'phaseUse',
         filter(event, player) {
-            // 源 enabled_at_play（L2652-2666）用 "-time" 标记叠怒气成本但未封顶；
-            // 源描述承诺"至多为2"，按描述补 cap（灼世死代码同款定夺：描述即意图）
+            // 源 L2652-2666 的 "-time" 叠怒气成本未封顶；按源描述"至多为2"补 cap
+            //（灼世死代码同款定夺：描述即意图）
             const n = Math.min(2, player.countMark('bts_mk_huoying-time'));
             return (
                 !lib.bts.api.getBless(player, 'fullburn') && lib.bts.api.getAngry(player, 3 + n)
@@ -41,7 +41,9 @@ export const skill = {
         group: ['bts_sk_huoying_after'],
         subSkill: {
             after: {
+                // 源 max_huoying EventPhaseStart·NotActive 分支：回合结束自动 满燃+额外回合（无询问）。
                 trigger: { player: 'phaseJieshuBegin' }, // 源 NotActive 回合结束
+                forced: true,
                 filter(event, player) {
                     return player.countMark('bts_sk_huoying') > 0;
                 },
@@ -54,14 +56,19 @@ export const skill = {
                     lib.bts.api.extraTurn(player, 'bts_extra_turn'); // 额外回合（由 resolver phaseAfter 结算）
                     game.log(player, '因【火萤】将执行一个额外回合');
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：代价=失3+X怒气并结束出牌阶段，收益=回合末+2满燃与额外回合；
+            // 手握【杀】先出牌（本阶段内排序靠后），无杀则尽快转入额外回合（源 animal.lua L2643-2676）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_huoying')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_huoying'))
+                    return -1;
+                if (lib.bts.api.getBless(player, 'fullburn')) return -1;
+                const n = Math.min(2, player.countMark('bts_mk_huoying-time'));
+                if (!lib.bts.api.getAngry(player, 3 + n)) return -1;
+                // 还有【杀】可打→2（低于杀 order≈3.2，自然排到出完牌后）；无杀→8 尽快换额外回合
+                return player.countCards('h', 'sha') > 0 ? 2 : 8;
             },
             result: { player: 1 },
         },
@@ -71,8 +78,7 @@ export const skill = {
     // 出牌阶段开始时，可弃置一张【杀】：若无完全燃烧祝福，失去2点体力回复3点怒气；
     // 否则回复1点体力并选择一名角色，令其附加炎、弃其一张手牌（目标空手则跳过整段弃牌），
     // 然后弃所有烧伤/炎角色各一张手牌，对其造成1点炎属性伤害。
-    // （已修正：原实现为 enable 主动技、出牌阶段任意时刻不限次；源为出牌阶段开始时触发
-    //   一次（EventPhaseStart+Player_Play+askForCard），按用户定夺对齐源，改 trigger+cost）
+    //（定夺：源为出牌阶段开始触发一次，故取 trigger+cost，非 enable 不限次主动技）
     bts_sk_tianhuo: {
         trigger: { player: 'phaseUseBegin' },
         filter(event, player) {
@@ -100,12 +106,21 @@ export const skill = {
                         '天火：选择一名角色',
                         [1, 1], // 源描述「选择一名角色」——自指允许（源 filter 无 ~=Self，见 S5/一刀先例）
                     )
+                    // AI 口径：优先敌方（1点炎伤+附加炎）；异属性目标吃元素相克+1，自指/友方不选
+                    .set('ai', (t) => {
+                        if (t === player) return -1;
+                        if (get.attitude(player, t) >= 0) return -1;
+                        let s = 2 - get.attitude(player, t) / 4;
+                        const nat = lib.bts.api.getNature(null, t);
+                        if (nat && nat !== 'flame') s += 0.5;
+                        return s;
+                    })
                     .forResult();
                 if (!r.bool) return;
                 const target = r.targets[0];
                 await lib.bts.api.addNature(target, 'flame'); // 源 AddNature(target, "fire")
                 // 源 L2697-2708：整段弃牌（目标 + 烧伤/炎角色）嵌套在「目标有手牌」内，
-                // 目标空手则全部不弃（已修正：原实现把烧伤/炎角色弃牌放到判断外，目标空手仍弃）
+                // 目标空手则全部不弃（勿把烧伤/炎角色弃牌移到判断外）
                 if (target.countCards('h') > 0) {
                     await target.chooseToDiscard(
                         '天火：弃置一张手牌',
@@ -138,12 +153,24 @@ export const skill = {
                 lib.bts.api.addAngry(player, 3); // 源 AddAngry 3
             }
         },
+        // AI 口径：有满燃→弃1杀换1回复+1炎伤+全场炎/烧伤者弃牌，场上有敌人即发动；
+        // 无满燃→失2体力回3怒（火萤燃料），血线≥3才承伤（源 animal.lua L2677-2715）
+        check(trigger, player, triggername) {
+            if (lib.bts.api.getBless(player, 'fullburn'))
+                return game.hasPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) < 0,
+                );
+            return player.hp >= 3;
+        },
         ai: { result: { player: 1 } },
     },
 
     // ── 锁定技·中枢（源 st_zhongshu = TriggerSkill Compulsory DamageInflicted，L2716-2728）──
     bts_sk_zhongshu: {
-        // 受方减免槽（源 DamageInflicted = 无名杀 damageBegin4，见核实 A-13；原挂 damageBegin2 为造成方减免槽）
+        // 受方减免槽（源 DamageInflicted = damageBegin4，见核实 A-13）——damageBegin2 为造成方减免槽，勿互换。
         trigger: { player: 'damageBegin4' },
         forced: true,
         filter(event, player) {
@@ -163,7 +190,17 @@ export const skill = {
                 return player.maxHp;
             },
         },
-        ai: { noe: true },
+        ai: {
+            // AI 口径：体力≤1 时受到伤害-1（必杀技伤害不减免，此处近似未细分）——受损评估×0.5，
+            // 供敌方出牌 AI 感知（与藤甲 ai.effect.target 同机制、方向相反；源 animal.lua L2716-2728）
+            effect: {
+                target(card, player, target, current) {
+                    if (current >= 0 || !card) return;
+                    if (!get.tag(card, 'damage')) return;
+                    if (target.hp <= 1) return 0.5;
+                },
+            },
+        },
     },
 };
 
@@ -190,22 +227,6 @@ export const translate = {
     'bts_ch_liuying_skin8': '皮肤8',
     'bts_ch_liuying_skin9': '皮肤9',
     'bts_mk_huoying-time': '火萤次数',
-    'bts_ch_liuying_skin1': '皮肤1',
-    'bts_ch_liuying_skin10': '皮肤10',
-    'bts_ch_liuying_skin11': '皮肤11',
-    'bts_ch_liuying_skin12': '皮肤12',
-    'bts_ch_liuying_skin13': '皮肤13',
-    'bts_ch_liuying_skin14': '皮肤14',
-    'bts_ch_liuying_skin15': '皮肤15',
-    'bts_ch_liuying_skin16': '皮肤16',
-    'bts_ch_liuying_skin2': '皮肤2',
-    'bts_ch_liuying_skin3': '皮肤3',
-    'bts_ch_liuying_skin4': '皮肤4',
-    'bts_ch_liuying_skin5': '皮肤5',
-    'bts_ch_liuying_skin6': '皮肤6',
-    'bts_ch_liuying_skin7': '皮肤7',
-    'bts_ch_liuying_skin8': '皮肤8',
-    'bts_ch_liuying_skin9': '皮肤9',
     bts_ch_liuying: '流萤',
     bts_sk_huoying: '火萤',
     bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，你可以失去3+X点${get.poptip('bts_glossary_nuqi_faq')}（X为你发动此技能结算完毕的次数且至多为2），结束此阶段，若如此做，此回合结束时，你附加2层${get.poptip('bts_glossary_bless_fullburn_faq')}，执行一个额外的回合。`,
@@ -257,8 +278,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_fullburn_faq',

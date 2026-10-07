@@ -1,4 +1,4 @@
-// 崩铁杀势力单一来源（阶段2 自 rules/markRegistry.js KINGDOMS/KINGDOM_COLORS 迁入）。
+// 崩铁杀势力单一来源。
 // 消费方：precontent.js registerKingdoms（game.addGroup）、tool/pack/rolePack.js
 // createCharacterSort（按 sort 分组）、character/bts/index.js fullTranslate（势力名）。
 // 内容层：只维护势力 id/显示名/颜色；勿在别处再登记同名势力。

@@ -42,12 +42,23 @@ export const skill = {
                 lib.bts.api.addShield(target, 1, player);
         },
         ai: {
+            // AI 口径：4怒=自己+至多全体非己角色各1层护盾（每层抵御1点伤害、贯通不抵）；量级随
+            // 友军数（源 AI max_yongyi：Friends_AI(-2)=只带友方，且需有 friends_noself 才发动）
+            //（源 max_yongyi L3909-3931）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yongyi')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yongyi')) return -1;
+                let friends = 0;
+                for (const t of game.players) {
+                    if (t.isAlive() && t !== player && get.attitude(player, t) > 0) friends++;
+                }
+                if (!friends) return -1; // 仅自己1层不值4怒（源 AI 同门：无 friends_noself 不发动）
+                return Math.min(7, Math.round(4 + Math.min(3, friends * 1.2)));
             },
-            result: { player: 1, target: 1 },
+            result: {
+                // 施动方：自己+1护盾；目标侧：友军每名+1护盾（残血者更可能立即承伤）
+                player: 1,
+                target: (player, target) => (target.hp <= 2 ? 1.5 : 1),
+            },
         },
     },
 
@@ -66,13 +77,16 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L3940：askForCard(player, "Slash")
+            // 源 L3940：askForCard(player, "Slash")。本技为 cost 型触发技：发动与否由下方内联 AI 决定。
+            // AI 口径：仅对敌方来源发动（源 AI StarRail-ai.lua @st_zhenshe→ThrowSlash_AI：非敌返回不发）；
+            // 冻结=伤害基数-1+禁用装备牌，对攻击者威慑高；弃估值最低的【杀】（源 st_zhenshe L3933-3946）
             const result = await player
                 .chooseBool(
                     '震慑：是否弃置一张【杀】令' +
                         get.translation(trigger.player) +
                         '附加1层冻结？',
                 )
+                .set('ai', () => get.attitude(player, trigger.player) < 0)
                 .forResult();
             if (!result.bool) {
                 event.result = { bool: false };
@@ -84,6 +98,7 @@ export const skill = {
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
                 )
+                .set('ai', (card) => 6 - get.value(card)) // 弃估值最低的【杀】（源 AI sortByUseValue）
                 .forResult();
             if (!cards.bool) {
                 event.result = { bool: false };
@@ -97,13 +112,15 @@ export const skill = {
             if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
             lib.bts.api.addAbnormal(trigger.player, 'freeze', 1, player); // 源 L3943：AddAbnormal(use.from, "@abnormal_freeze")
         },
+        // 触发技（cost 型）：发动决策在 cost 内联 AI；result 供跨技能估值查询（冻结≈攻击者伤害基数-1+禁装备）
         ai: { result: { player: 1, target: -1 } },
     },
 
     // ── 觉醒技·刚正（源 st_gangzheng = TriggerSkill Skill_Wake EnterDying，L3948-3960）──
-    // 当你进入濒死状态时，回复体力至 maxHp/2（至少1），此技能仅发动一次。
+    // 当你进入濒死状态时，回复体力至体力上限的一半（至多1点），此技能仅发动一次。
     bts_sk_gangzheng: {
         trigger: { player: 'dying' },
+        forced: true, // 觉醒技（源 Compulsory 语义）：濒死自动回复，无询问
         filter(event, player) {
             // 源 L3954：濒死且未觉醒
             return player.countMark('bts_sk_gangzheng') === 0;
@@ -124,14 +141,11 @@ export const skill = {
                     : '当你进入濒死状态时，回复体力至体力上限的一半（至多1点），此技能仅发动一次。',
         },
         markimage: `${extensionPath}/image/mark/bts_sk_gangzheng.png`,
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_jiepade_skin1': '皮肤1',
-    'bts_ch_jiepade_skin2': '皮肤2',
     'bts_ch_jiepade_skin1': '皮肤1',
     'bts_ch_jiepade_skin2': '皮肤2',
     bts_ch_jiepade: '杰帕德',

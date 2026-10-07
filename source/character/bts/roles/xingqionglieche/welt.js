@@ -41,13 +41,30 @@ export const skill = {
             if (lib.bts.api.god(player)) player.addMark('bts_mk_skill_moment', 1); // 源 L2126：仪式瞬发
         },
         ai: {
+            // AI 口径：4 怒→净耗 3（施放回 1 怒，源 L2124）；跳过敌方下个回合≈废其一整轮行动，
+            // 对存活强敌收益最大；星启附加「仪式瞬发」为断界资源（源 L2126）。（源 animal.lua L2118-2132）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_nidong')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_nidong'))
+                    return -1;
+                let val = lib.bts.api.getAngry(player) >= 6 ? 7 : 5;
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0 &&
+                            t.hp > 2,
+                    )
+                )
+                    val += 0.5; // 健康强敌更值得跳回合
+                return val;
             },
             threaten: 2,
-            result: { player: 1, target: -2 },
+            result: {
+                player: 1,
+                // 目标受损：跳过下一回合（≈损失一次完整行动）；濒死目标可能先死，价值略降
+                target: (player, target) => (target.hp <= 1 ? -1.5 : -2.5),
+            },
         },
     },
 
@@ -67,7 +84,6 @@ export const skill = {
                 player.countMark('bts_mk_skill-clear') > 0
             );
         },
-        logTarget: 'player',
         async content(event, trigger, player) {
             await trigger.player.chooseToDiscard(
                 '扭曲：弃置一张手牌',
@@ -76,7 +92,6 @@ export const skill = {
                 true,
             ); // 源 askForDiscard(damage.to, 1, 1)
         },
-        ai: { noe: true },
     },
 
     // ── 断界（源 st_duanjie = ViewAsSkill n=2 + TriggerSkill Pindian/TurnOver，L2152-2217）──
@@ -100,8 +115,8 @@ export const skill = {
             const target = event.targets[0];
             if (!target) return;
             await player.discard(event.cards); // 源 throwCard(subcards.first())：弃置【杀】
-            // 定夺 2026-09-12（B-06）：维持引擎拼点仅手牌。源 view_filter（L2246-2254）允许装备区
-            // 未装备的牌（如木牛流马内存牌），引擎 chooseToCompare 默认 event.position="h"（content.js
+            // 定夺（B-06）：维持引擎拼点仅手牌。源 view_filter（L2246-2254）允许装备区
+            // 未装备的牌（如木牛流马内存牌），引擎 chooseToCompare 默认 position="h"（content.js
             // L6502-6503）仅手牌，未移植（成本高、边角）。
             const result = await player.chooseToCompare(target).forResult();
             if (result.cancelled) return;
@@ -127,7 +142,9 @@ export const skill = {
         group: ['bts_sk_duanjie_ritual'],
         subSkill: {
             ritual: {
+                // 源 L2170 为断界结算（翻面后自动摸仪式层数牌，无询问）→ forced。
                 trigger: { player: 'turnOverAfter' },
+                forced: true,
                 filter(event, player) {
                     return player.countMark('bts_sk_duanjie') > 0;
                 },
@@ -136,18 +153,39 @@ export const skill = {
                     player.removeMark('bts_sk_duanjie', n);
                     await player.draw(player, n); // 源 L2170：翻面后摸仪式层数张牌
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：弃 1 杀+拼点（引擎随机抽牌，胜负各半）：没赢者翻面≈失去下个回合，期望≈半轴；
+            // 仪式瞬发直接摸 1（源 L2170）、敌方手牌少时胜率更高；自己手牌少时翻面风险大。（源 animal.lua L2152-2217）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_duanjie')
-                    ? -1
-                    : 4;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_duanjie'))
+                    return -1;
+                let val = 4;
+                if (player.countMark('bts_mk_skill_moment') > 0) val += 1; // 仪式瞬发：+1 摸牌
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0 &&
+                            t.countCards('h') <= 1,
+                    )
+                )
+                    val += 1; // 敌方牌少难以赢拼点
+                if (player.countCards('h') <= 2) val -= 1; // 手牌薄：翻面自己风险大
+                return val;
             },
             useful: 2,
             value: 4,
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1,
+                // 目标受损：拼点负方翻面（五成）≈半次行动损失；牌少者更易输
+                target: (player, target) =>
+                    target.countCards('h') <= player.countCards('h')
+                        ? -1.5
+                        : -0.75,
+            },
         },
         // 仪式层数在头像可见（真技能 mark:true 范式，素材文件名即技能 ID）
         mark: true,
@@ -162,14 +200,6 @@ export const skill = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_welt_skin1': '皮肤1',
-    'bts_ch_welt_skin2': '皮肤2',
-    'bts_ch_welt_skin3': '皮肤3',
-    'bts_ch_welt_skin4': '皮肤4',
-    'bts_ch_welt_skin5': '皮肤5',
-    'bts_ch_welt_skin6': '皮肤6',
-    'bts_ch_welt_skin7': '皮肤7',
-    'bts_ch_welt_skin8': '皮肤8',
     'bts_ch_welt_skin1': '皮肤1',
     'bts_ch_welt_skin2': '皮肤2',
     'bts_ch_welt_skin3': '皮肤3',

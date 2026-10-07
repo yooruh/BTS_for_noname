@@ -12,6 +12,8 @@ export let type = 'extension';
 export default async function () {
 	// 特别提醒+最低版本限制
 	const btsVersion = "26.10.3.1", minGameVersion = "1.10.0".split('.').slice(), gameVersion = lib.version.split('.').slice();
+	// 版本号写入后的「最多自动重载一次」标记，防止写盘异常时无限重载
+	const versionReloadLock = 'bts_version_reload_lock';
 	const alertsConfig = [
 		{
 			id: 'gameVersion',
@@ -79,12 +81,21 @@ export default async function () {
 	if (game.getExtensionConfig('崩铁杀', 'version') != btsVersion) {
 		game.saveExtensionConfig('崩铁杀', 'version', btsVersion);
 		// 附加功能判断时间早于init应用，首次启动时对应配置为空，故手动应用默认配置并重载游戏
+		// 逐键保存；不能调用无参 saveConfig（手机版会清空整个配置库）
 		Object.keys(config).forEach(s => {
 			if (s.startsWith('bts_') || s === "intro") return;
-			lib.config['extension_崩铁杀_' + s] = lib.config['extension_崩铁杀_' + s] ?? config[s].init;
+			const key = 'extension_崩铁杀_' + s;
+			if (lib.config[key] == null && config[s] && "init" in config[s]) {
+				game.saveConfig(key, config[s].init);
+			}
 		});
-		game.saveConfig();
-		game.reload();
+		// 同一版本最多自动重载一次：重载后仍读不到新版本号（写盘异常等）时不再反复重载
+		if (localStorage.getItem(versionReloadLock) != btsVersion) {
+			localStorage.setItem(versionReloadLock, btsVersion);
+			game.reload();
+		}
+	} else {
+		localStorage.removeItem(versionReloadLock);
 	}
 	const extension = {
 		name: extensionInfo.name, editable: false,

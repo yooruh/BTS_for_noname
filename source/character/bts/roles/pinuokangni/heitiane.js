@@ -34,9 +34,34 @@ export const skill = {
                 lib.bts.api.addAbnormal(target, 'jielu', 2, player);
         },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_biwan') ? -1 : 7,
-            result: { target: -1 },
+            // AI 口径：失5怒为敌方各挂2层揭露（源 L4589-4610）；揭露与中毒/烧伤/麻痹组合才产生
+            // 实质损耗（见下方 bts_abnormal_jielu），敌方已有其它异常时加权；无敌方目标不发动
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_biwan')) return -1;
+                let val = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player || get.attitude(player, t) >= 0)
+                        continue;
+                    val += 1;
+                    if (
+                        lib.bts.api.getAbnor(t, 'poison') ||
+                        lib.bts.api.getAbnor(t, 'burn') ||
+                        lib.bts.api.getAbnor(t, 'numb')
+                    )
+                        val += 1;
+                }
+                if (!val) return -1;
+                return val >= 3 ? 8 : 6;
+            },
+            result: {
+                // 目标受损=2层揭露；与毒/烧/麻组合时≈2.5、单独≈1（仅铺垫，靠后续异常兑现）
+                target: (player, target) =>
+                    lib.bts.api.getAbnor(target, 'poison') ||
+                    lib.bts.api.getAbnor(target, 'burn') ||
+                    lib.bts.api.getAbnor(target, 'numb')
+                        ? -2.5
+                        : -1,
+            },
         },
     },
 
@@ -53,19 +78,26 @@ export const skill = {
                 _status.currentPhase === event.player
             );
         },
-        async content(event, trigger, player) {
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             // 源 L4620：askForSkillInvoke（trigger=damageEnd 事件）
-            const answer = await player
+            event.result = await player
                 .chooseBool(
                     `机杼：是否令${get.translation(trigger.player)}附加1层中毒？`,
                 )
+                // AI 口径：只对敌方追加中毒（中毒=弃牌阶段失去1体力+手牌上限-1，源 gamerule_ex L1577-1587）；
+                // 友方不加深（源 L4612-4629）
+                .set('ai', () =>
+                    trigger.player !== player &&
+                    trigger.player.isAlive() &&
+                    get.attitude(player, trigger.player) < 0,
+                )
                 .forResult();
-            if (answer.bool) {
-                // 源 L4622：AddAbnormal(player=受伤者, "@abnormal_poison", 1, p)
-                lib.bts.api.addAbnormal(trigger.player, 'poison', 1, player);
-            }
         },
-        ai: { noe: true },
+        async content(event, trigger, player) {
+            // 源 L4622：AddAbnormal(player=受伤者, "@abnormal_poison", 1, p)
+            lib.bts.api.addAbnormal(trigger.player, 'poison', 1, player);
+        },
     },
 
     // ── 触发技·失坠（源 st_shizhui = TriggerSkill EventPhaseStart Finish，L4631-4650）──
@@ -89,6 +121,19 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '失坠：选择弃置一张【杀】令所有中毒角色各附加1层中毒？',
                 )
+                // AI 口径：结算为所有中毒角色各+1层——敌方中毒者每名≈+1.2、友方≈-1.2；
+                // 合计≤0（含“仅自己/友方中毒”）时返回负值令 AI 取消（chooseCard：最高分≤0 不选，源 L4631-4650）
+                .set('ai', (card) => {
+                    let gain = 0;
+                    for (const t of game.filterPlayer((target) =>
+                        lib.bts.api.getAbnor(target, 'poison'),
+                    )) {
+                        if (t === player) continue;
+                        gain += get.attitude(player, t) < 0 ? 1.2 : -1.2;
+                    }
+                    if (gain <= 0) return gain;
+                    return gain + 6 - get.value(card);
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -188,15 +233,13 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_jielu_faq',
         name: '|揭露|',
-        // 2026-09-04 归属修正：jielu 异常由黑天鹅「臂湾」赋予；那刻夏的 bts_sk_jielu 是
-        // 名为「揭露」的技能（授予升华），二者曾混淆。
-        // 2026-09-28 组合分支按实现/源重写（源 animal_fix L1508/1613/1794/1820）：
+        // jielu 异常由黑天鹅「臂湾」赋予（与那刻夏的同名技能「揭露」区分，二者曾混淆）；
+        // 组合分支按源 animal_fix L1508/1613/1794/1820 实现：
         // 「弃牌失去体力」仅在烧伤/麻痹同存路线；中毒路线只含摸牌/攻击范围修正。
         info: `异常状态：由${get.poptip('bts_sk_biwan')}赋予（黑天鹅）；与其他异常组合结算——与${get.poptip('bts_glossary_zhongdu_faq')}同存：摸牌数-1（无${get.poptip('bts_glossary_mabi_faq')}时）、攻击范围-1（无${get.poptip('bts_glossary_abnormal_burn_faq')}时）；与${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_mabi_faq')}同存且无${get.poptip('bts_glossary_zhongdu_faq')}：手牌上限-1，且弃牌阶段开始时失去1点体力。`,
     },

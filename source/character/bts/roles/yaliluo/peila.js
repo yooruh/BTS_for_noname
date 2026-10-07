@@ -38,10 +38,30 @@ export const skill = {
                 lib.bts.api.addCurse(target, 1, player);
         },
         ai: {
+            // AI 口径：怒气≥3 且有敌方（诅咒挂敌方）时发动；每个目标+1层诅咒（下次受伤+1≈1.2）；
+            // 无敌人不空放。自身无直接收益，仅计采集联动（对诅咒目标用杀回怒，见本文件 bts_sk_caiji）
+            //（源 animal.lua L3502-3523；诅咒见 rules/globalBuffs.js bts_curse）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yazhi') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yazhi')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1;
+                let best = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    let v = 1.2; // 诅咒+1：下次受伤伤害+1（层数全部消耗）
+                    if (target.hp <= 2) v += 0.4; // 残血：加伤更易兑现为濒死
+                    if (lib.bts.api.getCurse(target) > 0) v -= 0.2; // 已有诅咒：叠加收益递减
+                    best = Math.max(best, v);
+                }
+                if (!best) return -1;
+                return best >= 1.6 ? 6 : best >= 1.2 ? 5 : 3;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                // 施动方：无直接收益；对诅咒目标用杀回怒（采集）略计
+                player: 0.5,
+                // 受动方：+1层诅咒（下次受伤+1）；残血目标加伤威胁更大
+                target: (player, target) => (target.hp <= 2 ? -1.6 : -1.2),
+            },
         },
     },
 
@@ -68,7 +88,6 @@ export const skill = {
             ).length;
             if (n) lib.bts.api.addAngry(player, n);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·秘策（源 st_mice = TriggerSkill EventPhaseStart NotActive，L3697-3720）──
@@ -96,6 +115,12 @@ export const skill = {
                     get.translation(trigger.player) +
                     '的1层祝福/护盾？',
                 )
+                // AI 口径：仅移除敌方祝福/护盾（敌方持有的任何层均于我有利，源 L3697-3720）
+                .set('ai', () => {
+                    const target = trigger.player;
+                    if (!target || !target.isAlive()) return false;
+                    return get.attitude(player, target) < 0;
+                })
                 .forResult();
             if (!result.bool) {
                 event.result = { bool: false };
@@ -107,6 +132,11 @@ export const skill = {
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
                 )
+                // AI 口径：候选已过滤为【杀】，弃价值最低者
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    return -get.value(card);
+                })
                 .forResult();
             if (!cards.bool) {
                 event.result = { bool: false };
@@ -126,14 +156,32 @@ export const skill = {
                     target.countMark(key) > 0,
             );
             if (!buffs.length) return;
-            // 修复：控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案改走 set('prompt')
+            // 控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案走 set('prompt')。
             const pick =
                 buffs.length === 1
                     ? { control: buffs[0] }
                     : await player
                         .chooseControl(buffs)
                         .set('prompt', '秘策：选择移除1层祝福/护盾')
-                        .set('ai', () => 0)
+                        // AI 口径：优先移除威胁最大的层——护盾（直接抵伤）>残血不死>进攻类（增幅/暴击/贯通/
+                        // 致命）>体力上限/雨过天晴>其余（源 L607-628：由本角色任选移除对象）
+                        .set('ai', () => {
+                            const rank = (key) => {
+                                if (key === 'bts_shield') return 5;
+                                if (key === 'bts_bless_busi') return target.hp <= 1 ? 6 : 3;
+                                if (key === 'bts_bless_zengfu') return 3;
+                                if (
+                                    ['bts_bless_critical', 'bts_bless_through', 'bts_bless_fatal'].includes(key)
+                                )
+                                    return 2.5;
+                                if (
+                                    ['bts_bless_maxhp', 'bts_bless_yuguotianqing'].includes(key)
+                                )
+                                    return 2;
+                                return 1;
+                            };
+                            return buffs.reduce((a, b) => (rank(b) > rank(a) ? b : a));
+                        })
                         .forResult();
             if (pick.control === 'bts_shield')
                 lib.bts.api.removeShield(target, 1);
@@ -145,7 +193,12 @@ export const skill = {
                     player,
                 );
         },
-        ai: { result: { player: 1, target: -1 } },
+        ai: {
+            // 供跨技能估值查询（发动决策在 cost 内联 ai）：移除敌方1层祝福/护盾≈-1（护盾/保命类更高）
+            result: {
+                target: (player, target) => (target.isAlive() ? -1 : 0),
+            },
+        },
     },
 };
 

@@ -60,10 +60,35 @@ export const skill = {
             // 源 L4455 setPlayerMark(@max_xiangbin, 1)：下一张【杀】视为【决斗】（绝对置1，重复使用不叠加）
             player.setMark('bts_mk_xiangbin-sha', 1);
         },
+        // AI 口径：香槟标记为主动铺就的资源（失3怒+选定目标换来的下一张【杀】增益）——决斗不可闪避、
+        // 且全体目标各+1混乱，默认兑现；仅多目标【杀】时放弃转换（本体 juedou 按 event.target 单体
+        // 结算，多目标会丢失其余目标），保留标记给下一张单目标【杀】（源 L1050-1059 / L4450-4455）
+        check(trigger, player, triggername, indexedData) {
+            if (triggername !== 'useCard') return true;
+            return (
+                (trigger.targets || []).filter((t) => t.isAlive()).length === 1
+            );
+        },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_xiangbin') ? -1 : 7,
-            result: { target: -1 },
+            // AI 口径：失3怒为敌方挂酩酊（其受伤时来源回血≈1，我方进攻目标即回血）并铺「下一张杀转决斗」；
+            // 有敌方目标才发动，手中尚有【杀】（兑现路径在即）更积极（源 L4235-4315）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xiangbin'))
+                    return -1;
+                const enemies = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) < 0,
+                );
+                if (!enemies) return -1;
+                return player.countCards('h', 'sha') > 0 ? 7 : 5;
+            },
+            result: {
+                // 目标受损=酩酊（其后每次受伤我方回1）；手里有【杀】时回血可兑现，更值
+                target: (player, target) =>
+                    -1 - (player.countCards('h', 'sha') > 0 ? 0.5 : 0),
+            },
         },
     },
     bts_sk_aohan: {
@@ -80,7 +105,6 @@ export const skill = {
         async content(event, trigger, player) {
             trigger.num++;
         },
-        ai: { noe: true },
     },
     bts_sk_tetiao: {
         trigger: { player: 'phaseZhunbeiBegin' },
@@ -101,8 +125,11 @@ export const skill = {
                     selectCard: 1,
                     filterTarget: (card, source, target) =>
                         target !== source && target.isDamaged(),
+                    // AI 口径：自己回合准备阶段令他人回复——经「鏖酣」回复量+1（实际回复2）；
+                    // 只给正态度友方，残血（hp=1）优先保命（源 L4235-4315 加拉赫段）
                     ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => get.attitude(player, target),
+                    ai2: (target) =>
+                        get.attitude(player, target) + (target.hp === 1 ? 1 : 0),
                 })
                 .forResult();
         },
@@ -122,7 +149,6 @@ export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
     'bts_ch_jialahe_skin1': '皮肤1',
     'bts_mk_xiangbin-sha': '香槟加持',
-    'bts_ch_jialahe_skin1': '皮肤1',
     bts_ch_jialahe: '加拉赫',
     bts_sk_xiangbin: '香槟',
     bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各附加1层（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为2层）${get.poptip('bts_glossary_abnormal_mingding_faq')}；若如此做，当你使用下一张【杀】指定目标后，视为【决斗】且所有目标各附加1层${get.poptip('bts_glossary_abnormal_confuse_faq')}。`,
@@ -168,8 +194,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_mingding_faq',

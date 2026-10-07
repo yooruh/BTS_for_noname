@@ -1,7 +1,7 @@
-// ==================== 文件系统访问（搬运自叁岛，零修改） ====================
-// 自定义目录列举：用 Node fs 替代 game.promises.getFileList。
-// 引擎 getFileList 会过滤以 `_` / `.` 开头的条目（见 noname/init/node.js），
-// 本实现返回全部条目，由调用方自行按需过滤/保护。
+// ==================== 文件系统访问 ====================
+
+// 目录列举用 Node fs 替代 game.promises.getFileList：
+// 引擎版过滤 `_`/`.` 开头条目（见 noname/init/node.js），本实现全部返回。
 export async function getFileList(dir) {
     if (typeof window === 'undefined' || typeof window.require !== 'function') {
         throw new Error('当前环境不支持文件系统访问');

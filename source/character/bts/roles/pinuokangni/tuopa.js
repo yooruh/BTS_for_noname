@@ -26,20 +26,32 @@ export const skill = {
             await player.addSkill('bts_sk_zhangfu');
         },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_niukui') ? -1 : 7,
+            // AI 口径：怒气≥5 且未持涨幅即接（源 AI StarRail-ai.lua max_niukui，估值 9）；涨幅的负债
+            // 引擎随负债角色数放大（任意负债者受伤+1、虚拟杀再叠1，指向金融兑现），有负债者时更积极。
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_niukui'))
+                    return -1;
+                let value = 7;
+                if (
+                    game.hasPlayer(
+                        (p) =>
+                            p.isAlive() && lib.bts.api.getAbnor(p, 'fuzhai'),
+                    )
+                )
+                    value += 1;
+                return value;
+            },
             result: { player: 1 },
         },
     },
     bts_sk_zhangfu: {
         charlotte: true,
         forced: true,
-        // 负债②（源 st_zhangfu Damaged 分支）：任意负债角色受伤后 +1（2026-10-02 按源改为
-        // 「任意负债角色」视角，取代原「仅技能持有者自身」范围）。
+        // 负债②（源 st_zhangfu Damaged 分支）：任意负债角色受伤后 +1（按源改；取代原「仅持有者自身」口径）。
         trigger: { player: ['useCard'], global: ['damageEnd'] },
         filter(event, player, triggername) {
             // 源 L4812（use.card:getSubcards():isEmpty()）→ 虚拟判定统一 get.is.virtualCard
-            //（2026-09-28；待实机复核）。
+            //（待实机复核）。
             return triggername === 'damageEnd'
                 ? event.num > 0 && lib.bts.api.getAbnor(event.player, 'fuzhai')
                 : event.card?.name === 'sha' && get.is.virtualCard(event.card);
@@ -56,7 +68,6 @@ export const skill = {
                 }
             }
         },
-        ai: { noe: true },
     },
     bts_sk_jinrong: {
         // 源 st_jinrong（animal.lua L4462-4479）：MarkChanged 时负债≥4 即移除3层并视为用杀，
@@ -83,7 +94,6 @@ export const skill = {
                 target,
             );
         },
-        ai: { noe: true },
     },
     bts_sk_touzhi: {
         trigger: { player: 'phaseZhunbeiBegin' },
@@ -97,10 +107,23 @@ export const skill = {
                 .chooseCardTarget({
                     prompt: '透支：弃置一张【杀】令一名其他角色附加3层负债',
                     position: 'h',
-                    filterCard: (card) => get.name(card) === 'sha',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
                     filterTarget: (card, source, target) => source !== target,
+                    // cost 型触发技：引擎不询顶层 check，发动与否由 ai1/ai2 定（最高分 ≤0 → 取消）。
+                    // AI 口径（源 AI StarRail-ai st_touzhi）：ai1 弃价值最低的【杀】；ai2 只给敌方，
+                    // 已有负债者优先（+3 触达金融 4 层结算线），残血目标更佳。
                     ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => -get.attitude(player, target),
+                    ai2: (target) => {
+                        const att = get.attitude(player, target);
+                        if (att >= 0) return att - 2; // 队友/中立不给分，全员非敌方时整体取消
+                        let score = -att;
+                        if (lib.bts.api.getAbnor(target, 'fuzhai'))
+                            score += 1.5;
+                        if (target.hp <= 2) score += 0.5;
+                        return score;
+                    },
                 })
                 .forResult();
         },
@@ -109,7 +132,13 @@ export const skill = {
             await player.discard(event.cards);
             lib.bts.api.addAbnormal(event.targets[0], 'fuzhai', 3, player);
         },
-        ai: { result: { target: -1 } },
+        ai: {
+            // 供跨技能估值：目标被附加3层负债（已有≥1层时金融立即兑现）
+            result: {
+                target: (player, target) =>
+                    lib.bts.api.getAbnor(target, 'fuzhai') ? -2 : -1,
+            },
+        },
     },
 };
 export const translate = {
@@ -158,7 +187,7 @@ export const buffSkills = {
         silent: true,
         filter(event, player) {
             // 源 L1393（damage.card:subcardsLength()==0）→ 虚拟判定统一 get.is.virtualCard
-            //（2026-09-28；待实机复核）。
+            //（待实机复核）。
             return (
                 event.player === player &&
                 event.num > 0 &&
@@ -172,16 +201,14 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_fuzhai_faq',
         name: '|负债|',
-        // 两条 +1 路径（2026-09-28 按源对齐）：
+        // 两条 +1 路径（按源对齐）：
         // ① 全局分支（参照本 L1393-1395）：持有者受「视为使用【杀】」（无实体牌）伤害后 +1；
-        // ② 涨幅分支（源 st_zhangfu Damaged）：任意负债角色受伤后 +1（2026-10-02 按源改，
-        //   取代原「仅技能持有者自身」范围）。
+        // ② 涨幅分支（源 st_zhangfu Damaged）：任意负债角色受伤后 +1（按源改；取代原「仅持有者自身」口径）。
         info: `异常状态：由${get.poptip('bts_sk_zhangfu')}、${get.poptip('bts_sk_touzhi')}赋予；受到视为使用的【杀】的伤害后+1层（任意${get.poptip('bts_glossary_abnormal_fuzhai_faq')}角色受伤后另+1层）；层数≥4时由${get.poptip('bts_sk_jinrong')}移除3层并视为对其使用【杀】。`,
     },
 ];

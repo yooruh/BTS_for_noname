@@ -1,12 +1,9 @@
-// 技能详情弹窗（#nodeintro）宽度加倍
-// 无名杀的角色/技能详情弹窗（id 为 nodeintro）宽度由布局 CSS 决定
-//（默认布局 #window > .dialog.popped { width: 220px }，另见 placePoppedDialog），
-// 内联样式只写 height/left/top、不含 width。
-// 本模块包装 lib.placePoppedDialog（所有 popped 弹窗摆放的唯一入口，调用时弹窗
-// 已在 DOM 中、offsetWidth 可用）：开启配置后，在摆放前按弹窗当前 CSS 宽度动态
-// ×2（读 offsetWidth 再翻倍，不写死像素——换布局/换本体都能保持「当前宽度×2」，
-// 且先改宽再摆放，placePoppedDialog 用 offsetWidth 算 left 时已按加倍后宽度居中）。
-// 关闭配置时还原：清除内联宽度与加倍标记，回落到布局 CSS 宽度。
+// 技能详情弹窗（#nodeintro）宽度加倍。
+// 该弹窗宽度由布局 CSS 决定（#window > .dialog.popped { width: 220px }），内联样式
+// 只写 height/left/top。包装 lib.placePoppedDialog（popped 弹窗摆放唯一入口，调用时
+// 弹窗已在 DOM、offsetWidth 可用）：开启时摆放前读 offsetWidth ×2 写入（不写死像素，
+// 换布局/换本体都保持「当前宽度×2」；先改宽再摆放，left 已按加倍后宽度居中）。
+// 关闭时清除内联宽度与标记、回落布局 CSS 宽度。
 import { lib, game } from '../../../../../noname.js';
 
 const CONFIG_KEY = 'bts_nodeintro_wide';
@@ -33,9 +30,8 @@ function restore(node) {
 }
 
 /**
- * 配置切换时即时生效/还原当前已显示的弹窗：
- * 开启 → 若 #nodeintro 正在显示则立即加倍；
- * 关闭 → 立即还原。此后新弹出的弹窗由包装后的 placePoppedDialog 处理。
+ * 配置切换即时生效/还原已显示的弹窗（开启→立即加倍；关闭→立即还原）；
+ * 此后新弹窗由包装后的 placePoppedDialog 处理。
  */
 export function applyNodeintroWide() {
     const node = document.getElementById('nodeintro');

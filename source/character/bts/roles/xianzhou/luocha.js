@@ -42,10 +42,8 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_guizang');
             lib.bts.api.loseAngry(player, 5); // 源 L6449：LoseAngry(player, 5)
             for (const target of event.targets) {
-                // 源 L6451：RemoveBlessOrShield(p, 1, player) —— 移除目标一层祝福或护盾（内联）
-                // 源 RemoveBlessOrShield（L600-617）由罗刹 askForChoice 从目标所有祝福/护盾中选一项移除
-                //（用户定夺 2026-09-02 恢复选择）；移除祝福传完整标记键（bts_bless_*），勿 slice
-                //（原 slice(6) 拼出 bts_bless_ess_* 不存在标记，祝福分支静默移除 0 层，已修正）。
+                // 源 L6451：RemoveBlessOrShield(p, 1, player)——从目标所有祝福/护盾中选一项移除
+                //（源 L600-617；定夺恢复选择）。移除祝福须传完整标记键（bts_bless_*），勿 slice。
                 const buffs = Object.keys(target.storage || {}).filter(
                     (key) =>
                         (key.startsWith('bts_bless_') || key === 'bts_shield') &&
@@ -54,14 +52,22 @@ export const skill = {
                 if (!buffs.length) continue;
                 let chosen = buffs[0];
                 if (buffs.length > 1) {
-                    // 修复：控件须为纯字符串（[键,文案] 数组会原样成为 result.control 致下游崩溃）；文案改走 set('prompt')
+                    // 控件须为纯字符串（数组会原样成为 result.control 致下游崩溃）；文案走 set('prompt')。
                     const choice = await player
                         .chooseControl(buffs)
                         .set(
                             'prompt',
                             `归葬：选择移除${get.translation(target)}的哪一层祝福/护盾`,
                         )
-                        .set('ai', () => 0)
+                        // AI 口径：优先拆护盾（直接抵消伤害），其次致命祝福（其伤害视为致命）；
+                        // 均无则首项（源 RemoveBlessOrShield L6451）
+                        .set('ai', () => {
+                            for (const key of ['bts_shield', 'bts_bless_fatal']) {
+                                const idx = buffs.indexOf(key);
+                                if (idx >= 0) return idx;
+                            }
+                            return 0;
+                        })
                         .forResult();
                     chosen = choice.control;
                 }
@@ -75,10 +81,33 @@ export const skill = {
             player.addMark('bts_mk_baihua', 1);
         },
         ai: {
+            // AI 口径：失5怒=拆敌方各1层祝福/护盾（拆友方增益为负收益，勿选）+1枚白花（2枚开轮转治疗）；
+            // 星启为目标附加1层诅咒（源 st_guizang，animal.lua L6443-6470）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_guizang') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_guizang')) return -1;
+                const god = lib.bts.api.god(player);
+                let v = 0; // 敌方可拆资源合计
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    if (!lib.bts.api.getShield(t) && !lib.bts.api.blessCount(t))
+                        continue;
+                    v += 1.5; // 拆1层≈1.5（护盾直抵1伤；祝福为敌方资源）
+                    if (god) v += 1; // 诅咒1层
+                }
+                if (!v) return -1;
+                if (v >= 5) return 9;
+                return v >= 3 ? 8 : 6; // 单体≈6（含白花进度），双目标≈8
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损：拆1层祝福/护盾≈-1.5（护盾再加0.5）；星启附加诅咒-1（源 L6451-6457）
+                target: (player, target) => {
+                    let v = 1.5;
+                    if (lib.bts.api.getShield(target)) v += 0.5;
+                    if (lib.bts.api.god(player)) v += 1;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -88,12 +117,9 @@ export const skill = {
         trigger: { global: 'damageEnd' },
         logTarget: 'source',
         filter(event, player) {
-            // 源 L6481：伤害来源 ≠ 你、受伤者 ≠ 你、伤害来源受伤、白花>1
-            // (无名杀 damageEnd 里 event.source=造成者、event.player=承受者；源以 damage.from 触发并治愈来源；
-            // 源无每回合限一次，原实现残留 st_lunzhuan-start 未设置的死条件，已删)
-            // 2026-09-27 修复（死者回血非法态）：damageEnd 在 dying→die 链之后发射（gameEvent trigger "End"），
-            // 来源若在同一结算链中阵亡，此时 isDamaged() 对尸体仍为真，回复将落在尸体上——补 isAlive 门
-            //（同 moze.js 掠袭/风堇晴空约定：死目标不可作为效果对象）。
+            // 源 L6481：来源≠你、受伤者≠你、来源受伤、白花>1（damageEnd 的 source=造成者；源以
+            // damage.from 触发并治愈来源）。damageEnd 晚于濒死链——被同链打死的来源此时 isDamaged()
+            // 仍真，须补 isAlive 门（同掠袭/晴空约定：死目标不可作为效果对象）。
             return (
                 event.source &&
                 event.source !== player &&
@@ -103,14 +129,19 @@ export const skill = {
                 player.countMark('bts_mk_baihua') > 1
             );
         },
-        async content(event, trigger, player) {
-            // 源 L6481-6484：askForSkillInvoke 后 room:recover(player=来源)
-            const result = await player
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
+            // 源 L6481-6484：askForSkillInvoke
+            event.result = await player
                 .chooseBool('轮转：是否令受伤角色回复1点体力？')
+                // AI 口径：免费治疗只给友方（敌方不救）——令造成伤害的受伤友方回复1
+                //（源 L6481-6484；源 st_lunzhuan，animal.lua L6472-6496）
+                .set('ai', () => get.attitude(player, trigger.source) > 0)
                 .forResult();
-            if (result.bool) {
-                await trigger.source.recover(player);
-            }
+        },
+        async content(event, trigger, player) {
+            // 源 L6481-6484：room:recover(player=来源)
+            await trigger.source.recover(player);
         },
         group: ['bts_sk_lunzhuan_clear'],
         subSkill: {
@@ -124,10 +155,8 @@ export const skill = {
                 async content(event, trigger, player) {
                     player.removeMark('bts_mk_baihua', player.countMark('bts_mk_baihua'));
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·白花（源 st_baihua = TriggerSkill Damaged，L6498-6518）──
@@ -137,12 +166,9 @@ export const skill = {
         trigger: { global: 'damageEnd' },
         logTarget: 'player',
         filter(event, player) {
-            // 源 L6506：受伤者 ≠ 你、且技能未失效（-start 标记为0）
-            // 2026-09-27 修复（死者回血非法态，实机复现于测试台）：damageEnd 晚于濒死链——被此伤害
-            // 打死的目标在 damageEnd 时 class 'dead' 已挂、isAlive()===false，而 isDamaged()（hp<maxHp）
-            // 对尸体恒真：若不设门，白花会向尸体询问并 recover(+1)（后端审计曾捕获「阵亡 hp=1」非法态）。
-            // 约定见 moze.js 掠袭：「被此伤害打死的目标在 damageEnd 时 isAlive() 已为 false，filter 的
-            // isAlive 即实现『若此伤害已使目标死亡，则无法发动』」。
+            // 源 L6506：受伤者≠你、技能未失效（-start 为 0）。damageEnd 晚于濒死链——被此伤害打死者
+            // 此时 isAlive() 已 false 而 isDamaged() 对尸体恒真，不设门会向尸体询问并回血（非法态）；
+            // isAlive 门即实现「若此伤害已使目标死亡，则无法发动」（约定见 moze.js 掠袭）。
             return (
                 event.player &&
                 event.player !== player &&
@@ -152,23 +178,34 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L6506：askForSkillInvoke —— 是否发动
+            // 源 L6506：askForSkillInvoke —— 是否发动；AI 口径：治疗受伤友方1点并+1白花
+            //（2枚开启轮转治疗），敌方不救（源 st_baihua，animal.lua L6498-6518）
             event.result = await player
                 .chooseBool('白花：是否令受伤角色回复1点体力？')
+                .set('ai', () => get.attitude(player, trigger.player) > 0)
                 .forResult();
         },
         async content(event, trigger, player) {
             // 源 L6508-6509：room:recover(player=受伤者) + p:gainMark("@baihua")
             await trigger.player.recover(player);
             player.addMark('bts_mk_baihua', 1);
-            // 源 L6510-6511：可弃【杀】保留白花，否则打 -start 标记（技能于下回合开始前失效）；
-            // 取消≠不发动（仍治疗，只是技能失效），故保留在 content
+            // 源 L6510-6511：可弃【杀】保留白花，否则打 -start 标记（下回合开始前失效）；
+            // 取消≠不发动（仍治疗）。
             const discard = await player
                 .chooseToDiscard(
                     '白花：弃置一张【杀】以保留白花？',
                     'h',
                     (card) => get.name(card) === 'sha',
                 )
+                // AI 口径：弃1【杀】保技能本回合可用；唯一【杀】且血线告急时接受暂时失效（-start）
+                //（源 L6510-6511）
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    const spare =
+                        player.countCards('h', (c) => get.name(c) === 'sha') - 1;
+                    if (spare <= 0 && player.hp <= 2) return -1;
+                    return 1;
+                })
                 .forResult();
             if (!discard.bool) player.addMark('bts_mk_baihua-start', 1, false);
         },
@@ -181,21 +218,13 @@ export const marks = {
         markKind: 'mark',
         glossaryId: 'bts_glossary_baihua_faq',
     },
-    // 白花·技能失效窗口（-start；由 bts_gamerule_phase 于回合开始清理）。
-    // 2026-09-26：补注册——阶段规则修复后 clearSuffixMarks 会以默认 log 移除该键，
-    // 未注册即触发「孩子，你的技能…」引擎告警（实机日志实证）。
+    // 白花·技能失效窗口（-start；由 bts_gamerule_phase 于回合开始清理）。须注册——
+    // clearSuffixMarks 会以默认 log 移除该键，未注册即触发「孩子，你的技能…」告警。
     'bts_mk_baihua-start': { markKind: 'record' },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_luocha_skin1': '皮肤1',
-    'bts_ch_luocha_skin2': '皮肤2',
-    'bts_ch_luocha_skin3': '皮肤3',
-    'bts_ch_luocha_skin4': '皮肤4',
-    'bts_ch_luocha_skin5': '皮肤5',
-    'bts_ch_luocha_skin6': '皮肤6',
-    'bts_ch_luocha_skin7': '皮肤7',
     'bts_ch_luocha_skin1': '皮肤1',
     'bts_ch_luocha_skin2': '皮肤2',
     'bts_ch_luocha_skin3': '皮肤3',
@@ -231,8 +260,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_baihua_faq',

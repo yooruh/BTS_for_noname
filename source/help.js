@@ -1,8 +1,6 @@
-// 扩展帮助文本（菜单－选项－帮助：机制速查 + 功能索引 + 更新内容）。
-// 完整版文档：扩展设置 →「帮助文档」按钮（style/html/help.html）；
-// 完整历史更新日志：扩展设置 →「更新日志」按钮（style/html/update.html，构建脚本自动生成）。
-// 写法参照叁岛 help.js：分区 getter + 数据源动态生成（词条/元素/势力与代码同源），
-// 打开帮助时即时拼装；引用的均为静态导出，不依赖游戏开局状态。
+// 扩展帮助文本（菜单－选项－帮助）：机制速查 + 功能索引 + 更新内容。
+// 完整文档见扩展设置→「帮助文档」按钮（style/html/help.html）；完整历史见「更新日志」按钮（style/html/update.html，构建脚本自动生成）。
+// 各区为 getter，打开帮助时即时拼装（词条/元素/势力与代码同源，均为静态导出，不依赖开局状态）。
 import { game } from '../../../noname.js';
 import { updateContent } from './content.js';
 import { dialogManager } from './tool/ui/dialogManager.js';
@@ -11,8 +9,8 @@ import { glossary as RULE_GLOSSARY } from './rules/globalrules.js';
 import { NATURES, NATURE_CONFIG } from './rules/natures.js';
 import { KINGDOMS } from './character/bts/factions.js';
 
-// 「查看完整历史更新日志」链接处理（对齐叁岛）：经 dialogManager.showDocModal
-// 打开 style/html/update.html；{{version}} 占位替换为当前版本号。
+// 「查看完整历史更新日志」链接（对齐叁岛）：经 dialogManager.showDocModal 打开
+// style/html/update.html；{{version}} 替换为版本号。
 const changelogOnclick = () => {
     const updateURL = `${extensionPath}/style/html/update.html`;
     const version = game.getExtensionConfig('崩铁杀', 'version') || '未知版本';
@@ -149,7 +147,7 @@ const helpSections = {
 
     // ── 势力 ─────────────────────────────────────────────────────────────
     get faction() {
-        return `势力：${KINGDOMS.map(([, name]) => name).join('、')}。<br>角色可在选将界面按势力筛选；身份模式下不同势力的主公拥有不同的固有 BGM（开启「BGM跟随主公」后生效）。`;
+        return `势力：${KINGDOMS.map(([, name]) => name).join('、')}。<br>角色可在选将界面按势力筛选；身份模式下不同势力的主公拥有不同的固有 BGM（开启「BGM跟随与切换」后生效）。`;
     },
 
     // ── 对无名杀底层的扩展（用户重点关注）───────────────────────────────
@@ -161,7 +159,7 @@ const helpSections = {
 <li><b>元素与势力注册</b>：7 种元素注册进引擎元素表（不参与本体的铁索连环传导，改用自研伤害链）；8 个阵营注册进势力表（含专属颜色与势力图标）。</li>
 <li><b>AI 选将</b>：身份模式单机局可指定 AI 选将策略（纯随机/按评分/按技能流派）。</li>
 <li><b>AI 防重试守卫</b>：防止 AI 在同一阶段反复空转发动同一技能导致卡死。</li>
-<li><b>BGM 跟随主公</b>：身份模式开局把背景音乐切换为主公的专属 BGM。</li>
+<li><b>BGM 跟随与切换</b>：身份模式开局把背景音乐切换为主公的专属 BGM；并允许角色技能切换 BGM（如知更鸟的必杀曲、知更鸟·晴歌的和声曲）。</li>
 <li><b>界面增强</b>：角色称号的属性/命途图标、出牌注记（“xx对xx使用”）、技能详情弹窗宽度加倍、武将卡势力名自动换行、标记与词条悬浮说明。</li>
 <li><b>引擎差异适配</b>：减少体力上限保底 1 点（本体规则会把体力上限≤0 的角色直接判死）；出牌阶段中止改用阶段事件原生语义；额外回合以阶段插入实现。</li>
 </ul>`;
@@ -175,7 +173,7 @@ const helpSections = {
 <li><b>应用推荐的无名杀全局设置</b>：载入适配本扩展的全局配置（Windows/Android 两套，可先备份当前配置）。</li>
 <li><b>AI选将逻辑</b>：纯随机 / 按评分（太阳神选将权重表）/ 按流派（技能定位标签）；仅单机·标准身份生效。</li>
 <li><b>主公星启启用条件</b>：均启用 / 仅崩铁角色在场 / 仅崩铁角色为主公 / 不启用。</li>
-<li><b>BGM跟随主公</b>：身份模式开局切换为主公专属 BGM。</li>
+<li><b>BGM跟随与切换</b>：身份模式开局切换为主公专属 BGM；同时控制角色技能切换 BGM（关闭后技能不再切曲）。</li>
 <li><b>显示怒气标记</b>：是否在角色旁显示怒气层数。</li>
 <li><b>技能详情弹窗宽度加倍</b>：长技能描述更易阅读。</li>
 <li><b>卡牌上显示出牌信息</b>：在打出的牌下方显示“xx对xx使用”等注记。</li>

@@ -43,12 +43,36 @@ export const skill = {
             await damage;
         },
         ai: {
+            // AI 口径：5怒气必杀对1名敌方「2/3层短见+1伤」；短见（本文件 bts_abnormal_duanjian）令伤害来源摸1，
+            // 此伤来源=你；每层短见≈一次「他人伤害→推理追加【杀】」机会，残血击杀优先（源 L3165-3187）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_beilun')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_beilun')) return -1;
+                const isGod = lib.bts.api.god(player);
+                const layers = isGod ? 3 : 2; // 短见层数（描述：星启改3）
+                const d = isGod ? 2 : 1; // 星启：必杀技伤害+1（rules/globalrules.js L54-55）
+                let best = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    let v = d * 1.5 + 0.8; // 伤害 + 短见令伤害来源（你）摸1
+                    v += layers * 0.8; // 每层短见：需他人伤害方可触发推理追击，按半值估
+                    if (t.hp <= d) v += 2.5; // 击杀
+                    if (v > best) best = v;
+                }
+                if (!best) return -1;
+                return best >= 5 ? 8 : best >= 3.5 ? 6 : best >= 2 ? 4 : 2;
             },
-            result: { player: 1, target: -2 },
+            result: {
+                player: 1,
+                // 目标受损=1点伤害（星启2）+短见层×0.8（供他人伤害→推理追击）+击杀加分
+                target: (player, target) => {
+                    const isGod = lib.bts.api.god(player);
+                    const d = isGod ? 2 : 1;
+                    let v = d * 1.5 + (isGod ? 3 : 2) * 0.8;
+                    if (target.hp <= d) v += 2.5;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -71,7 +95,6 @@ export const skill = {
             ); // 视为【杀】
             await use;
         },
-        ai: { noe: true },
     },
 
     // ── 助产（源 st_zhuchan = TriggerSkill EventPhaseStart + 判定，L3216-3250）──
@@ -109,6 +132,18 @@ export const skill = {
                     // 源 Card filter（L3193-3196）只 #targets==0 且 to_select~=Self，未限手牌；
                     // 空手目标可被选中（跳过弃牌仍判定），按源放开（原实现要求目标有手牌，已改）
                     (c, p, t) => t !== p,
+                    // AI 口径：收益=弃其1手牌（有则≈1）+判定命中视为【杀】（概率≈异常种类×3/13）；
+                    // 期望≥1.5（约抵弃【杀】成本）的敌方才选，否则负分取消（源 L3216-3250）
+                    (t) => {
+                        if (t === player || get.attitude(player, t) >= 0)
+                            return -1;
+                        const p = Math.min(
+                            1,
+                            (lib.bts.api.abnormalCount(t) * 3) / 13,
+                        );
+                        const v = (t.countCards('h') > 0 ? 1 : 0) + p * 1.5;
+                        return v >= 1.5 ? v : -1;
+                    },
                 )
                 .forResult();
             if (!target.bool) {
@@ -130,14 +165,12 @@ export const skill = {
             // 判定：点数不大于其异常种类数的3倍
             const layers = lib.bts.api.abnormalCount(x);
             // 源 L3328：judge.who = targets[1]（判定牌归属目标）；无名杀以目标 x 发起判定等效
-            //（定夺 2026-09-12（B-05）由 player.judge 改为目标判定）
+            //（定夺（B-05）：由 player.judge 改为目标判定）
             const judge = await x.judge((card) => true).forResult();
-            // 判定「无结果」契约（2026-10-03 根因定案）：判定对象的角色死亡（judge() 不设 forceDie）、
-            // 离场除名（不设 includeOut）、被移除时，引擎对事件逐步骤拦截并 finish
-            //（compilers/ContentCompilerBase.js isPrevented；player.js:9482 judge 方法）
-            // → event.result 永不写入，forResult() 为 undefined = 判定未发生；
-            // 另牌堆+弃牌堆双空时 get.cards() 空返回，亦走 !cardj 早退（get/index.js:3484）。
-            // 以上均须按契约终止后续（不再视为对目标使用【杀】），而非用 ?? 0 伪造点数。
+            // 判定「无结果」契约：判定对象死亡（judge() 不设 forceDie）/离场除名/被移除时，引擎逐步骤拦截
+            //（ContentCompilerBase.js isPrevented；player.js:9482）→ event.result 永不写入，
+            // forResult()=undefined = 判定未发生；牌堆+弃牌堆双空亦早退（get/index.js:3484）。
+            // 须按契约终止后续（不再视为对目标使用【杀】），勿用 ?? 0 伪造点数。
             if (!judge) return;
             const num = judge.number; // forResult 判定结果：{ card, name, number, suit, color }
             if (num <= layers * 3) {
@@ -146,7 +179,22 @@ export const skill = {
                 await use;
             }
         },
-        ai: { result: { player: 1, target: -1 } },
+        ai: {
+            result: {
+                player: 1,
+                // 目标受损=弃1手牌（有则≈1）+判定命中追击【杀】（概率≈异常种类×3/13）
+                target: (player, target) => {
+                    const p = Math.min(
+                        1,
+                        (lib.bts.api.abnormalCount(target) * 3) / 13,
+                    );
+                    return -(
+                        (target.countCards('h') > 0 ? 1 : 0) +
+                        p * 1.5
+                    );
+                },
+            },
+        },
     },
 };
 
@@ -194,8 +242,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_duanjian_faq',

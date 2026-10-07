@@ -1,15 +1,11 @@
 /**
- * 崩铁杀 开发同步 — 路径配置
+ * 崩铁杀 开发同步 — 路径配置。
  *
- * 将「项目固有配置」与「本机专属路径」分离：
- * - 本文件（随仓库提交）：devRoot 是项目固有内容。
- * - scripts/lib/dev-config.local.json（已加入 .gitignore，不随仓库上传）：
- *   存放本机安装目录 installed。该文件缺失时 installed 为空数组，
- *   同步工具会提示按 scripts/lib/dev-config.local.example.json 创建。
+ * devRoot（项目固有）随仓库提交；installed（本机安装目录）存于 scripts/lib/dev-config.local.json
+ * （.gitignore 忽略；缺失时为空数组，工具提示按 dev-config.local.example.json 创建）。
  *
- * 同步文件集不再在此维护：dev:install / dev:export 以源目录的 Directory.json
- * 为唯一依据，只同步清单中列出的文件（Directory.json 由 scripts/rebuild.mjs 生成，
- * 且与在线更新器清理失效文件共用同一清单）。
+ * 同步文件集以源目录 Directory.json 为唯一依据（由 scripts/rebuild.mjs 生成，与在线更新器清理
+ * 失效文件共用同一清单）；dev:install / dev:export 只同步清单内文件。
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -37,3 +33,9 @@ export const devRoot = PATHS.root;
 
 /** 已安装的游戏扩展目录（离线版 + 联机版）——来自本机配置，勿提交 */
 export const installed = Array.isArray(local.installed) ? local.installed : [];
+
+/**
+ * 一键打包（scripts/pack.mjs）本机路径：无名杀构建树 / 桌面树 app 根 / 电脑基座目录 / APK 签名资料。
+ * 均可选——pack.mjs 有内置相对路径回退与命令行参数覆盖（--build-tree / --desktop-app / --base-dir / --ks-props）。
+ */
+export const pack = local.pack && typeof local.pack === 'object' ? local.pack : {};

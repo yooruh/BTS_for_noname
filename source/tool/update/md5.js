@@ -1,6 +1,5 @@
 // 纯 JS MD5（公有领域算法），供在线更新做完整性校验与媒体变更检测。
-// 游戏内不可用 crypto-js（未暴露给扩展），故内联实现；输出与
-// Node `crypto.createHash('md5').update(bytes).digest('hex')` 逐字节一致。
+// 游戏内无法使用 crypto-js，故内联实现；输出与 Node crypto 的 md5 hex 逐字节一致。
 
 const S = [
 	7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
@@ -24,11 +23,7 @@ function toBytes(data) {
 	throw new Error('md5Hex: 不支持的数据类型');
 }
 
-/**
- * 计算字节数据的 MD5（小写 32 位 hex）。
- * @param {ArrayBuffer|Uint8Array|Buffer} data
- * @returns {string}
- */
+/** 计算字节数据的 MD5（小写 32 位 hex）；接受 ArrayBuffer / Uint8Array / Buffer */
 export function md5Hex(data) {
 	const bytes = toBytes(data);
 	const n = bytes.length;

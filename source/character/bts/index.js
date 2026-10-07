@@ -1,7 +1,7 @@
 // 崩铁杀唯一角色包入口。
-// 角色源码按 roles/<阵营>/<角色>.js 分目录维护，但所有角色只汇总为一个 bts 包；
-// seven factions are characterSort.bts 内的分类，而非可单独开关的角色包。
-// 合并点（应急插入）：新增临时 buff/标记/翻译可在此处 markEntries/mergedTranslate 内联，再交 buildMarkSkill。
+// 角色源码按 roles/<阵营>/<角色>.js 分目录维护，但所有角色汇总为一个 bts 包；
+// 阵营只是 characterSort.bts 内的分类，不是可单独开关的角色包。
+// 应急插入点：临时 buff/标记/翻译可在 markEntries/mergedTranslate 内联，再交 buildMarkSkill。
 import { lib, game, ui, get, ai, _status } from '../../../../../noname.js';
 import { createRolePack } from '../../tool/pack/rolePack.js';
 import { normalizeVoiceKeys } from '../../tool/utils/audioPaths.js';
@@ -13,13 +13,12 @@ import { translate as naturesTranslate } from '../../rules/natures.js';
 import { renderTitle } from '../../tool/ui/title.js';
 import { AUDIO_COUNTS } from './audio.js';
 import { glossary as GLOBAL_GLOSSARY } from '../../rules/globalrules.js';
-// 可选皮肤不注册 characterSubstitute：换肤由引擎经 character.skinPath
-// （registry.js fillCharacterResources → image/skin/<资源名>/）目录扫描发现；
-// characterSubstitute 仅留给技能触发的形态切换（如召唤忆灵），恒为对象。
-// 可选皮肤显示名（bts_<角色>_skinN）自 skins.js 拆分归位后随各角色文件 translate
-// 经 roles.merge('translate') 进 fullTranslate（scripts/migrate.mjs --skins 维护）。
+// 可选皮肤不注册 characterSubstitute：换肤由引擎经 character.skinPath 目录扫描发现
+//（registry.js fillCharacterResources → image/skin/<资源名>/）；characterSubstitute
+// 仅留给技能触发的形态切换（如召唤忆灵）。皮肤显示名随各角色 translate 进 fullTranslate
+//（scripts/migrate.mjs --skins 维护）。
 
-// 包名翻译（原 meta.js 内容，TODO 任务2 内联于此；势力名翻译见 factions.js）。
+// 包名翻译（势力名翻译见 factions.js）。
 const metaTranslate = { bts: '崩铁杀' };
 // 通用机制键翻译（非标记/非技能——如额外回合标签 bts_extra_turn：
 // 引擎额外回合日志走 `【get.translation(skill)】`，无翻译会漏出原始键）。
@@ -149,15 +148,13 @@ export const character = {
 };
 export const characterReplace = roles.merge('characterReplace');
 export const characterFilter = roles.merge('characterFilter');
-// 可选皮肤不再经 characterSubstitute 注册（见文件头注释），
-// 本表仅承载技能触发的形态切换（如召唤忆灵）。
+// 本表仅承载技能触发的形态切换（如召唤忆灵）；皮肤注册见文件头注释。
 export const characterSubstitute = roles.merge('characterSubstitute');
 export const perfectPair = roles.collect('perfectPair');
 
-// ── 专有名词词条（TODO 任务3 自 glossary.js 拆分归位）────────────────────────
-// 词条正文由属主文件导出：通用机制词条 → rules/globalrules.js 的 glossary；
-// 角色专属词条 → 各角色文件的 glossary（经 rolePack.gather 数组合并，非覆盖）。
-// 显示名/解释以 id/id_info 平铺并入 fullTranslate（词条数据无技能对象），
+// ── 专有名词词条 ────────────────────────────────────────────────────────
+// 正文由属主文件导出：通用机制 → rules/globalrules.js glossary；角色专属 → 角色文件 glossary
+//（rolePack.gather 数组合并）。显示名/解释平铺并入 fullTranslate；
 // get.poptip('词条id') 悬浮点击见 tool/ui/poptips.js（按包 translate 前缀扫描）。
 const GLOSSARY = [...GLOBAL_GLOSSARY, ...roles.gather('glossary')];
 const GLOSSARY_TRANSLATE = Object.fromEntries(
@@ -167,11 +164,10 @@ const GLOSSARY_TRANSLATE = Object.fromEntries(
     ]),
 );
 
-// ── 技能 → 词条 derivation 自动挂载规则（自 glossary.js 迁入，全文照搬）──────
-// test(id, src, info)：src 为技能 id + 各函数/字符串字段的源码文本；第三参 info 为技能对象。
+// ── 技能 → 词条 derivation 自动挂载规则 ─────────────────────────
+// test(id, src, info)：src 为技能 id + 各函数/字符串字段的源码文本；info 为技能对象。
 const DERIVATION_RULES = [
-    // 2026-09-28 修复：原查 id.startsWith('bts_st_') 恒 false（旧前缀）——必杀技统一以
-    // bts_bisha 标签判定（同 zaixian/军功等 bts_bisha 判定范式）。
+    // 必杀技统一以 bts_bisha 标签判定（勿按 id 前缀；同 zaixian/军功等范式）。
     { id: 'bts_glossary_bisha_faq', test: (id, src, info) => info?.bts_bisha === true },
     {
         id: 'bts_glossary_nuqi_faq',
@@ -280,13 +276,11 @@ function attachGlossaryDerivations(skillMap) {
     }
 }
 
-// ── 标记/buff 技能合并（阶段2 标签化，2026-09-04）────────────────────────────
-// 全局 buff（globalBuffs.js）与角色特有 buff（角色文件 buffSkills）并列合并，全局
-// 标记（globalMarks.js）与角色主题标记（角色文件 marks）并列合并为单一 markEntries；
-// 全部经 rules/markRegistry.js buildMarkSkill 按 markKind 分派烘焙
-//（bless/abnormal/... → markIntro 基座，record → hiddenMark），并入 skill 随
-// info.skill 注册进 lib.skill——installBuffSkillLifecycle 的 addMark→addSkill
-// 生命周期（content.js）据此照常挂摘。
+// ── 标记/buff 技能合并 ─────────────────────────────────────────────────
+// 全局 buff/标记（globalBuffs.js / globalMarks.js）与角色特有条目（角色文件
+// buffSkills/marks）并列合并为 markEntries，经 buildMarkSkill 按类型烘焙
+//（image/text → markIntro，none → hiddenMark）后并入 skill 注册进 lib.skill；
+// installBuffSkillLifecycle 的 addMark→addSkill 生命周期（content.js）据此挂摘。
 export const buffSkills = { ...GLOBAL_BUFFS, ...roles.merge('buffSkills') };
 // 应急插入缝：临时新增 buff/标记可在此展开内联对象（带 markKind 标签），最终并入 skill。
 const markEntries = {
@@ -319,12 +313,10 @@ export const skill = {
 // 详情页显示关联词条；不覆盖技能已有的 derivation。
 attachGlossaryDerivations(skill);
 
-// ── 触发技 content 归正（2026-08-24）────────────────────────────────────────
-// 已移除旧的「绑定兼容层」（曾把触发技 content 首参/二参对调注册，制造非标准
-// 「首参=触发事件」约定）。现按引擎标准书写：content(event, trigger, player) 中
-// event=技能事件（含自选 .cards/.targets/.cost_data 与 .triggername）、
-// trigger=触发事件（读其 .player/.source/.num/.getl 等，判变体用 event.triggername）；
-// filter(event, player, triggername) 第 3 参 triggername 为带 Before/After 后缀完整触发名。
+// ── 触发技参数约定（引擎标准，勿再引入「首参=触发事件」兼容层）────────────
+// content(event, trigger, player)：event=技能事件（含自选 .cards/.targets/.cost_data 与
+// .triggername）、trigger=触发事件（读 .player/.source/.num/.getl 等，判变体用
+// event.triggername）；filter(event, player, triggername) 第 3 参为带后缀完整触发名。
 
 // 对齐叁岛 registry 的预设：仅对显式 audio 数值转换路径。
 // 本表由素材生成脚本写入，避免运行时读取扩展文件系统；角色手写的 audio 优先。

@@ -65,7 +65,7 @@ export const skill = {
                 );
             }
             // 源 L8997-9003：星启时对所有拥有护盾的角色 AddBless(@bless_through)
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             if (lib.bts.api.god(player))
                 for (const target of lib.bts.api.seatOrder(
                     game.filterPlayer((target) => lib.bts.api.getShield(target)),
@@ -87,16 +87,34 @@ export const skill = {
                 async content(event, trigger, player) {
                     trigger.reason = 'bts_sk_pishi_bts_reason_fatal';
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：怒气≥5 发动（filter 同门）；给目标 1~3 点护盾并连续 2n 次虚拟【杀】；
+            // 星启时护盾与刀数翻倍、有盾者另得+2贯通；无可攻击敌人时刀链落空（源 L8962-9027）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_pishi')
-                    ? -1
-                    : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_pishi'))
+                    return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 怒气不足不可用
+                let value = 8; // 基础：护盾 + 2n 刀虚拟【杀】的输出
+                if (lib.bts.api.god(player)) value += 1; // 星启：护盾/刀数翻倍 + 有盾者+2贯通
+                if (
+                    !game.hasPlayer(
+                        (target) =>
+                            target.isAlive() &&
+                            get.attitude(player, target) < 0 &&
+                            player.inRange(target),
+                    )
+                )
+                    value -= 2; // 无可攻击敌人：刀链无处释放，仅剩给盾/贯通价值
+                return Math.min(9, value);
             },
-            result: { target: 1 },
+            result: {
+                // 受动方：护盾点数（星启2、爱诗再+1）；引擎按态度加权，敌方目标自动计负
+                target: (player) =>
+                    (lib.bts.api.god(player) ? 2 : 1) +
+                    (player.hasSkill('bts_sk_aishi') ? 1 : 0),
+            },
         },
     },
 
@@ -132,7 +150,13 @@ export const skill = {
             if (event.cards) await player.discard(event.cards); // 源：弃【杀】移入 content 结算
             lib.bts.api.addShield(event.targets[0], 1, player); // 源 L9037：AddAShield(p, player)
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 供跨技能估值：弃 1【杀】换 1 点护盾（发动决策在 cost 内联 ai1/ai2）
+            result: {
+                player: 1,
+                target: 1, // 护盾目标获得1点护盾
+            },
+        },
     },
 
     // ── 触发技·生德（源 st_shengde = TriggerSkill MarkChanged，L9068-9083）──
@@ -140,7 +164,7 @@ export const skill = {
     bts_sk_shengde: {
         // 源 st_shengde（animal.lua L9068-9083）：MarkChanged；源代码作 mark.gain>0（附加）、
         // 翻译写「失去护盾后」——同族 7 处 gain 方向与描述相反的系统性笔误，
-        // 2026-10-02 用户定夺按描述方向实现：护盾被移除时（bts_mark_remove）触发。
+        // 定夺按描述方向实现：护盾被移除时（bts_mark_remove）触发。
         // 范围按源描述「一名角色」取 global（源缺 can_trigger 属引擎层限制，作者原意以
         // 描述＋函数体〔findPlayers loop + mark.who〕为准；原 self 限制随本次定夺解除）。
         trigger: { global: 'bts_mark_remove' },
@@ -178,6 +202,29 @@ export const skill = {
             const pick = await player
                 .chooseControl(choices)
                 .set('prompt', '生德：选择移除的异常')
+                .set(
+                    'ai',
+                    // AI 口径：优先移除危害最重的异常（减上限/控制类 > 每回合掉血 > 其余；
+                    // 螺旋回合末自动清理、地狱双刃不列入），目标为友军（chooseBool 已筛态度）
+                    //（源 L9068-9083）
+                    () => {
+                        for (const name of [
+                            'losemaxhp',
+                            'confuse',
+                            'fossilize',
+                            'sleep',
+                            'freeze',
+                            'poison',
+                            'numb',
+                            'burn',
+                            'scary',
+                        ]) {
+                            const key = `bts_abnormal_${name}`;
+                            if (choices.includes(key)) return key;
+                        }
+                        return choices[0];
+                    },
+                )
                 .forResult();
             event.result = { bool: true, cost_data: { control: pick.control } };
         },
@@ -192,20 +239,11 @@ export const skill = {
                     1,
                 );
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_danheng_tenghuang_skin1': '皮肤1',
-    'bts_ch_danheng_tenghuang_skin2': '皮肤2',
-    'bts_ch_danheng_tenghuang_skin3': '皮肤3',
-    'bts_ch_danheng_tenghuang_skin4': '皮肤4',
-    'bts_ch_danheng_tenghuang_skin5': '皮肤5',
-    'bts_ch_danheng_tenghuang_skin6': '皮肤6',
-    'bts_ch_danheng_tenghuang_skin7': '皮肤7',
-    'bts_ch_danheng_tenghuang_skin8': '皮肤8',
     'bts_ch_danheng_tenghuang_skin1': '皮肤1',
     'bts_ch_danheng_tenghuang_skin2': '皮肤2',
     'bts_ch_danheng_tenghuang_skin3': '皮肤3',

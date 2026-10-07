@@ -53,7 +53,7 @@ export const skill = {
     bts_sk_gongwu: {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02）
+        // 召唤忆灵的技能均为 unique:true（定夺）
         unique: true,
         enable: 'phaseUse',
         filter(event, player) {
@@ -66,8 +66,8 @@ export const skill = {
             // 源 L7356：AddBless(player, "@bless_zhigaozhizi", 3)
             await lib.bts.api.addBless(player, 'zhigaozhizi', 3, player);
             if (lib.bts.api.getPet(player, 'yijiang')) {
-                // 源 L7357-7359 + GetPetLostHp（L884-888）：已召唤衣匠 → 回复 忆灵上限−当前忆灵生命
-                //（2026-09-02 统一生命池后改真 GetPetLostHp，替换原 maxHp−hp 近似）
+                // 源 L7357-7359（GetPetLostHp L884-888）：已召唤衣匠 → 回复「忆灵上限−当前忆灵生命」
+                //（定夺统一生命池）。
                 const lost = lib.bts.api.getPetLostHp(player, 'yijiang');
                 if (lost) await player.recover(player, lost);
             } else {
@@ -81,12 +81,25 @@ export const skill = {
                 lib.bts.api.endPlayPhase(player);
         },
         ai: {
+            // AI 口径：怒气≥5 发动；收益=3 层至高之姿（【杀】视为【决斗】、光伤补层）+额外回合
+            //（本出牌阶段被结束由额外回合补偿；爱诗在队时不结束），首召衣匠另得合体+3体力/上限、
+            // 重复召唤回补忆灵已损体力（源 animal.lua L7351-7377）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_gongwu')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_gongwu'))
+                    return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门：怒气不足不可用
+                let value = 7; // 基础：3 层至高之姿 + 额外回合
+                if (!lib.bts.api.getPet(player, 'yijiang')) value += 1; // 首召：合体 +3体力/+3上限并得刺纹/飞驰
+                else if (lib.bts.api.getPetLostHp(player, 'yijiang')) value += 1; // 重复召唤回补忆灵已损体力
+                if (player.countCards('h', (card) => get.name(card) === 'sha')) value += 1; // 有【杀】供至高之姿转化
+                if (lib.bts.api.getBless(player, 'zhigaozhizi')) value -= 1; // 已有层数：刷新而非首入，价值略降
+                return Math.min(9, value);
             },
-            result: { player: 2 },
+            result: {
+                // 供跨技能估值：3 层至高之姿 + 额外回合；首召衣匠合体另计
+                player: (player) =>
+                    2 + (lib.bts.api.getPet(player, 'yijiang') ? 0 : 1),
+            },
         },
     },
 
@@ -107,13 +120,12 @@ export const skill = {
             // 源 L7387：askForDiscard(damage.to, 1, 1) —— 目标弃置一张手牌（trigger=damageEnd 事件）
             await trigger.player.chooseToDiscard('金玫：弃置一张手牌', 'h', 1, true);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·名讳（源 st_minghui = TriggerSkill EventPhaseStart NotActive，L7392-7407）──
     // 回合结束后，可弃置一张【杀】：衣匠已存在则回复1点体力；否则召唤衣匠并执行额外回合。
     bts_sk_minghui: {
-        // 召唤忆灵的技能均为 unique:true（用户定夺 2026-09-02）
+        // 召唤忆灵的技能均为 unique:true（定夺）
         unique: true,
         trigger: { player: 'phaseEnd' },
         filter(event, player) {
@@ -138,6 +150,12 @@ export const skill = {
                         ? '名讳：是否弃置一张【杀】回复1点体力？'
                         : '名讳：是否弃置一张【杀】召唤衣匠并执行额外回合？',
                 )
+                .set(
+                    'ai',
+                    // AI 口径：无衣匠=召唤+额外回合（高收益）；有衣匠=回复1点（对齐风堇虹光 6 分口径）。
+                    // 引擎取消阈值：分值 ≤0 即不发动（ai/basic.js chooseCard）（源 L7392-7407）
+                    (card) => (hasPet ? 6 : 9) - get.value(card),
+                )
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -152,11 +170,17 @@ export const skill = {
                 lib.bts.api.extraTurn(player, 'bts_extra_turn');
             }
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 供跨技能估值：无衣匠=召唤衣匠+额外回合；有衣匠=回复1点体力
+            result: {
+                player: (player) =>
+                    lib.bts.api.getPet(player, 'yijiang') ? 1 : 2,
+            },
+        },
     },
 
     // ── 锁定技·匠躯（源 st_jiangqu = TriggerSkill Compulsory Damaged）──
-    // 你受到伤害后，弃置所有手牌（源已更新为 throwAllHandCards；2026-10-02 跟改）。
+    // 你受到伤害后，弃置所有手牌（源已更新为 throwAllHandCards）。
     bts_sk_jiangqu: {
         trigger: { player: 'damageEnd' },
         forced: true,
@@ -167,7 +191,6 @@ export const skill = {
             // 源（现行）throwAllHandCards = 弃置所有手牌
             await player.discard(player.getCards('h'));
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·飞驰（源 st_feichi = TriggerSkill Compulsory EventPhaseEnd Play，L7423-7437）──
@@ -180,15 +203,13 @@ export const skill = {
             return player.getHistory('sourceDamage').length > 0;
         },
         async content(event, trigger, player) {
-            // 源 L7429-7434：对所有 LastDamageLink 角色 AddNature(p, "light")；
-            // 用无名杀本体的 sourceDamage 历史直接取“最近伤害目标”（最后一条的受害者），
-            // 等价源“令最近伤害关联角色获得虚数属性”，不再依赖自维护的 LastDamagedLink 标记。
+            // 源 L7429-7434：令最近伤害关联角色获得虚数属性；取 sourceDamage 历史末条受害者
+            //（不依赖自维护标记）。
             const history = player.getHistory('sourceDamage');
             const target = history[history.length - 1]?.player;
             if (target?.isAlive())
                 await lib.bts.api.addNature(target, 'light');
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·刺纹（源 st_ciwen = TriggerSkill Compulsory TargetSpecified，L7439-7452）──
@@ -207,22 +228,11 @@ export const skill = {
             lib.bts.api.setDamageNature(damage, 'light');
             await damage;
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_agelaiya_skin1': '皮肤1',
-    'bts_ch_agelaiya_skin2': '皮肤2',
-    'bts_ch_agelaiya_skin3': '皮肤3',
-    'bts_ch_agelaiya_skin4': '皮肤4',
-    'bts_ch_agelaiya_skin5': '皮肤5',
-    'bts_ch_agelaiya_skin1': '皮肤1',
-    'bts_ch_agelaiya_skin2': '皮肤2',
-    'bts_ch_agelaiya_skin3': '皮肤3',
-    'bts_ch_agelaiya_skin4': '皮肤4',
-    'bts_ch_agelaiya_skin5': '皮肤5',
     'bts_ch_agelaiya_skin1': '皮肤1',
     'bts_ch_agelaiya_skin2': '皮肤2',
     'bts_ch_agelaiya_skin3': '皮肤3',
@@ -321,8 +331,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_zhigaozhizi_faq',

@@ -39,19 +39,50 @@ export const skill = {
             // 源 L3442-3444：目标各回复1点
             for (const target of event.targets || []) await target.recover(player, 1);
             // 源 L3445-3449：星启时目标各附加1层治愈祝福
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             if (lib.bts.api.god(player)) {
                 for (const target of event.targets || [])
                     await lib.bts.api.addBless(target, 'zhiyu', 2, player);
             }
         },
         ai: {
+            // AI 口径：怒气≥3 且有可救治的受伤友方（或星启时给友方预铺治愈）才发动；收益=自身回复1（受伤时）
+            // +各目标回复1+星启附加2层治愈（准备阶段各回1）；无友方受益则留怒
+            //（源 animal.lua L3434-3461；治愈见 rules/globalBuffs.js bts_bless_zhiyu，层数平衡改动见本技能 content）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_xinsheng')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xinsheng')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1;
+                const god = lib.bts.api.god(player);
+                let friendValue = 0;
+                let woundedFriend = false;
+                for (const target of game.players) {
+                    if (target === player || !target.isAlive()) continue;
+                    if (get.attitude(player, target) <= 0) continue; // 只救友方
+                    if (target.isDamaged()) {
+                        friendValue += 1.5; // 回复1点
+                        woundedFriend = true;
+                    }
+                    if (god) friendValue += 1; // 2层治愈≈后续回2点（折1）
+                }
+                if (!woundedFriend && !(god && friendValue > 0))
+                    return -1; // 无友方受益：3怒气只换自回1点不值
+                const selfHeal = player.isDamaged() ? 1.5 : 0; // 自身回复1点（满血无效）
+                const value = friendValue + selfHeal;
+                if (value >= 6) return 8;
+                if (value >= 4) return 6;
+                if (value >= 2) return 4;
+                return 2;
             },
-            result: { player: 1, target: 1 },
+            result: {
+                // 施动方：自身回复1点（仅受伤时有效）
+                player: (player) => (player.isDamaged() ? 1.5 : 0),
+                // 受动方：回复1点+星启的2层治愈（后续准备阶段回复）；友方为正，敌方由态度加权否决
+                target: (player, target) => {
+                    let value = target.isDamaged() ? 1.5 : 0;
+                    if (lib.bts.api.god(player)) value += target.isDamaged() ? 1 : 0.8;
+                    return value;
+                },
+            },
         },
     },
 
@@ -68,7 +99,6 @@ export const skill = {
             // 源 L3472：recover.recover + 1
             trigger.num += 1;
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·救护（源 st_jiuhu = TriggerSkill Damaged，L3481-3499）──
@@ -93,6 +123,12 @@ export const skill = {
                         get.translation(trigger.player) +
                         '附加1层治愈祝福？',
                 )
+                // AI 口径：仅救治友方（含自己）——治愈祝福准备阶段回1点（源 L3481-3499）
+                .set('ai', () => {
+                    const target = trigger.player;
+                    if (!target || !target.isAlive()) return false;
+                    return get.attitude(player, target) > 0;
+                })
                 .forResult();
             if (!result.bool) {
                 event.result = { bool: false };
@@ -104,6 +140,11 @@ export const skill = {
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
                 )
+                // AI 口径：候选已过滤为【杀】，弃价值最低者
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    return -get.value(card);
+                })
                 .forResult();
             if (!cards.bool) {
                 event.result = { bool: false };
@@ -117,13 +158,17 @@ export const skill = {
             if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
             await lib.bts.api.addBless(trigger.player, 'zhiyu', 1, player); // 源 L3492：AddBless(player=受伤者, "@bless_zhiyu", 1, p)
         },
-        ai: { result: { player: 1, target: 1 } },
+        ai: {
+            // 供跨技能估值查询（发动决策在 cost 内联 ai）：目标+1层治愈（准备阶段回1点）
+            result: {
+                target: (player, target) => (target.isDamaged() ? 1 : 0.5),
+            },
+        },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_natasha_skin1': '皮肤1',
     'bts_ch_natasha_skin1': '皮肤1',
     bts_ch_natasha: '娜塔莎',
     bts_sk_xinsheng: '新生',

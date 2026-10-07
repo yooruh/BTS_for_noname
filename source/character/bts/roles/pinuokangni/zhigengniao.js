@@ -31,8 +31,11 @@ export const skill = {
             return target !== player;
         },
         selectTarget: [1, Infinity],
+        // 多目标一次性结算：content 只执行一次、event.targets 为完整目标数组。
+        // 不声明 multitarget 则按目标重跑 content（怒气重复扣、重复翻面；白厄燔世同型事故，参照 baie.js 范式）。
+        multitarget: true,
         // 清理子技能：知更鸟下回合开始时移除被赠回合角色的迭奏增益（源 L1502-1507）。
-        group: ['bts_sk_diezou_clear'],
+        group: ['bts_sk_diezou_clear', 'bts_sk_diezou_bgm'],
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_diezou');
             lib.bts.api.loseAngry(player, 5); // 源 L4990：LoseAngry(player, 5)
@@ -74,7 +77,28 @@ export const skill = {
                         p.removeSkill('bts_sk_diezou_buff');
                     }
                 },
-                ai: { noe: true },
+            },
+            // ── 子技·迭奏 BGM（释放必杀技时切换知更鸟专属曲；下个准备阶段/死亡自动还原）──
+            // 用技能级 BGM 机制（lib.bts.bgm）双参数形式注册自动还原（expire 与技能 trigger
+            // 同构；实现参照 addTempSkill/tempBanSkill）。知更鸟会被迭奏翻面——翻面跳过、
+            // 被引擎取消的回合不发 phaseZhunbeiBegin，监听自然顺延到下一次真实准备阶段；
+            // dieAfter 覆盖「未到回合即阵亡」的情况。开关为各端本地语义（关闭端不应用、不记栈）。
+            bgm: {
+                trigger: { player: 'useSkillAfter' },
+                forced: true,
+                filter(event, player) {
+                    return lib.skill[event.skill]?.bts_bisha === true;
+                },
+                async content(event, trigger, player) {
+                    // 从 33.7s（副歌）起播——起点是本次切换的参数，随目标携带
+                    lib.bts.bgm.switch(
+                        { file: 'bts_ch_zhigengniao', startAt: 33.7 },
+                        {
+                            owner: player,
+                            player: ['phaseZhunbeiBegin', 'dieAfter'],
+                        },
+                    );
+                },
             },
             // ── 临时技·迭奏增益（挂在被赠回合角色身上，源 max_diezou<目标>-start 标记 L4994；
             //   gamerule_hand L1778：手牌上限+1；gamerule_draw L1461：发起者星启时额定摸牌数+1；
@@ -106,14 +130,32 @@ export const skill = {
                 async content(event, trigger, player) {
                     event.num += 1;
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：怒气≥5 且有受益友方时接（源 AI StarRail-ai max_diezou：估值 9、friends_noself
+            // 全给）；每名友方得额外回合（+手牌上限1；星启另+额定摸牌1），自身翻面+结束出牌阶段为固定代价。
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_diezou') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_diezou')) return -1;
+                const friends = game.countPlayer(
+                    (t) =>
+                        t !== player &&
+                        t.isAlive() &&
+                        get.attitude(player, t) > 0,
+                );
+                if (!friends) return -1; // 无可给友方（result.target 对敌方 ≤0，选不出目标）
+                return Math.min(9, 6 + friends); // 1名=7 / 2名=8 / ≥3名=9（对齐源估值上限）
             },
-            result: { target: 1 },
+            result: {
+                // 友方收益：额外回合（+手牌上限1；星启另+额定摸牌1）；敌方态度为负自然排除
+                target: (player, target) => {
+                    if (target === player) return 0;
+                    let v = 2;
+                    if (lib.bts.api.god(player)) v += 0.5;
+                    if (!target.countCards('h')) v -= 0.5; // 空手牌额外回合收益略降
+                    return v;
+                },
+            },
         },
     },
 
@@ -122,15 +164,20 @@ export const skill = {
     bts_sk_yongtan: {
         trigger: { target: 'useCardToTargeted' },
         filter(event, player) {
-            // 源 L5015：其他角色使用非技能牌指定你为目标
+            // 源 L5015：其他角色使用非技能牌指定你为目标。非技能牌判据：无名杀实体/直用对象卡
+            // isCard:true、经典转化为 falsy——`!isCard` 恰为反向；改引擎标准武将同款
+            //（extra/skill.js:3057 等）「非转化且非虚拟」。
             return (
                 event.player !== player &&
-                !event.card?.isCard &&
+                !!event.card &&
+                !get.is.convertedCard(event.card) &&
+                !get.is.virtualCard(event.card) &&
                 player.getCards('h').some((card) => get.name(card) === 'sha')
             );
         },
         async cost(event, trigger, player) {
-            // 源 L5015：askForCard(player, "Slash") —— 只用 chooseCard 选择，弃置在 content 结算
+            // 源 L5015：askForCard(player, "Slash") —— 只用 chooseCard 选择，弃置在 content 结算。
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定（最高分 ≤0 → 取消）。
             event.result = await player
                 .chooseCard(
                     'h',
@@ -139,6 +186,7 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '咏叹：选择弃置一张【杀】并摸两张牌',
                 )
+                .set('ai', (card) => 6 - get.value(card)) // 弃价值最低的【杀】换摸2（可分配）
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -198,7 +246,6 @@ export const skill = {
                 })
                 .setContent('gaincardMultiple');
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·合颂（源 st_hesong = TriggerSkill Compulsory DamageCaused，L5032-5051）──
@@ -225,7 +272,6 @@ export const skill = {
             lib.bts.api.markDamage(trigger, '_fatal');
             lib.bts.api.addAngry(player);
         },
-        ai: { noe: true },
     },
 };
 

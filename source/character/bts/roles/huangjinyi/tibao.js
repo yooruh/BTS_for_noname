@@ -38,8 +38,7 @@ export const skill = {
                 // 源 L7820：AddACurse(p, player) —— 附加1层诅咒
                 lib.bts.api.addCurse(target, 1);
             }
-            // 源 L7822-7824：星启时 ViewAsCardSkill(player, targets, "_max_caicai") ——
-            // 一次性视为对全部所选角色使用【杀】（非逐个）
+            // 源 L7822-7824：星启时一次性视为对全部所选角色使用【杀】（ViewAsCardSkill，非逐个）。
             if (lib.bts.api.god(player) && event.targets.length)
                 await player.useCard(
                     {
@@ -51,9 +50,8 @@ export const skill = {
                     event.targets,
                 );
         },
-        // 源 max_caicai（L7823）：ViewAsCardSkill 以 "_max_caicai" 为 skillName 含 "max_"，
-        // 源 ConfirmDamage L1117/L1124 据此给星启必杀+1 与增幅祝福+1。无名杀须于
-        // damageBegin1 显式设 reason（飞霄 bts_sk_zaohuang 范式）。
+        // 源以 "_max_caicai" 为 skillName（含 "max_"），ConfirmDamage L1117/L1124 据此给星启必杀+1
+        // 与增幅祝福+1；无名杀须于 damageBegin1 显式设 reason（飞霄 bts_sk_zaohuang 范式）。
         group: ['bts_sk_caicai_damage'],
         subSkill: {
             damage: {
@@ -66,21 +64,36 @@ export const skill = {
                 async content(event, trigger, player) {
                     trigger.reason = 'bts_sk_caicai_bts_reason_fatal';
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：5怒气换「敌各1层诅咒（其下次受伤+N，随后清空）」；无敌人不空放；星启追加
+            // 对所选敌人视为【杀】（必杀增伤通道），敌数越多群体收益越高（源 max_caicai
+            // StarRail-ai.lua L765-781：GetAngry(5)&&敌>0，估值9；诅咒结算 globalBuffs.js L383-396）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_caicai')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_caicai')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门（含怒气豁免）
+                const enemies = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) < 0,
+                );
+                if (!enemies) return -1; // 诅咒无对象：空放（源 AI 无敌人不发动）
+                if (lib.bts.api.god(player)) return Math.min(9, 7 + enemies);
+                return enemies >= 2 ? 8 : 7;
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损：1层诅咒；星启另挨1【杀】（约1点+必杀加成）
+                target: (player, target) =>
+                    -1 - (lib.bts.api.god(player) ? 1.5 : 0),
+            },
         },
     },
 
     // ── 触发技·礼物（源 st_liwu = TriggerSkill EventPhaseStart Start + OneCardViewAsSkill，L7838-7879）──
-    // 准备阶段开始时，可弃置一张【杀】，令你与一名其他角色各附加3层贯通祝福；若你为星启，额外各附加1层暴击祝福。
+    // 准备阶段开始时，可弃一张【杀】：你与任意名其他角色各+3层贯通祝福；拥有爱诗时你与
+    // 这些角色额外各+1层暴击祝福。
     bts_sk_liwu: {
         trigger: { player: 'phaseZhunbeiBegin' },
         filter(event, player) {
@@ -98,18 +111,29 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     selectCard: 1,
                     filterTarget: (card, source, target) => target !== source,
-                    // 源 st_liwuCard filter（L7839-7841）仅 to_select~=self 无上限、翻译 L14053
-                    // 「至少一名其他角色」——原 selectTarget:1 误收窄为一名，第十二批改回任意多名
+                    // 源 filter 仅 to_select~=self、无上限（翻译「至少一名其他角色」）；曾误收窄
+                    // 为一名，已改回任意多名
                     selectTarget: [1, Infinity],
-                    ai2: (target) => get.attitude(player, target),
+                    // cost 型触发技：发动与否由此处 ai1/ai2 决定（引擎 ai/basic.js：单项最高分≤0 即取消）
+                    // 源 AI（StarRail-ai.lua @@st_liwu）：已有贯通且仅此1张【杀】→不发动（保留杀）；
+                    // 否则弃价值最低的【杀】。可发时恒正＋弃牌价值越低越优先
+                    ai1: (card) => {
+                        if (
+                            lib.bts.api.getBless(player, 'through') &&
+                            player.countCards('h', 'sha') <= 1
+                        )
+                            return -1;
+                        return 10 - get.value(card);
+                    },
+                    ai2: (target) => get.attitude(player, target), // 目标=全体友方（敌方态度为负被排除）
                 })
                 .forResult();
         },
         async content(event, trigger, player) {
             // cost 所选弃牌/目标在技能事件 event.cards/event.targets（标准约定）
             if (event.cards) await player.discard(event.cards); // 源：弃【杀】移入 content 结算
-            // 源 L7839-7851：自己+3贯通；目标循环内各+3贯通（星启暴击分支源代码不存在——
-            // 曾误把飞霄 max_zaohuang 的 God 分支搬来，第十二批已删）
+            // 源 L7839-7851：自己+3贯通；目标各+3贯通（星启暴击分支源代码不存在——曾误搬
+            // 飞霄 max_zaohuang 的 God 分支，已删）。
             await lib.bts.api.addBless(player, 'through', 3, player);
             for (const target of event.targets)
                 await lib.bts.api.addBless(target, 'through', 3, player);
@@ -120,19 +144,27 @@ export const skill = {
                     await lib.bts.api.addBless(target, 'critical', 1, player);
             }
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动决策在 cost 的 ai1/ai2（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能
+            // 估值——自己与各目标各+3贯通（伤害无视护盾与防具，回合结束-1层）；爱诗另+1暴击
+            //（源 st_liwu L7838-7879；『门径』诗 A10.1）
+            result: {
+                player: 1.5,
+                target: (player, target) =>
+                    player.hasSkill('bts_sk_aishi') ? 2.5 : 2,
+            },
+        },
     },
 
     // ── 触发技·忙碌（源 st_manglu = TriggerSkill CardFinished，L7880-7907）──
     // 其他角色发动必杀技后，若其拥有贯通祝福，你可以视为对一名其他角色使用【杀】。
     bts_sk_manglu: {
-        // 源 st_manglu 是 TriggerSkill（必杀技消费端，非必杀技本身），源无 max_ 前缀技能对象
-        // 对应它——bts_bisha 曾误标（浮元/悦王先例），第十二批去标；filter 仍按 event.skill 的
-        // bts_bisha 标签识别他人必杀技，不受影响。
+        // 源 st_manglu 为 TriggerSkill（必杀技消费端，非必杀技本身）——bts_bisha 曾误标
+        //（浮元/悦王先例），已去标；filter 仍按 event.skill 的 bts_bisha 标签识别他人必杀技。
         trigger: { global: 'useSkillAfter' },
         filter(event, player) {
-            // 源 L7886：其他角色使用 SkillCard 且技能名含 "max_"（必杀技），且其有贯通祝福。
-            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）
+            // 源 L7886：他人使用含 "max_" 的 SkillCard 且有贯通祝福；无名杀以 bts_bisha 标签判定
+            //（勿用子串匹配如 includes('st_')）。
             return (
                 event.player !== player &&
                 lib.skill[event.skill]?.bts_bisha === true &&
@@ -147,7 +179,22 @@ export const skill = {
                     [1, 1],
                     (card, source, target) =>
                         target !== source && source.inRange(target),
-                    (target) => -get.attitude(player, target),
+                    // 源 AI（playerchosen.st_manglu）：选敌且【杀】可用（slashIsEffective）；
+                    // 不可用不给分（cost 型：最高分≤0 引擎取消）；残血敌人优先补刀
+                    (target) => {
+                        if (get.attitude(player, target) >= 0) return -1;
+                        if (
+                            !player.canUse(
+                                { name: 'sha', isCard: true },
+                                target,
+                            )
+                        )
+                            return 0;
+                        return (
+                            -get.attitude(player, target) +
+                            (target.hp <= 1 ? 1 : 0)
+                        );
+                    },
                 )
                 .forResult();
         },
@@ -156,20 +203,11 @@ export const skill = {
             // 源 L7897：ViewAsCardOnly —— 视为对目标使用【杀】
             await player.useCard({ name: 'sha', isCard: true }, event.targets);
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_tibao_skin1': '皮肤1',
-    'bts_ch_tibao_skin2': '皮肤2',
-    'bts_ch_tibao_skin3': '皮肤3',
-    'bts_ch_tibao_skin4': '皮肤4',
-    'bts_ch_tibao_skin5': '皮肤5',
-    'bts_ch_tibao_skin6': '皮肤6',
-    'bts_ch_tibao_skin7': '皮肤7',
-    'bts_ch_tibao_skin8': '皮肤8',
     'bts_ch_tibao_skin1': '皮肤1',
     'bts_ch_tibao_skin2': '皮肤2',
     'bts_ch_tibao_skin3': '皮肤3',

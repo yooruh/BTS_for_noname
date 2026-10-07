@@ -66,13 +66,38 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：怒气≥5 时施放后仍留有接续余量、乐观；仅够 3~4 时保守（读 bts_mk_angry）。
+            // 局面：攻击范围内存在异常目标→伤害+1（源 L1754）；星启下可击杀→额外回合（源 L1759-1762）。
+            // （源 animal.lua L1744-1762）
             order(item, player) {
                 if (lib.bts?.aiGuard?.blocked(player, 'bts_sk_dongtian'))
                     return -1;
-                return lib.bts.api.getAngry(player) >= 5 ? 7 : 4;
+                let val = lib.bts.api.getAngry(player) >= 5 ? 7 : 4;
+                const inRange = (t) =>
+                    t.isAlive() &&
+                    t !== player &&
+                    get.distance(player, t) <= player.getAttackRange();
+                if (game.hasPlayer((t) => inRange(t) && lib.bts.api.getAbnor(t)))
+                    val += 1; // 异常目标吃 2 伤
+                if (
+                    lib.bts.api.god(player) &&
+                    game.hasPlayer(
+                        (t) =>
+                            inRange(t) &&
+                            get.attitude(player, t) < 0 &&
+                            t.hp <= (lib.bts.api.getAbnor(t) ? 2 : 1),
+                    )
+                )
+                    val += 1; // 星启击杀→额外回合
+                return val;
             },
             threaten: 2.5,
-            result: { player: 1, target: -2 },
+            result: {
+                player: 1,
+                // 目标受损：1 点（异常者 2 点，源 L1754）；量纲对齐试点批（1 点伤害≈1.5）
+                target: (player, target) =>
+                    -1.5 * (lib.bts.api.getAbnor(target) ? 2 : 1),
+            },
             effect: {
                 target(card, player, target, current) {
                     // 优先对处于异常的目标使用
@@ -83,8 +108,8 @@ export const skill = {
     },
 
     // ── 锁定技·寸强（源 st_cunqiang = TriggerSkill Compulsory，L1766-1790）──
-    // 2026-10-02 自注册重构：他人令你回复怒气/附加护盾经 lib.bts.api.addAngry/addShield
-    // 广播 bts_resource_add，本技能监听结算（原在 API 内按 hasSkill 内联代执行）。
+    // 自注册重构：他人令你回复怒气/附加护盾经 lib.bts.api.addAngry/addShield 广播 bts_resource_add，
+    // 本技能监听结算（取代 API 内按 hasSkill 内联代执行）。
     bts_sk_cunqiang: {
         trigger: {
             player: ['recoverEnd', 'gainAfter', 'bts_resource_add'],
@@ -112,7 +137,6 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.api.addBless(player, 'through'); // 源 L1788（发动由引擎自动记录）
         },
-        ai: { noe: true },
     },
 
     // ── 转化技·疾雨（源 st_jiyu = OneCardViewAsSkill + SkillCard + DamageCaused，L1792-1826）──
@@ -144,7 +168,9 @@ export const skill = {
         group: ['bts_sk_jiyu_fossilize'],
         subSkill: {
             fossilize: {
+                // 源 L1821-1826 为疾雨效果自动追加（无询问）→ forced。
                 trigger: { source: 'damageEnd' },
+                forced: true,
                 filter(event, player) {
                     return (
                         !!event.reason?.includes('bts_sk_jiyu') &&
@@ -155,14 +181,33 @@ export const skill = {
                     if (trigger.player)
                         lib.bts.api.addAbnormal(trigger.player, 'fossilize', 1, player);
                 },
-                ai: { noe: true },
             },
         },
         ai: {
-            order: 5,
+            // AI 口径：弃 1 张【杀】换 1 点直伤；手牌【杀】富余时果断、仅剩 1 张时保守留响应；
+            // 攻击范围内存在异常目标时收益提升（契合 effect 双倍口径）。（源 animal.lua L1792-1826）
+            order(item, player) {
+                if (lib.bts?.aiGuard?.blocked(player, 'bts_sk_jiyu')) return -1;
+                let val = player.countCards('h', 'sha') > 1 ? 5 : 4; // 读资源
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.distance(player, t) <= player.getAttackRange() &&
+                            lib.bts.api.getAbnor(t),
+                    )
+                )
+                    val += 1; // 读局面
+                return val;
+            },
             useful: 2,
             value: 5,
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 目标受损：1 点直伤；可击杀时加权（回怒滚入后续爆发）
+                target: (player, target) => (target.hp <= 1 ? -3 : -1.5),
+            },
             effect: {
                 target(card, player, target, current) {
                     if (lib.bts.api.getAbnor(target)) return [1, 2]; // 目标有异常，疾雨价值翻倍
@@ -174,34 +219,6 @@ export const skill = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_danheng_skin1': '皮肤1',
-    'bts_ch_danheng_skin10': '皮肤10',
-    'bts_ch_danheng_skin11': '皮肤11',
-    'bts_ch_danheng_skin12': '皮肤12',
-    'bts_ch_danheng_skin13': '皮肤13',
-    'bts_ch_danheng_skin14': '皮肤14',
-    'bts_ch_danheng_skin2': '皮肤2',
-    'bts_ch_danheng_skin3': '皮肤3',
-    'bts_ch_danheng_skin4': '皮肤4',
-    'bts_ch_danheng_skin5': '皮肤5',
-    'bts_ch_danheng_skin6': '皮肤6',
-    'bts_ch_danheng_skin7': '皮肤7',
-    'bts_ch_danheng_skin8': '皮肤8',
-    'bts_ch_danheng_skin9': '皮肤9',
-    'bts_ch_danheng_skin1': '皮肤1',
-    'bts_ch_danheng_skin10': '皮肤10',
-    'bts_ch_danheng_skin11': '皮肤11',
-    'bts_ch_danheng_skin12': '皮肤12',
-    'bts_ch_danheng_skin13': '皮肤13',
-    'bts_ch_danheng_skin14': '皮肤14',
-    'bts_ch_danheng_skin2': '皮肤2',
-    'bts_ch_danheng_skin3': '皮肤3',
-    'bts_ch_danheng_skin4': '皮肤4',
-    'bts_ch_danheng_skin5': '皮肤5',
-    'bts_ch_danheng_skin6': '皮肤6',
-    'bts_ch_danheng_skin7': '皮肤7',
-    'bts_ch_danheng_skin8': '皮肤8',
-    'bts_ch_danheng_skin9': '皮肤9',
     'bts_ch_danheng_skin1': '皮肤1',
     'bts_ch_danheng_skin10': '皮肤10',
     'bts_ch_danheng_skin11': '皮肤11',

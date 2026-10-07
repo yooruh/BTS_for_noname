@@ -47,18 +47,39 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：失5怒=3层神君（攻距/手牌上限+3，5层连发弹药）+攻击范围内（星启全场）
+            // 敌方各1点光伤；打击面越大越值（源 st_wushen，animal.lua L6351-6375）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_wushen') ? -1 : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_wushen')) return -1;
+                const god = lib.bts.api.god(player);
+                let n = 0; // 可打击敌方数
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (!(player.inRange(t) || god)) continue;
+                    if (get.attitude(player, t) < 0) n++;
+                }
+                if (!n) return -1; // 无覆盖敌方不空放
+                if (n >= 3) return 9;
+                return n === 2 ? 8 : 6; // 单目标=1点光伤+神君资源
             },
-            result: { target: -1 },
+            threaten: 2,
+            result: {
+                player: 1, // +3层神君（攻距/手牌上限）
+                // 目标受损：1点光伤≈1.5（护盾抵扣则≈0.5）；残血击杀加码
+                target: (player, target) => {
+                    const shielded = lib.bts.api.getShield(target);
+                    let v = shielded ? 0.5 : 1.5;
+                    if (!shielded && target.hp <= 1) v += 2.5;
+                    return -v;
+                },
+            },
         },
     },
 
     // ── 触发技·震曜（源 st_zhenyao = TriggerSkill Damage，L6401-6410）──
     // 造成伤害后，可弃置一张【杀】，获得2层神君祝福。
     bts_sk_zhenyao: {
-        // 源 st_zhenyao events={sgs.Damage}，Damage 在太阳神以 damage.from（伤害来源）触发，
-        // 描述"造成伤害后" ⇒ 应 source: 造成侧，player: 会误在受伤时触发。
+        // 源 events={Damage}（以 damage.from 触发）、描述「造成伤害后」→ 应 source:，player: 会误在受伤时触发。
         trigger: { source: 'damageEnd' },
         filter(event, player) {
             // 源 L6405：造成伤害且手牌有【杀】可弃（无名杀把弃牌放进 cost）
@@ -74,6 +95,16 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '震曜：是否弃置一张【杀】获得2层神君祝福？',
                 )
+                // AI 口径：弃1【杀】换2层神君（攻距/手牌上限+2）；临近5层连发线最优先，
+                // 唯一【杀】且血线告急时保留（源 st_zhenyao，animal.lua L6401-6410）
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    const sj = lib.bts.api.getBless(player, 'shenjun', -1);
+                    const spare =
+                        player.countCards('h', (c) => get.name(c) === 'sha') - 1;
+                    if (spare <= 0 && sj + 2 < 5 && player.hp <= 2) return -1;
+                    return sj + 2 >= 5 && sj < 5 ? 2 : 1;
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -85,20 +116,19 @@ export const skill = {
     },
 
     // ── 触发技·神君（源 st_shenjun = TriggerSkill EventPhaseEnd Play，L6412-6439）──
-    // 出牌阶段结束时，若你拥有至少5层神君祝福，可以移除5层，对"上一个受到你伤害的角色"用
-    // 第一张【杀】，再随机对"本回合内受到你伤害"的其他角色至多3次【杀】（原版无属性）。
+    // 出牌阶段结束时若神君祝福≥5，可移除5层：对「上一个受到你伤害的角色」用第一张【杀】，
+    // 再随机对「本回合内受到你伤害」的其他角色至多3次【杀】（原版无属性）。
     bts_sk_shenjun: {
         trigger: { player: 'phaseUseEnd' },
-        // 源 L6418：askForSkillInvoke（可选，描述"你可以"）——用户定夺「神君可选」，
-        // 原 forced:true 强制扣 5 层会把想留作攻击范围/手牌上限 buff 的祝福强行打掉。
+        // 源 L6418 askForSkillInvoke（可选）；定夺「神君可选」——强制扣层会把留作攻击范围/手牌
+        // 上限 buff 的祝福打掉。
         filter(event, player) {
             // 源 L6416：出牌阶段结束且神君祝福≥5
             return lib.bts.api.getBless(player, 'shenjun', 5);
         },
         async content(event, trigger, player) {
-            // 源 L6418-6420：第一张神君【杀】指向"上一个受到由你造成的伤害的角色"
-            // （LastDamageLink，L1266-1269 每次伤害重置、只记最近一次目标）。
-            // 已修正：原用 sourceDamage 全历史的第一个（游戏顺序），应为最近一次。
+            // 源 L6418-6420：第一张【杀】指向「上一个受到你伤害的角色」（LastDamageLink 只记最近
+            // 一次）；原取全历史第一个已修正。
             const allDamage = player
                 .getAllHistory('sourceDamage')
                 .filter((evt) => evt.num > 0 && !!evt.player);
@@ -108,9 +138,8 @@ export const skill = {
             await lib.bts.api.removeBless(player, 'shenjun', 5, player);
             // 源 L6420：对上一个受伤目标使用神君【杀】（源直接 ViewAsCardOnly，无距离校验；原版无属性）
             await player.useCard({ name: 'sha', isCard: true }, last);
-            // 源 L6421-6432：再随机对"本回合内受到过你伤害"的其他角色（DamageLink-clear，
-            // -clear 标记回合结束清理 L1603）发动至多3次神君【杀】；源还要求可【杀】距离判定
-            // （canSlash L6424）。已修正：原用全游戏伤害关联（窗口过宽）。
+            // 源 L6421-6432：再随机对「本回合内受到过你伤害」的其他角色（-clear 标记回合结束清理
+            // L1603）至多3次【杀】，含距离判定（canSlash L6424）；原用全游戏关联已修正。
             const thisTurn = player
                 .getHistory('sourceDamage')
                 .map((evt) => evt.player)
@@ -128,13 +157,31 @@ export const skill = {
                 );
             }
         },
-        ai: { noe: true },
+        // AI 口径：扣5层神君（攻距/手牌上限-5）换≤4张【杀】；可打目标≥2、能击杀或层数富余时才发动
+        //（源 st_shenjun，animal.lua L6412-6439；content 随机追加部分不参与判定）
+        check(trigger, player, triggername, indexedData) {
+            const allDamage = player
+                .getAllHistory('sourceDamage')
+                .filter((evt) => evt.num > 0 && !!evt.player);
+            const targets = new Set();
+            const last = allDamage.at(-1)?.player;
+            if (last && last !== player && last.isAlive()) targets.add(last); // 首刀无距离校验
+            for (const evt of player.getHistory('sourceDamage')) {
+                const t = evt.player;
+                if (t && t !== player && t.isAlive() && player.inRange(t))
+                    targets.add(t); // 追加刀须在攻击范围内（源 L6424）
+            }
+            if (!targets.size) return false;
+            if (targets.size >= 2) return true;
+            if ([...targets].some((t) => t.hp <= 1)) return true; // 能击杀
+            return lib.bts.api.getBless(player, 'shenjun', -1) >= 8; // 扣5层后仍≥3，不伤连发储备
+        },
     },
 };
 
 export const marks = {
-    // 斩勘：觉醒标记 + 真实触发逻辑（源 st_zhankan = TriggerSkill Wake，L6377-6399）。
-    // 当你的攻击范围覆盖所有其他角色后，你获得3点怒气并获得神君。
+    // 斩勘：觉醒标记 + 触发逻辑（源 st_zhankan = TriggerSkill Wake，L6377-6399）：
+    // 攻击范围覆盖所有其他角色后，获得3点怒气并获得神君。
     bts_sk_zhankan: {
         markKind: 'mark',
         glossaryId: 'bts_glossary_st_zhankan_faq',
@@ -153,23 +200,11 @@ export const marks = {
             lib.bts.api.addAngry(player, 3); // 源 L6393：AddAngry(p, 3)
             await player.addSkill('bts_sk_shenjun'); // 源 L6394：acquireSkill
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_jingyuan_skin1': '皮肤1',
-    'bts_ch_jingyuan_skin10': '皮肤10',
-    'bts_ch_jingyuan_skin11': '皮肤11',
-    'bts_ch_jingyuan_skin2': '皮肤2',
-    'bts_ch_jingyuan_skin3': '皮肤3',
-    'bts_ch_jingyuan_skin4': '皮肤4',
-    'bts_ch_jingyuan_skin5': '皮肤5',
-    'bts_ch_jingyuan_skin6': '皮肤6',
-    'bts_ch_jingyuan_skin7': '皮肤7',
-    'bts_ch_jingyuan_skin8': '皮肤8',
-    'bts_ch_jingyuan_skin9': '皮肤9',
     'bts_ch_jingyuan_skin1': '皮肤1',
     'bts_ch_jingyuan_skin10': '皮肤10',
     'bts_ch_jingyuan_skin11': '皮肤11',
@@ -227,8 +262,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_shenjun_faq',

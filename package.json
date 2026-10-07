@@ -12,12 +12,13 @@
 
     "zip": "node scripts/zip.mjs",
     "rebuild": "node scripts/rebuild.mjs",
-    "opt:png": "node scripts/opt-png.mjs",
     "assets:migrate": "node scripts/migrate.mjs",
-    "purge": "node scripts/purge.mjs",
+    "opt:png": "node scripts/opt-png.mjs",
     "voice": "node scripts/voice.mjs",
+    "purge": "node scripts/purge.mjs",
     "playtest": "node scripts/playtest.mjs",
 
+    "pack": "node scripts/pack.mjs",
     "publish": "node scripts/publish.mjs"
   },
   "author": "一个月惹",

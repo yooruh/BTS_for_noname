@@ -819,11 +819,8 @@ class ExtensionUpdater {
         }
     }
 
-    // 删除新版本已移除的本地文件，并清理空目录
-    // 正常路径按「旧清单 − 新清单」差集删除；本地缺少 Directory.json 无法对比时，
-    // 回退为清空式清理：删除本地所有不在新清单中的文件（等效"全部删除再重下"）
-    // 新清单必须是完整清单（代码包内 Directory.json 的全部路径），且按模式过滤：
-    // code 模式绝不触碰媒体文件。
+    // 删除新版本已移除的本地文件并清理空目录：正常按「旧清单 − 新清单」差集删除；
+    // 无本地清单可比对时退化为删除不在新清单中的全部文件（新清单须完整；code 不动媒体）。
     async removeObsoleteFiles(oldFileList, newManifestPaths, onProgress = null) {
         const newSet = new Set(newManifestPaths || []);
         if (newSet.size === 0) {

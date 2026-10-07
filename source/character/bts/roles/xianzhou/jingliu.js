@@ -44,17 +44,40 @@ export const skill = {
             lib.bts.api.setDamageNature(damage, 'frost');
             await damage;
             // 源 L6731-6734：星启时 +1映月 + 1层致命祝福
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             if (lib.bts.api.god(player)) {
                 player.addMark('bts_mk_yingyue', 1);
                 await lib.bts.api.addBless(player, 'fatal', 2, player);
             }
         },
         ai: {
+            // AI 口径：失5怒=1点霜伤+1枚朔望（满2于回合末由转魄换额外回合）；无攻击范围内敌方不发，
+            // 朔望=1（临门）或星启（+1映月+2层致命）时更积极（源 st_tianhe，animal.lua L6717-6746）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_tianhe') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_tianhe')) return -1;
+                const hasEnemy = game.hasPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        player.inRange(t) &&
+                        get.attitude(player, t) < 0,
+                );
+                if (!hasEnemy) return -1; // 无打击对象不空放
+                let v = 5; // 1点霜伤≈1.5 + 朔望进度≈2（2枚=转魄额外回合）
+                if (player.countMark('bts_mk_shuowang') === 1) v += 2; // 临门：再得1枚即满2
+                if (lib.bts.api.god(player)) v += 1; // 星启：+1映月（映月伤害基数）+2层致命
+                return v;
             },
-            result: { target: -2 },
+            threaten: 2,
+            result: {
+                player: 1, // +1枚朔望（映月进度）
+                // 目标受损：1点霜伤≈2；残血击杀加码（源 L6729-6730）
+                target: (player, target) => {
+                    let v = 2;
+                    if (target.hp <= 1) v += 2;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -80,6 +103,15 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '无罅：是否弃置一张【杀】获得1枚朔望？',
                 )
+                // AI 口径：弃1【杀】换1枚朔望（转魄进度≈2）；唯一【杀】且血线告急时保留防身
+                //（源 st_wuxia，animal.lua L6748-6759）
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    const spare =
+                        player.countCards('h', (c) => get.name(c) === 'sha') - 1;
+                    if (spare <= 0 && player.hp <= 2) return -1; // 唯一杀且危险：取消
+                    return player.countMark('bts_mk_shuowang') === 1 ? 2 : 1; // 临门优先
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -111,7 +143,6 @@ export const skill = {
             await player.addSkill('bts_sk_yingyue');
             lib.bts.api.extraTurn(player, 'bts_extra_turn'); // 源 L6770：gainAnExtraTurn（整回合）
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·映月（源 st_yingyue = TriggerSkill Compulsory EventPhaseStart/End，L6779-6808）──
@@ -119,7 +150,7 @@ export const skill = {
     // 其他角色可失去体力令伤害增加；结算后附加睡眠；朔望耗尽时退出映月状态。
     bts_sk_yingyue: {
         charlotte: true,
-        // damageBegin1（源 ConfirmDamage L1121，resolver 迁入，2026-09-04）：映月状态造成的伤害视为暴击。
+        // damageBegin1（源 ConfirmDamage L1121，自 resolver 迁入）：映月状态造成的伤害视为暴击。
         trigger: {
             player: ['phaseUseBegin', 'phaseUseEnd'],
             source: 'damageBegin1',
@@ -160,6 +191,16 @@ export const skill = {
                     [1, 1],
                     (card, source, target) => target !== source,
                 )
+                // AI 口径：霜伤基数=1+映月层数，优先敌方残血（击杀线）；伤害随映月层数提升
+                //（源 L6789-6799）
+                .set('ai', (target) => {
+                    if (target === player || get.attitude(player, target) >= 0)
+                        return -1;
+                    let v = 2 - get.attitude(player, target) / 4;
+                    if (target.hp <= 1 + player.countMark('bts_mk_yingyue'))
+                        v += 2; // 击杀线
+                    return v;
+                })
                 .forResult();
             if (!result.bool) return;
             const target = result.targets[0];
@@ -176,6 +217,13 @@ export const skill = {
             )) {
                 const choice = await other
                     .chooseBool('映月：是否失去1点体力以令伤害+1？')
+                    // AI 口径：失去自身1点体力；目标为己方不参与，血量>2或有击杀前景才拼
+                    //（源 L6793-6798）
+                    .set('ai', () => {
+                        if (get.attitude(other, target) >= 0) return false;
+                        if (other.hp > 2) return true;
+                        return target.hp <= 2 + player.countMark('bts_mk_yingyue');
+                    })
                     .forResult();
                 if (choice.bool) {
                     await other.loseHp();
@@ -191,7 +239,6 @@ export const skill = {
             player.removeMark('bts_mk_yingyue', player.countMark('bts_mk_yingyue'));
             lib.bts.api.addAbnormal(player, 'sleep', 1, player);
         },
-        ai: { noe: true },
     },
 };
 
@@ -245,8 +292,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_yingyue_faq',

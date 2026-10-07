@@ -30,18 +30,23 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_zhuoshi');
             lib.bts.api.loseAngry(player, 5); // 源 L6526：LoseAngry(player, 5)
             // 源 L6530-6532：摸两张；星启多摸一张（=3）。源 drawCards(3) 恒摸3 的 n=2/3 为死变量
-            //（L6531 赋值未用），按源描述「摸两张、星启多摸一张」实现（用户定夺 2026-09-02）
+            //（L6531 赋值未用），按源描述「摸两张、星启多摸一张」实现（定夺）
             await player.draw(player, lib.bts.api.god(player) ? 3 : 2);
             // 源 L6528-6531：星启时 addPlayerMark "extra_turn" —— 额外回合
             if (lib.bts.api.god(player)) lib.bts.api.extraTurn(player, 'bts_extra_turn');
         },
         ai: {
+            // AI 口径：怒气≥5（filter 同门）；星启=摸3+额外回合（质变，对齐源 AI 估值9），
+            // 常态=5怒换2摸（源 animal.lua L6522-6545）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zhuoshi')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zhuoshi')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1;
+                return lib.bts.api.god(player) ? 9 : 6;
             },
-            result: { player: 2 },
+            result: {
+                // 施动方：星启摸3+额外回合≈4；常态摸2
+                player: (player) => (lib.bts.api.god(player) ? 4 : 2),
+            },
         },
     },
 
@@ -63,7 +68,7 @@ export const skill = {
             return target !== player;
         },
         selectTarget(card, player) {
-            // 源 L6562：subcardsLength>=2 → n=3，否则 n=1（目标数随弃牌数；用户定夺按原版 2026-09-02）
+            // 源 L6562：subcardsLength>=2 → n=3，否则 n=1（目标数随弃牌数；定夺按原版）
             const count = ui?.selected?.cards?.length || 1;
             return [1, count >= 2 ? 3 : 1];
         },
@@ -93,16 +98,48 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：有敌方目标且手牌有牌可弃才出手；弃牌即结束出牌阶段——按「收官攻击」估值，
+            // 手牌【杀】多（决斗弹药足）与敌方软目标（手牌少易输决斗）上调（源 animal.lua L6547-6612）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_longli') ? -1 : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_longli')) return -1;
+                if (
+                    !player
+                        .getCards('he')
+                        .some((card) => get.type(card) !== 'equip')
+                )
+                    return -1; // 无牌可弃：不可用
+                if (
+                    !game.hasPlayer(
+                        (target) =>
+                            target.isAlive() &&
+                            target !== player &&
+                            get.attitude(player, target) < 0,
+                    )
+                )
+                    return -1; // 无敌对目标：不拿友军决斗
+                const ammo = player.countCards('h', 'sha');
+                const soft = game.countPlayer(
+                    (target) =>
+                        target.isAlive() &&
+                        target !== player &&
+                        get.attitude(player, target) < 0 &&
+                        target.countCards('h') <= 1,
+                );
+                let value = 5 + Math.min(2, ammo); // 基础1牌换1名敌方的致命【决斗】；弹药足则稳
+                if (soft) value += 1; // 软目标：决斗大概率打赢
+                return Math.min(8, value);
             },
-            result: { target: -1 },
+            result: {
+                // 受动方（敌方）：致命【决斗】约1~2点伤害；手牌≤1几乎必输决斗
+                target: (player, target) =>
+                    target.countCards('h') <= 1 ? -2 : -1,
+            },
         },
     },
 
     // ── 锁定技·亢心（源 st_kangxin = TriggerSkill Compulsory MarkChanged，L6972-6984）──
     // V2.2 由旧的「方片当红桃【杀】」整体重做为：当你移除诅咒后，摸等同于移除层数的牌。
-    //（用户定夺 2026-09-07：按源翻译「移除诅咒」实现，而非代码的 mark.gain>0 附加语义。）
+    //（定夺：按源翻译「移除诅咒」实现，而非代码的 mark.gain>0 附加语义。）
     bts_sk_kangxin: {
         trigger: { player: 'bts_mark_remove' },
         forced: true,
@@ -115,7 +152,6 @@ export const skill = {
             // trigger=派发的 bts_mark_remove 事件（含 num/markName）；技能事件 event 无 num
             await player.draw(player, trigger.num);
         },
-        ai: { noe: true },
     },
 };
 

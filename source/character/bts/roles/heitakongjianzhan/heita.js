@@ -40,13 +40,54 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：3怒气必杀对「同一体力」的敌方各造成1点通常伤害（首目标定体力、后续须同体力）；
+            // 按体力分桶取最大敌方簇估值，残血击杀/星启（必杀+1、霜属性相克+1）加分（源 L2882-2905）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_xiaomofa')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xiaomofa')) return -1;
+                const isGod = lib.bts.api.god(player);
+                const buckets = {}; // 体力→该体力敌方簇的估值合计
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    let d = 1;
+                    if (isGod) {
+                        d += 1; // 星启：必杀技伤害+1（rules/globalrules.js L54-55）
+                        const nat = lib.bts.api.getNature(null, t);
+                        if (nat && nat !== 'frost') d += 1; // 霜与异属性相克+1（同文件 L56-64）
+                    }
+                    let v = d * 1.5; // 1点伤害≈1.5评估单位（与同批口径一致）
+                    if (t.hp <= d) v += 2.5; // 击杀
+                    buckets[t.hp] = (buckets[t.hp] || 0) + v;
+                }
+                let best = 0;
+                for (const hp in buckets) best = Math.max(best, buckets[hp]);
+                if (!best) return -1;
+                return best >= 6 ? 8 : best >= 4 ? 6 : best >= 2 ? 4 : 2;
             },
             threaten: 2,
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1,
+                // 目标受损=伤害d（星启+1、霜相克+1）+击杀加分；同体力簇越大越应先出手（首目标定整簇）
+                target: (player, target) => {
+                    let d = 1;
+                    if (lib.bts.api.god(player)) {
+                        d += 1;
+                        const nat = lib.bts.api.getNature(null, target);
+                        if (nat && nat !== 'frost') d += 1;
+                    }
+                    let v = d * 1.5;
+                    if (target.hp <= d) v += 2.5;
+                    const cluster = game.countPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0 &&
+                            t.hp === target.hp,
+                    );
+                    v += Math.max(0, cluster - 1) * 0.4;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -72,7 +113,6 @@ export const skill = {
             );
             await use; // 视为霜【杀】（trigger=damageEnd 事件，其 .player 为受伤者）
         },
-        ai: { noe: true },
     },
 
     // ── 一锤（源 st_yichui = TriggerSkill Damage/Pindian + ViewAsSkill n=2，L2936-3061）：多目标拼点 ──
@@ -107,7 +147,19 @@ export const skill = {
                         card !== slash.cards[0] && get.type(card) !== 'equip',
                     '一锤：选择一张拼点牌',
                 )
-                .set('ai', (card) => get.number(card))
+                // AI 口径：拼点牌结算后损失——点数优先（赢面）、价值折价；
+                // 池内最高点数<7 时全部给 ≤0 分（取消发动，避免白损两张牌）
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    let best = 0;
+                    for (const c of player.getCards('h')) {
+                        if (get.type(c) === 'equip' || c === slash.cards[0])
+                            continue;
+                        best = Math.max(best, get.number(c));
+                    }
+                    if (best < 7) return -1;
+                    return get.number(card) - get.value(card) / 3;
+                })
                 .forResult();
             if (!pindian.bool) {
                 event.result = { bool: false };
@@ -119,7 +171,14 @@ export const skill = {
                     '一锤：选择拼点目标',
                     [1, Infinity],
                     (c, p, t) => t !== p && t.countCards('h') > 0,
-                    (x) => -get.attitude(player, x),
+                    // AI 口径：只与敌方拼点；「体力>已损失」者输了才受罚（1伤+摸2），
+                    // 低于半血的目标不结算（其赢了你反而受伤）→ 不给分（源 L3026-3055 条件）
+                    (target) => {
+                        if (target === player) return -1;
+                        if (get.attitude(player, target) >= 0) return -1;
+                        if (target.hp <= target.maxHp - target.hp) return -1;
+                        return 2 - get.attitude(player, target) / 4;
+                    },
                 )
                 .forResult();
             if (!targets.bool) {
@@ -169,16 +228,18 @@ export const skill = {
             }
         },
         ai: {
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1,
+                // 多目标：输掉拼点者「1伤+摸2」，仅高于半血者结算（低于半血只承担你输牌的风险）
+                target: (player, target) =>
+                    target.hp > target.maxHp - target.hp ? -1 : 0,
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_heita_skin1': '皮肤1',
-    'bts_ch_heita_skin2': '皮肤2',
-    'bts_ch_heita_skin3': '皮肤3',
     'bts_ch_heita_skin1': '皮肤1',
     'bts_ch_heita_skin2': '皮肤2',
     'bts_ch_heita_skin3': '皮肤3',

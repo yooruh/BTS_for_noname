@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 // 源 L4748：p:canDiscard(p,"h") —— 目标「he」牌能否被弃置。
 // 引擎无 player.canDiscard，用 lib.filter.canBeDiscarded(card, 弃牌者, 持牌者)（library/index.js L11348）。
-const canDiscardCards = (player, target) =>
+export const canDiscardCards = (player, target) =>
     target.getCards('he').some((card) =>
         lib.filter.canBeDiscarded(card, player, target),
     );
@@ -51,6 +51,9 @@ export const skill = {
                 const choice = (
                     await player
                         .chooseControl('缴械（失2怒气）', '伤害（失4怒气）')
+                        // AI 口径（源 AI StarRail-ai max_jinmei 的 choice）：怒气≥4 一律取伤害模式
+                        //（多目标各1点直伤 > 各弃1张牌，代价多2怒气；进入此分支怒气必然≥4）
+                        .set('ai', () => '伤害（失4怒气）')
                         .forResult()
                 ).control;
                 if (choice.includes('伤害')) n = 4;
@@ -74,9 +77,36 @@ export const skill = {
             );
         },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_jinmei') ? -1 : 6,
-            result: { target: -1 },
+            // AI 口径（源 AI StarRail-ai max_jinmei）：存在敌人，且怒气≥4（可转伤害）或怒气≥2 且不可
+            // 弃牌敌人<2（缴械目标足够）时接；4怒伤害/2怒缴械的选面见 content 内联 ai。
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_jinmei')) return -1;
+                const enemies = game.filterPlayer(
+                    (t) =>
+                        t !== player &&
+                        t.isAlive() &&
+                        get.attitude(player, t) < 0,
+                );
+                if (!enemies.length) return -1;
+                if (lib.bts.api.getAngry(player, 4)) return 6; // 4怒伤害模式
+                const blocked = enemies.filter(
+                    (t) => !canDiscardCards(player, t),
+                ).length;
+                if (blocked >= 2) return -1; // 缴械目标不足（源 AI：n<2 才出手）
+                if (!enemies.some((t) => canDiscardCards(player, t))) return -1;
+                return 5; // 2怒缴械模式
+            },
+            result: {
+                // 敌方受损：缴械弃1张「he」牌（牌多更值）；可转伤害时残血目标优先
+                target: (player, target) => {
+                    let v = -1;
+                    if (canDiscardCards(player, target))
+                        v -= Math.min(2, target.countCards('he')) * 0.25;
+                    else if (lib.bts.api.getAngry(player, 4)) v -= 0.5;
+                    if (target.hp <= 1) v -= 1;
+                    return v;
+                },
+            },
         },
     },
     bts_sk_gongzheng: {
@@ -92,24 +122,22 @@ export const skill = {
                 if (target.countCards('h'))
                     await player.discardPlayerCard(target, 'h', true);
         },
-        ai: { noe: true },
     },
     bts_sk_chonggao: {
         trigger: { player: 'useCardToPlayered' },
         forced: true,
         filter(event) {
-            return (
-                event.card?.name === 'sha' ||
-                event.card?.storage?.bts_sk_jinmei
-            );
+            // 源 st_chonggao（TargetSpecified）：整次使用只结算一次，附加量=use.to:length()。
+            // 无名杀 useCardToPlayered 逐目标派发 → 以 isFirstTarget 收敛为首目标时结算一次，
+            // 否则 N 目标【杀】会 N×N 结算（尽美分支无 useCard 事件，已由 bts_sk_jinmei content 内补）。
+            return event.isFirstTarget && event.card?.name === 'sha';
         },
         async content(event, trigger, player) {
-            // trigger=useCardToPlayered 事件
+            // trigger=useCardToPlayered（首目标实例）：按本次使用目标总数附加
             await lib.bts.api.addBless(player, 'shengge', trigger.targets?.length || 1);
             // 升格祝福达10层的消耗与回复怒气统一由规则结算器 addMark 处理（源 gamerule_ex
             // MarkChanged L1700-1704），此处不再内联，避免双重结算。
         },
-        ai: { noe: true },
     },
 };
 export const translate = {
@@ -143,9 +171,8 @@ export const buffSkills = {
     bts_bless_shengge: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_shengge_faq',
-        // 达到至少10层时（源描述；源代码作被移除时——同族 7 处 gain 方向与描述相反
-        // 的系统性笔误，2026-10-02 用户定夺按描述方向实现：监听 bts_mark_add，
-        // 计数含本次增量；减少不再触发）。
+        // 达到至少10层时（源描述；源代码作被移除时——同族 7 处系统性笔误，定夺按描述方向实现：
+        // 监听 bts_mark_add，计数含本次增量；减少不再触发）。
         trigger: { global: 'bts_mark_add' },
         forced: true,
         silent: true,
@@ -163,8 +190,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_shengge_faq',

@@ -8,14 +8,13 @@
  *       后台启动（detached）。ms=崩溃/卡死自动跳过毫秒（0=关闭，缺省 15000）；--no-auto=后台但不自动游玩
  *       （手动观测）；--no-open=不自动打开浏览器；--char=打开页后直启/每局直刷指定角色（bts_ch_xxx）；
  *       --test=打开测试台页；--set k=v=注入游戏配置（可多次）；--query k=v=附加任意 URL 参数（可多次）。
- *       已在运行且参数不一致 → 自动停止并按新参数重启；参数一致 → 沿用实例并打开页面（2026-09-29 修复：
- *       此前沿用时静默不打开，`auto --char` 等同于没执行；现沿用也执行打开，除非 --no-open）。
+ *       已在运行且参数不一致 → 自动停止并按新参数重启；参数一致 → 沿用实例并打开页面（除非 --no-open）。
  *       打开时遵循「一页纪律」：先关闭同源旧调试页（`--keep` 保留）——多页同开会让多个游戏实例竞争写
- *       同一 IndexedDB，造成备份互覆 / 设置漂移（2026-09-29 实机复盘）。
+ *       同一 IndexedDB，造成备份互覆 / 设置漂移。
  *   node scripts/playtest.mjs open [url] [--test] [--char <id>] [--no-auto] [--keep] [--restore fill|force] [--set k=v]... [--query k=v]...
  *       在 VS Code 内置浏览器打开调试页（未运行时自动以默认模式拉起）；url 可省略（默认首页）或相对路径。
  *   node scripts/playtest.mjs set k=v [...]      写入游戏配置（经服务器待注入队列下发；未运行则手动模式拉起；
- *        页面自取写库并重载——免 URL 长参数，集成浏览器同样可靠；旧版服务器自动回退 URL __bts_set）
+ *        页面自取写库并重载——免 URL 长参数，集成浏览器同样可靠）
  *        ls. 前缀=写 localStorage（无名杀启动键，server 每次页面内联、免依赖 IDB）：
  *        set ls.directstart=true 等价「每次启动直入对局」（关闭启动页）；配 show_splash=off 双保险；
  *        空值撤销（如 ls.directstart=）
@@ -43,8 +42,8 @@
  *       相互分离、可同时运行；各命令只面向「当前配置版本」（切换只影响之后启动的服务器）。
  *       可选列表由 dev-config.local.json 的 installed 派生；所选版本存其 playtest.engine（本机配置）。
  *       engine seed（--force 覆盖已有；--from 指定来源）手动把其它版本的配置备份播种到当前版本；
- *       首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种——保证空容器页面
- *       也能像旧版一样「自动导入配置」（2026-10-03 实测：无播种时无备份可导、dev=false 卡 boot）。
+ *       首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种（无播种时无备份
+ *       可导、dev=false 卡 boot）。
  *   node scripts/playtest.mjs fg                前台启动（Ctrl+C 停止；关闭自动游玩、日志直出）
  *   node scripts/playtest.mjs                   交互菜单（仅人类；AI 勿无参调用，会等待输入）
  *
@@ -64,7 +63,7 @@
  *
  * 实现本体在 _others/debug/：server.mjs（静态服务 + 注入 + /__playtest/* 端点；服务器根与数据目录
  * 由本脚本按「服务器版本」传入）、playtest_client.js（页面侧状态机）、persist_client.js（页面侧备份/恢复/设置注入）。
- * 页面生命周期（2026-09-29）：open/auto 打开新页时，辅助扩展会先关闭「标题匹配调试页」的旧浏览器标签
+ * 页面生命周期：open/auto 打开新页时，辅助扩展会先关闭「标题匹配调试页」的旧浏览器标签
  * （同名多开 = 多个游戏实例竞争写同一 IndexedDB；见《调试与自动化测试手册》§2.3）。AI 接管页面的推荐
  * 姿势：在浏览器工具中导航/打开目标 URL（复用一个已共享页面），而不是依赖脚本打开的未共享新页。
  * 本脚本只负责「拉起 / 停止 / 观察」；交互约定复用 scripts/lib/interactive.mjs（仅无参时的菜单）。
@@ -97,7 +96,7 @@ const HELPER_ID = 'bts-debug.playtest-helper';
 const engineConfigFile = join(__dirname, 'lib', 'dev-config.local.json');
 const defaultEngineRoot = resolve(debugDir, '..', '..', '..', '..', 'noname', 'resources', 'app');
 // 端口按版本分配（noname=8931；其余版本按列表序 8932 起）——端口即浏览器同源隔离：
-// 两个版本的 IndexedDB/localStorage 与服务端数据目录均相互独立（2026-10-03 实测教训：
+// 两个版本的 IndexedDB/localStorage 与服务端数据目录均相互独立（实测教训：
 // 同端口时新版引擎会向共享 DB 写入自身资源并重置配置，必须分端口）。
 const PORT_BASE = 8931;
 
@@ -254,7 +253,7 @@ const getJson = (url, timeout = 2000) =>
 const isRunning = async () => (await get(URL_BASE)) !== null;
 
 /** 统计 playtest.jsonl 尾部（256KB 窗口）中 boot 事件数（验证「浏览器是否真的打开了页面」）。
- *  2026-09-29：改为只读尾部——此前全量读取，日志数 MB 时 openBrowser 轮询会反复全量扫描。 */
+ *  只读尾部——此前全量读取，日志数 MB 时 openBrowser 轮询会反复全量扫描。 */
 function countBoots() {
     try {
         const st = statSync(playtestLog);
@@ -323,7 +322,7 @@ function getExtensionsDir() {
 }
 
 /** 安装/核验/升级辅助扩展（把 helper-ext 复制为 <扩展目录>/bts-debug.playtest-helper-1.0.0）。
- *  2026-09-29：加入「内容比对」——源文件与已装版本不一致时覆盖更新并提示重载窗口
+ *  内容比对——源文件与已装版本不一致时覆盖更新并提示重载窗口
  *  （此前只查 package.json 是否存在，辅助扩展升级后永不更新）。 */
 function ensureHelper() {
     if (!existsSync(helperSrcDir)) {
@@ -435,7 +434,7 @@ async function probeOtherEngines() {
  * 子命令参数解析（AI/自动化直用面）：
  * 支持 `--flag`、`--key value`、`--key=value`、`--set k=v`（多次）、`--query k=v`（多次）、
  * 数字位置参数（毫秒）、其余位置参数（如 url）。
- * 2026-09-29：需要值的选项缺参时立即返回 { error }（此前 `--set` 缺参会把 undefined 带下去，
+ * 需要值的选项缺参时立即返回 { error }（此前 `--set` 缺参会把 undefined 带下去，
  * 在 buildPageUrl 处以「Cannot read properties of undefined」崩溃，无法定位问题）。
  * @param {string[]} argv 子命令之后的参数
  */
@@ -485,7 +484,7 @@ function parseArgs(argv) {
     return { flags, values, sets, queries, positional };
 }
 
-/** 读取辅助扩展的标签操作报告（2026-09-29 新增；旧版辅助扩展不产生该文件——静默跳过）。
+/** 读取辅助扩展的标签操作报告（旧版辅助扩展不产生该文件——静默跳过）。
  *  仅当报告时间戳 >= since（本次调起时间）才算数，避免读到上次操作留下的陈报告。 */
 function reportHelperTabs(dumpFile, since) {
     try {
@@ -502,7 +501,7 @@ function reportHelperTabs(dumpFile, since) {
 /**
  * 在 VS Code 内置浏览器打开页面（含辅助扩展安装/升级与结果核验）。
  * 核验：轮询 boot 计数（页面已加载并起 playtest 客户端）与 stats.pageLoads（新服务器）。
- * 标签治理（2026-09-29）：默认先关闭「标题匹配调试页」的旧浏览器标签（一页纪律；keep=true 保留）。
+ * 标签治理：默认先关闭「标题匹配调试页」的旧浏览器标签（一页纪律；keep=true 保留）。
  */
 async function openBrowser(url, { waitMs = 15000, keep = false } = {}) {
     if (!(await isRunning())) {
@@ -632,7 +631,7 @@ function snapshotSeed() {
 }
 
 /**
- * 配置播种（2026-10-03 修复「新版首次打开无法自动导入配置」）：
+ * 配置播种（修复「新版首次打开无法自动导入配置」）：
  * noname 有长年备份可导，而新版本数据目录（data-<key>）为空 → 页面「服务器端没有备份文件」
  * → 空容器永远导入不了配置（dev=false 卡 boot）。首次启用时自动从「其它版本」播种一份
  * 配置级备份（非录像；仅 persist.json，与「测试数据按版本分离」原则一致），此后各版本独立演进。
@@ -782,8 +781,8 @@ async function startDetached({
         console.log(`  当前配置：${currentEngine.key}；用 engine 命令切换，或检查 dev-config.local.json 的 installed。`);
         process.exit(1);
     }
-    ensureEngineSeed(); // 首次启用新版本：先播种配置备份再拉起/打开（否则空目录无备份可导，2026-10-03）
-    let reuse = false; // 沿用现有实例（不重启）——2026-09-29：沿用也继续走「打开页面」而非直接 return
+    ensureEngineSeed(); // 首次启用新版本：先播种配置备份再拉起/打开（否则空目录无备份可导）
+    let reuse = false; // 沿用现有实例（不重启）；沿用也继续走「打开页面」而非直接 return
     if (await isRunning()) {
         log.warn(`服务器已在运行（${URL_BASE}）。`);
         const info = await readServerInfo();
@@ -861,7 +860,7 @@ async function startDetached({
         );
         console.log('  停止：npm run playtest -- stop（或菜单选「停止服务器」）');
     }
-    // 打开页面（2026-09-29 修复：沿用实例时同样执行——此前沿用时静默返回、不打开页面，auto --char 形同虚设）
+    // 打开页面（沿用实例时同样执行——此前沿用时静默返回、不打开页面，auto --char 形同虚设）
     const finalOpenUrl = openUrl === undefined ? URL_BASE : openUrl;
     if (finalOpenUrl) await openBrowser(finalOpenUrl, { keep });
 }
@@ -1281,7 +1280,7 @@ function printUsage() {
         playtest.engine（本机配置）
   engine seed  把其它版本的配置备份播种到当前版本（--force 覆盖已有；--from <key> 指定来源）；
         首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种——空容器页面即可
-        自动导入配置（否则无备份可导、dev=false 卡 boot；2026-10-03 实测修复）
+        自动导入配置（否则无备份可导、dev=false 卡 boot）
   status --json  机器可读（含服务器 env、引擎与页面计数，供 AI 解析）
 （npm 传参写法：npm run playtest -- auto 30000）`);
 }
@@ -1530,7 +1529,7 @@ function reportSetVerdict(verdict) {
 
 /**
  * set 子命令：把 k=v 写入游戏配置。
- * 2026-09-29 起优先走「服务器待注入队列」下发（POST /__bts/pending → 打开注入页 → 页面自取写库）：
+ * 优先走「服务器待注入队列」下发（POST /__bts/pending → 打开注入页 → 页面自取写库）：
  * URL 只带 __bts_noauto，彻底规避集成浏览器对 URL 长参数的截断；旧版服务器自动回退 URL __bts_set。
  */
 async function cmdSet(pairs) {

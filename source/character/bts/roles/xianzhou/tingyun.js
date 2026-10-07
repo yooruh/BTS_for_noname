@@ -39,10 +39,31 @@ export const skill = {
             lib.bts.api.addAngry(target, lib.bts.api.god(player) ? 2 : 1, player);
         },
         ai: {
+            // AI 口径：怒气≥3（filter 同门）；失3怒为1名友方补1怒（星启2）——仅对拥有怒气必杀者
+            // 有效（addAngry 门控 hasAngryBisha），且须使其越过常见门槛 3/4/5（立即兑现必杀）才值；
+            // 自指仅返还1-2怒、净亏，AI 不选自指（源 AI max_yidao→Friends_Angry_AI 取怒气最高友方、
+            // 无友方不发，StarRail-ai.lua L2274-2287）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yidao') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yidao')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1; // 与 filter 同门
+                const n = lib.bts.api.god(player) ? 2 : 1;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) <= 0) continue; // 只给友方供怒
+                    if (!lib.bts.api.hasAngryBisha(target)) continue; // 怒气对其无用
+                    if (yidaoCross(lib.bts.api.getAngry(target), n)) return 7; // 补满即可发必杀
+                }
+                return -1; // 未促成门槛则蓄怒等待
             },
-            result: { target: 1 },
+            result: {
+                // 目标+1怒（星启2）；补满门槛更值；自指/无怒气必杀者记0
+                target: (player, target) => {
+                    if (target === player) return 0;
+                    if (!lib.bts.api.hasAngryBisha(target)) return 0;
+                    const n = lib.bts.api.god(player) ? 2 : 1;
+                    return yidaoCross(lib.bts.api.getAngry(target), n) ? 1.5 : 1;
+                },
+            },
         },
     },
 
@@ -62,7 +83,6 @@ export const skill = {
             // 源 L5757：AddNew(damage, "_light")
             lib.bts.api.setDamageNature(trigger, 'light');
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·和韵（源 st_heyun = TriggerSkill Damaged，L5766-5782）──
@@ -80,6 +100,12 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L5774：askForCard(p, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // AI 口径：只助友方（源 AI @st_heyun→ThrowSlash_AI 第二型：非友方返回不发，
+            // StarRail-ai.lua L2289-2294）；已有赐福者续层优先；分值随【杀】价值递减，
+            // 最高分≤0 由引擎取消=不发动
+            const target = trigger.player;
+            const helpful = get.attitude(player, target) > 0;
+            const keeping = lib.bts.api.getBless(target, 'cifu');
             event.result = await player
                 .chooseCard(
                     'h',
@@ -88,6 +114,7 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '和韵：是否弃置一张【杀】令受伤角色获得3层赐福？',
                 )
+                .set('ai', (card) => (helpful ? 6 - get.value(card) + (keeping ? 1 : 0) : -1))
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -95,15 +122,19 @@ export const skill = {
             // 源 L5775：AddBless(player=受伤者, "@bless_cifu", 3, p)
             await lib.bts.api.addBless(trigger.player, 'cifu', 3, player);
         },
-        ai: { result: { player: 1 } },
+        // AI 口径：result 供跨技能估值——3层赐福=目标无属性【杀】转光伤（异元素相克+1），
+        // 同时点亮紫电（场上有赐福即本方无属性伤害转光）；发动决策在 cost 内联 AI
+        ai: { result: { player: 1, target: 1 } },
     },
 };
 
+// 仪祷补怒是否助目标越过常见必杀门槛（3/4/5）——越过才按「立即兑现必杀」计价（order/result 共用）
+export function yidaoCross(angry, n) {
+    return [3, 4, 5].some((x) => angry < x && angry + n >= x);
+}
+
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_tingyun_skin1': '皮肤1',
-    'bts_ch_tingyun_skin2': '皮肤2',
-    'bts_ch_tingyun_skin3': '皮肤3',
     'bts_ch_tingyun_skin1': '皮肤1',
     'bts_ch_tingyun_skin2': '皮肤2',
     'bts_ch_tingyun_skin3': '皮肤3',

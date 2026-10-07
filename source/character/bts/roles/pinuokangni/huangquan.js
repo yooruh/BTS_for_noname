@@ -1,9 +1,8 @@
 // 黄泉（源 animal.lua L4760-4876）—— 残梦累积与终结出牌阶段。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
-// 残梦封锁（源 st_canmeng flag，animal.lua L669-680）：任一存活角色带该标记期间全场生效。
-// 黄泉角色技能特化方法（原在 rules/utils.js 全局 API，按 TODO 移入本技能 util，经 bts_sk_canmeng.util 挂载；
-// 跨文件以 lib.skill['bts_sk_canmeng'].util.canmengActive 访问，如 resolver.js 混乱守卫/残梦全场禁牌、
-// utils.js getBless 残梦期间祝福无效）。
+// 残梦封锁（源 st_canmeng flag L669-680）：任一存活角色带标记期间全场生效。
+// 特化方法经 bts_sk_canmeng.util 挂载（跨文件以 lib.skill['bts_sk_canmeng'].util.canmengActive 访问；
+// 消费方：globalBuffs 混乱守卫、utils.getBless 残梦期间祝福无效）。
 export function canmengActive() {
     return game.hasPlayer(
         (player) =>
@@ -27,18 +26,15 @@ export const skill = {
         // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
         bts_bisha_angry: false, // 资源型必杀（残梦发动、不消耗怒气）→ 拥有者不获得怒气（utils.hasAngryBisha 门控）
-        // 角色技能特化方法（叁岛 util 字段范式）：残梦全场封锁判定 canmengActive，见文件上方导出。
+        // 特化方法（叁岛 util 范式）：残梦封锁判定 canmengActive，见文件上方导出。
         util: { canmengActive },
-        // 残梦封锁（源 setPlayerCardLimitation "use,response"；resolver chooseToUseBegin/
-        // chooseToRespondBegin 迁入，2026-09-04）：残梦结算期间全场不能使用/打出任何牌。
-        // 本触发挂在 bts_sk_canmeng（封锁器白名单放行），残梦期间仍可用；
-        // filter/content 与发动分支合并（filter 以 triggername 区分，content 见下方）。
+        // 残梦封锁（源 setPlayerCardLimitation "use,response"）：残梦结算期间全场不能使用/打出任何牌。
+        // 触发挂 bts_sk_canmeng（封锁器白名单放行）；与发动分支共用一个技能对象，以 triggername 区分。
         trigger: { global: ['chooseToUseBegin', 'chooseToRespondBegin'] },
         forced: true,
         silent: true,
-        // 子技能经 group 挂载（引擎 expandSkills 只展开 group、不自动展开 subSkill；
-        // 蚀与收尾 finisher 不加 group 则永不挂载，残梦无法收尾/解除封锁 —— 已修正，参照
-        // 知更鸟·迭奏 bts_sk_diezou_clear、乱破·天流 bts_sk_tianliu_jieyin 既有范式）
+        // 子技须经 group 挂载（expandSkills 只展开 group、不自动展开 subSkill，否则残梦无法收尾/解除封锁；
+        // 参照迭奏/天流范式）
         group: ['bts_sk_canmeng_dis', 'bts_sk_canmeng_finisher'],
         enable: 'phaseUse',
         filter(event, player, triggername) {
@@ -49,22 +45,18 @@ export const skill = {
             return player.countMark('bts_mk_canmeng') >= 9;
         },
         async content(event, trigger, player) {
-            // 触发分支（残梦封锁）：残梦结算期间全场不能使用/打出任何牌。
-            // 只设 filterCard（封锁所有牌）。**绝不要设 filterButton**：chooseToUse/
-            // chooseToRespond 的 AI 分支会直接拿事件调 game.check()，而 AI 事件没有
-            // dialog，引擎 Check.button 读 event.dialog.buttons 会抛
-            // 「Cannot read properties of undefined (reading 'buttons')」并中断事件链
-            // （2026-09-27 两起实机 unhandled-rejection；check.js:94 / content.js:4649）。
-            // 技能按钮的封锁由 bts_sk_canmeng_blocker（skillBlocker 排除 getSkills）负责，无需 filterButton。
+            // 触发分支：只设 filterCard（封锁所有牌），**绝不要设 filterButton**——chooseToUse/
+            // chooseToRespond 的 AI 分支直接调 game.check()，AI 事件无 dialog，Check.button 读
+            // event.dialog.buttons 会抛错并中断事件链（check.js:94 / content.js:4649）。技能按钮封锁
+            // 由 bts_sk_canmeng_blocker（skillBlocker）负责。
             if (event.triggername) {
                 trigger.filterCard = () => false;
                 return;
             }
             lib.bts.aiGuard.record(player, 'bts_sk_canmeng');
             player.removeMark('bts_mk_canmeng', 9);
-            // 源 L4766-4778：全场技能/祝福/护盾无效（护盾：源 GetShield 含 max_canmeng 检查，
-            // 2026-10-02 于 getShield 补门）、不能使用/打出手牌；
-            // 封锁器白名单放行残梦本体与「蚀」子技（bts_sk_canmeng_dis）。
+            // 源 L4766-4778：全场技能/祝福/护盾无效、不能使用/打出手牌；封锁器白名单放行残梦本体
+            // 与「蚀」子技（bts_sk_canmeng_dis）。
             player.addMark('bts_mk_canmeng_active', 1);
             const alive = lib.bts.api.seatOrder(
                 game.filterPlayer((target) => target.isAlive()),
@@ -87,16 +79,50 @@ export const skill = {
                     return (
                         player.countMark('bts_mk_canmeng_active') > 0 &&
                         player.countMark('bts_mk_canmeng_dis_used') < 3 &&
-                        game.filterPlayer((target) => {
-                            return target !== player && target.isAlive() && target.countCards('he') > 0
-                        })
+                        game.hasPlayer(
+                            (target) =>
+                                target !== player &&
+                                target.isAlive() &&
+                                target.countCards('he') > 0,
+                        )
                     );
                 },
                 filterTarget(event, player, target) {
                     return target !== player && target.countCards('he');
                 },
                 selectTarget: 1,
+                // AI 口径：残梦额外阶段限三次，弃目标1牌并标记（阶段末对被蚀者各1伤害）；
+                // 优先未标记敌方（同一目标多标记只结算1次伤害，源 L4826-4842）；filter 已用 hasPlayer
+                // 正确拦截（曾用 filterPlayer 数组恒真）；敌方全无可弃牌时 order 返回 -1 垫底。
+                ai: {
+                    order(item, player) {
+                        if (lib.bts.aiGuard.blocked(player, 'bts_sk_canmeng_dis'))
+                            return -1;
+                        let best = 0;
+                        for (const t of game.players) {
+                            if (!t.isAlive() || t === player || get.attitude(player, t) >= 0)
+                                continue;
+                            if (t.countCards('he') === 0) continue;
+                            const v =
+                                t.countMark('bts_mk_canmeng_damage') > 0
+                                    ? 1
+                                    : 2.5;
+                            if (v > best) best = v;
+                        }
+                        return best ? Math.min(8, 3 + best) : -1;
+                    },
+                    result: {
+                        // 敌方=-（弃1牌≈1 + 未标记再≈1.5）；友方/自己不为目标（负分不可选）
+                        target: (player, target) => {
+                            if (get.attitude(player, target) >= 0) return -1;
+                            return target.countMark('bts_mk_canmeng_damage') > 0
+                                ? -1
+                                : -2.5;
+                        },
+                    },
+                },
                 async content(event, trigger, player) {
+                    lib.bts.aiGuard.record(player, 'bts_sk_canmeng_dis');
                     const target = event.targets[0];
                     player.addMark('bts_mk_canmeng_dis_used', 1);
                     await player
@@ -126,7 +152,9 @@ export const skill = {
                             ),
                         )) {
                             target.removeMark('bts_mk_canmeng_damage', target.countMark('bts_mk_canmeng_damage'));
-                            await target.damage(player, 1, 'nocard');
+                            const damage = target.damage(player, 1, 'nocard');
+                            damage.reason = 'bts_sk_canmeng'; // 源 DamageStruct(max_canmeng)：供星启必杀+1 识别
+                            await damage;
                         }
                     }
                     // 解除封锁与标记（死亡兜底同样释放）
@@ -142,24 +170,36 @@ export const skill = {
             },
         },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_canmeng') ? -1 : 9,
+            // AI 口径：9枚残梦=收尾大招（全场技能/祝福/护盾封锁+禁牌，随后「蚀」限三次弃牌、
+            // 被蚀者各1伤害）；敌方有牌可蚀才发动——无人可蚀则整段空转、白弃9枚（源 L4760-4876）。
+            // 注：残梦期间 getBless/getShield 经 canmengActive 门控恒无效（utils.js），估值勿按常规加成
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_canmeng')) return -1;
+                const targets = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) < 0 &&
+                        t.countCards('he') > 0,
+                );
+                if (!targets) return -1;
+                return targets >= 2 ? 9 : 7;
+            },
+            // 无目标选择环节；数值供外部 get.effect 保守参考（额外回合+锁场为正，全场封锁含友方为小负）
             result: { player: 1, target: -1 },
         },
     },
-    // 残梦封锁器（原 rules/resolver.js，2026-09-04 迁入角色文件）：经
-    // player.addSkillBlocker('bts_sk_canmeng_blocker') 挂载，getSkills/hasSkill 经
-    // get.is.blocked 将其排除，实现源版 Qingcheng 标记的技能失效。随角色包 skill 注册进 lib.skill。
+    // 残梦封锁器：经 player.addSkillBlocker('bts_sk_canmeng_blocker') 挂载，getSkills/hasSkill 经
+    // get.is.blocked 排除，实现源版 Qingcheng 标记的技能失效。
     bts_sk_canmeng_blocker: {
         skillBlocker(skill) {
             return !['bts_sk_canmeng', 'bts_sk_canmeng_dis', 'bts_sk_canmeng_finisher'].includes(skill);
         },
     },
     bts_sk_chigui: {
-        // 源 st_chigui（animal.lua L4846-4864）监听 MarkChanged；源代码作 mark.gain<0，翻译写
-        // 「当其他角色附加异常或诅咒后」——同族 7 处（赤鬼/揭露/凯撒/生德/顺风/生息/升格）均为
-        // gain 方向与描述相反的系统性笔误，2026-10-02 用户定夺统一按描述方向实现。
-        // 本技=「其他角色附加异常/诅咒后」触发（bts_mark_add 事件，标记名在 event.markName）。
+        // 源 st_chigui（L4846-4864）监听 MarkChanged；源代码 gain 方向与翻译描述相反——同族 7 处
+        //（赤鬼/揭露/凯撒/生德/顺风/生息/升格）系统性笔误，定夺统一按描述方向实现：
+        //「其他角色附加异常/诅咒后」触发（bts_mark_add 事件）。
         trigger: { global: 'bts_mark_add' },
         forced: true,
         filter(event, player) {
@@ -173,7 +213,6 @@ export const skill = {
         async content(event, trigger, player) {
             player.addMark('bts_mk_canmeng', 1);
         },
-        ai: { noe: true },
     },
     bts_sk_feidu: {
         trigger: { player: 'phaseZhunbeiBegin' },
@@ -191,6 +230,12 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '飞渡：选择弃置一张【杀】获得1枚残梦？',
                 )
+                // AI 口径：残梦=9枚大招的主要储备（另一来源赤鬼）；弃【杀】换1枚恒为正收益，
+                // 越接近9越积极（9枚后仍可结余给下一轮）（源 st_feidu，黄泉段 L4760-4876）
+                .set('ai', (card) => {
+                    const n = player.countMark('bts_mk_canmeng');
+                    return 6 - get.value(card) + (n >= 7 ? 2 : 0);
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -227,17 +272,6 @@ export const translate = {
     bts_mk_canmeng_active: '残梦状态',
     bts_mk_canmeng_damage: '残梦伤害',
     bts_mk_canmeng_dis_used: '蚀已用',
-    'bts_ch_huangquan_skin1': '皮肤1',
-    'bts_ch_huangquan_skin10': '皮肤10',
-    'bts_ch_huangquan_skin11': '皮肤11',
-    'bts_ch_huangquan_skin2': '皮肤2',
-    'bts_ch_huangquan_skin3': '皮肤3',
-    'bts_ch_huangquan_skin4': '皮肤4',
-    'bts_ch_huangquan_skin5': '皮肤5',
-    'bts_ch_huangquan_skin6': '皮肤6',
-    'bts_ch_huangquan_skin7': '皮肤7',
-    'bts_ch_huangquan_skin8': '皮肤8',
-    'bts_ch_huangquan_skin9': '皮肤9',
     bts_ch_huangquan: '黄泉',
     bts_sk_canmeng: '残梦',
     bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃9枚${get.poptip('bts_glossary_canmeng_faq')}标记，令所有角色于此技能结算完毕前所有技能、${get.poptip('bts_glossary_bless_faq')}、${get.poptip('bts_glossary_hudun_faq')}无效且不能使用或打出手牌；然后限三次，你可以弃置一名角色一张牌；结算完毕后，对这些角色各造成1点伤害。`,
@@ -263,8 +297,7 @@ export const simpleTranslate = {
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_canmeng_faq',

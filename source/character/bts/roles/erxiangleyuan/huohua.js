@@ -39,12 +39,30 @@ export const skill = {
                 if (lib.bts.api.funnyNumber(player, 14.4)) await target.loseHp(4);
         },
         ai: {
+            // AI 口径：5怒气换「每目标 4×p 期望体力流失」（p=14.4%+欢愉祝福×10%，不可防）；
+            // 无敌人不发动；祝福抬高概率后加分（源 max_kuanghuan，animal.lua L11264-11288）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_kuanghuan')
-                    ? -1
-                    : 8;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_kuanghuan')) return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1;
+                return lib.bts.api.getBless(player, 'funny', -1) >= 3 ? 9 : 8;
             },
-            result: { target: -1 },
+            result: {
+                // 期望值=4×p（体力流失为目标净损）；残梦期间 getBless 恒 0，期望自然回落
+                target: (player) =>
+                    -4 *
+                    Math.min(
+                        1,
+                        0.144 + lib.bts.api.getBless(player, 'funny', -1) * 0.1,
+                    ),
+            },
         },
     },
 
@@ -54,6 +72,7 @@ export const skill = {
         enable: 'phaseUse',
         usable: 2, // 源 enabled_at_play（L11306）：usedTimes("#st_lianxian_funny") < 2
         async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_lianxian_funny');
             // 源 L11293-11300：FunnyAct(player)，成功且手牌<5 时补至5张（发动记录由引擎自动）。
             // funnyAct 按各技能的 bts_funny 注册表逐条执行（本技能效果即下表连线项）；
             // afterFunnyAct（花手）由 funnyAct 收束步统一触发，此处不再显式调用，
@@ -92,17 +111,51 @@ export const skill = {
                             'he',
                             (card) => get.name(card) === 'sha',
                         )
+                        // AI 口径：弃最不有用的【杀】（没用度分值，同引擎弃牌默认口径）
+                        .set('ai', (card) =>
+                            card && typeof card === 'object'
+                                ? 10 - get.useful(card)
+                                : -1,
+                        )
                         .forResult();
-                    if (!card) {
+                    // forResult() 返回 {bool, cards} 结果对象（对象恒真值）——取消须判 .bool；
+                    // 弃置须传 .cards（曾把结果对象直传 discard＝空操作，取消也能走完流程补牌白嫖）。
+                    if (!card.bool) {
                         ctx.aborted = true;
                         return;
                     }
-                    await ctx.target.discard(card);
+                    await ctx.target.discard(card.cards);
                 }
                 ctx.done = true;
             },
         },
-        ai: { order: 4, result: { player: 1 } },
+        ai: {
+            // AI 口径：执行欢愉行动（弃1【杀】/欢愉时刻弃牌）+手牌不足5补至5；缺口越大越值。
+            // 非欢愉时刻须有【杀】可弃（无候选牌时不发动，防空烧一次限次）
+            //（源 st_lianxian_funny，L11289-11309）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_lianxian_funny'))
+                    return -1;
+                if (!player.countCards('he')) return -1; // 无牌可弃（无代价）：不发动
+                const canSkipSha =
+                    lib.bts.api.getBless(player, 'funny') ||
+                    player.storage.bts_funny_time;
+                if (
+                    !canSkipSha &&
+                    !player.countCards('he', (c) => get.name(c) === 'sha')
+                )
+                    return -1;
+                const deficit = Math.max(0, 5 - player.countCards('h'));
+                if (deficit >= 3) return 8;
+                if (deficit >= 2) return 6;
+                return 4;
+            },
+            result: {
+                // 补牌收益随缺口（5-手牌）上升；弃牌成本由 order 的【杀】门槛承担
+                player: (player) =>
+                    Math.max(0.5, Math.min(2, (5 - player.countCards('h')) * 0.4)),
+            },
+        },
     },
 
     // ── 触发技·花手（源 st_huashou = TriggerSkill Damaged 空触发，L11317-11323）──
@@ -116,7 +169,6 @@ export const skill = {
             const cards = get.bottomCards(5);
             if (cards.length) game.cardsDiscard(cards);
         },
-        ai: { noe: true },
     },
 };
 

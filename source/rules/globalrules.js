@@ -1,8 +1,7 @@
-// 崩铁杀全局规则技能 + 通用机制词条（阶段2 自 rules/buffs.js 迁入，TODO 任务1 移入 rules/）。
-// 机制层：damage/recover/phase/decay 四个纯全局规则（bts_gamerule_ 前缀 → registerRules 挂全局）。
-// 角色相关的全局结算已下沉到各自角色文件/标记技能；此处仅保留纯全局规则。
-// decay 的祝福/异常名单读生成表（scripts/generate.mjs → generated/buffRegistry.js，
-// 由 buff 定义标签自动归类），不再手写数组。
+// 崩铁杀全局规则技能 + 通用机制词条。
+// 机制层：damage/recover/phase/decay 四个纯全局规则（bts_gamerule_ 前缀 → registerRules 挂全局）；
+// 角色相关的全局结算在各自角色文件/标记技能，此处只保留纯全局规则。
+// decay 的祝福/异常名单读生成表（scripts/generate.mjs → generated/buffRegistry.js，按定义标签归类）。
 // 技能定义只引用全局（lib.bts.*），不引用包级变量（对齐叁岛规范）。
 import { lib, game, get } from '../../../../noname.js';
 import { MARKS } from './markRegistry.js';
@@ -28,26 +27,19 @@ export const bts_gamerule_damage = {
     popup: false,
     trigger: { global: ['damageBegin1', 'damageEnd'] },
     filter(event, player) {
-        // 定夺 2026-09-12（G-05）：删恒不可达的 phase 分支——太阳神把伤害/阶段规则写在
-        // 同一个 on_trigger 大函数（按 event 分发），移植按事件拆分后阶段逻辑已入
-        // bts_gamerule_phase；本技能 trigger 仅 damageBegin1/damageEnd，
-        // event.name 恒不为 'phase' 开头，此分支永远走不到。
+        // 本技能只挂 damageBegin1/damageEnd；阶段逻辑在 bts_gamerule_phase（源把二者写在
+        // 同一 on_trigger 大函数内按 event 分发，移植按事件拆分，定夺 G-05）。
         return event.player === player || event.source === player;
     },
     async content(event, trigger, player) {
-        // 触发点判据必须用 event.triggername（技能事件上记录的触发点名）。
-        // 2026-09-26 连续游玩实机勘误：原写 trigger.name === 'damageBegin1' 恒不成立
-        //（trigger 为伤害事件本体，trigger.name 恒为 'damage'）→ 开始分支成死代码
-        //（星启必杀+1/元素相克从未生效），且结束分支在 damageBegin1 与 damageEnd
-        // 各执行一次 → 怒气/属性附加/伤害链/忆灵扣血全部双倍结算（探针实证：单次伤害
-        // 两条 addAngry、被成功闪避的伤害也回怒）。修复后：开始分支仅源方执行、
-        // 结束分支仅 damageEnd 执行，各服一次。
+        // 触发点判据必须用 event.triggername（技能事件记录的触发点名）：trigger 是伤害
+        // 事件本体、trigger.name 恒为 'damage'，误用会让开始分支成死代码、结束分支双跑。
+        // 正确语义：开始分支仅源方执行、结束分支仅 damageEnd 执行，各服一次。
         if (event.triggername === 'damageBegin1') {
             if (trigger.source !== player || trigger.num <= 0) return;
-            // 欢愉约束（2026-09-29 还原；源 gamerule_ex·DamageCaused L1235-1238：
-            // `if FunnyPlayer(player) then return true end`——QSanguosha 引擎 room.cpp 对该时机
-            // return true 即 break 整个伤害流程＝伤害被取消，源版无日志）。欢愉角色（含阿哈）
-            // 造成的伤害被取消，除非其处于「欢愉升格」（阿哈·欢愉万相，持续至其回合结束）。
+            // 欢愉约束（源 gamerule_ex·DamageCaused L1235-1238）：欢愉角色（含阿哈）造成的
+            // 伤害被取消，除非其处于「欢愉升格」（阿哈·欢愉万相，持续至其回合结束）。
+            // 源 `return true` 在 room.cpp 即 break 整个伤害流程＝取消，且无日志。
             if (
                 lib.bts.api.funnyPlayer(player) &&
                 player.countMark('bts_mk_huanju_shengge-clear') <= 0
@@ -55,18 +47,14 @@ export const bts_gamerule_damage = {
                 trigger.cancel();
                 return;
             }
-            // 定夺 2026-09-12（G-06）：删冗余 _critical 归一化块——太阳神以 reason 是否含
-            // "_critical" 识别暴击（源 IsSpecial/AddNew L266 等），移植曾加"再确保打上
-            // _critical 标记"的保险，但条件恒不可达：reason 已含 _critical 时
-            // isSpecialDamage 恒真被自身 ! 排除，含 _common 时被排除，不含则进不来；
-            // 实际暴击（刃·万死/万敌·血仇/Archer·螺旋等）均已由各技能 markDamage 自标。
+            // 暴击（_critical）由各技能 markDamage 自标（刃·万死/万敌·血仇/Archer·螺旋等），
+            // 本处不做归一化（源 IsSpecial/AddNew L266 以 reason 含 "_critical" 识别；定夺 G-06）。
             // 星启必杀+1（源 ConfirmDamage L1100：God(player) 且 reason 含 "max_"，
             // 无 _common 排除）；无名杀以 isBishaReason 判定（勿用 includes('st_')）。
             if (lib.bts.api.god(player) && lib.bts.api.isBishaReason(trigger.reason))
                 trigger.num += 1;
             // 元素相克：伤害属性与目标附加属性不同 → 伤害+1、移除目标旧属性（源 L1103-1110）。
-            // 源版相克仅排除 _nature（L1131 `not AddNew(damage,"_nature")`），_common/无 reason
-            // 照样参与相克（用户定夺 2026-09-12 回退至源版）。
+            // 仅排除 _nature（源 L1131）；_common/无 reason 照样参与相克（定夺回退源版）。
             const nature = lib.bts.api.getNature(trigger);
             const attached = lib.bts.api.getNature(null, trigger.player);
             if (
@@ -81,7 +69,7 @@ export const bts_gamerule_damage = {
             }
             return;
         }
-        // 仅 damageEnd 触发点进入以下结算（本技能 trigger 仅 damageBegin1/damageEnd 两点）。
+        // 以下仅 damageEnd 触发点执行。
         if (event.triggername !== 'damageEnd') return;
         if (trigger.num <= 0) return;
         if (trigger.player === player) {
@@ -119,9 +107,7 @@ export const bts_gamerule_recover = {
         return event.player === player;
     },
     async content(event, trigger, player) {
-        // 触发点带 Before/End/After 后缀，存于 event.triggername（trigger.name 为基名，
-        // 如 recover/loseHp，参见 baie.js 注释）；原写 trigger.name === 'recoverEnd' 恒不成立，
-        // 致回复分支死代码——回复无法清异常/recover_link/忆灵回补，此处修正。
+        // 触发点后缀在 event.triggername（trigger.name 为基名如 recover/loseHp——勿用其判后缀）。
         if (event.triggername === 'recoverEnd') {
             if (trigger.num <= 0) return;
             // 源规则 HpRecover 会移除全部基础异常，不是仅移除一层。
@@ -154,9 +140,8 @@ export const bts_gamerule_recover = {
 };
 
 // 阶段标记清理：出牌/回合开始/回合末清对应后缀标记（-play/-start/-clear）。
-// 定夺 2026-09-12（#1）：-start 清理时机由 phaseZhunbeiBegin 改 phaseBefore——
-// 无名杀 phase 事件第一步即 phaseBefore（content.js L4083），先于 phaseZhunbeiBegin
-// 与一切回合内触发，「下回合开始前有效」语义应在回合一开始即失效。
+// -start 用 phaseBefore（content.js L4083，phase 事件第一步、早于一切回合内触发）——
+//「下回合开始前有效」语义应在回合一开始即失效（定夺 #1）。
 export const bts_gamerule_phase = {
     global: true,
     charlotte: true,
@@ -169,11 +154,9 @@ export const bts_gamerule_phase = {
         return event.player === player;
     },
     async content(event, trigger, player) {
-        // 触发点名存于 event.triggername；trigger（phase 事件本体）没有 triggername 字段——
-        // 2026-09-26 实机勘误：原写 trigger.triggername 恒为 undefined → 后缀标记从未被清理
-        //（素裳·若水「本回合发动过必杀技」、景元光束计数等永久累积）。下方三个触发点名即
-        // engine phase 事件内容段的真实 fire 名（content.js L4154/L4319 直发
-        // phaseBeforeStart/phaseAfter；phaseUseBegin 为逐阶段 Begin）。
+        // 触发点名存于 event.triggername（phase 事件本体没有该字段，误用会让后缀标记永不清理）。
+        // 三个点名即 engine phase 内容段的真实 fire 名：content.js L4154/L4319 直发
+        // phaseBeforeStart/phaseAfter；phaseUseBegin 为逐阶段 Begin。
         const suffix = {
             phaseUseBegin: '-play',
             phaseBeforeStart: '-start',
@@ -197,9 +180,8 @@ export const bts_gamerule_decay = {
         // 只有当前结束阶段角色自然衰减；常驻祝福（生成表 PERMANENT_BLESSES）不衰减。
         for (const key of ABNORMALS)
             lib.bts.api.removeAbnormal(player, key.slice('bts_abnormal_'.length), 1);
-        // 体力上限祝福先减、且逐项顺序结算（源 allbless L534-543 的显式次序）：其 ×2
-        // 快照依赖雨过天晴尚未被移除；若乱序（如并发）致雨过天晴先归零触发补收，
-        // 随后体力上限层再按 ×1 扣 = 双重扣减。
+        // 体力上限祝福先减且逐项顺序结算（源 allbless L534-543 次序）：×2 快照依赖雨过天晴
+        // 尚未被移除；乱序（如并发）会让雨过天晴先归零触发补收、上限层再按 ×1 扣 → 双重扣减。
         if (!PERMANENT_BLESSES.includes('bts_bless_maxhp'))
             await lib.bts.api.removeBless(player, 'maxhp', 1);
         for (const key of BLESSES) {
@@ -217,8 +199,8 @@ export const bts_gamerule_decay = {
     },
 };
 
-// ── 通用机制词条（TODO 任务3 自 glossary.js 归位；通用机制/多角色共用 → 本文件）。
-// 角色专属词条随各角色文件 glossary 导出；经 bts/index.js 聚合进 fullTranslate + poptip 前缀扫描。
+// ── 通用机制词条（通用/多角色共用 → 本文件）；角色专属词条随角色文件 glossary 导出，
+// 经 bts/index.js 聚合进 fullTranslate + poptip 前缀扫描。
 export const glossary = [
     {
         id: 'bts_glossary_nuqi_faq',

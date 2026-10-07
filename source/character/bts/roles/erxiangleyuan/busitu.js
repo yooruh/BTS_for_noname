@@ -52,15 +52,15 @@ export const skill = {
             // 源 L9498：弃置全部婪酣（loseAllMarks "@lanhan"）
             player.removeMark('bts_mk_lanhan', player.countMark('bts_mk_lanhan'));
         },
-        // 追击：其他角色因此技能死亡时，你可视为使用【杀】（源 max_xiangyan Death 触发 L9511-9524，
-        // 描述 L13793「当其他角色因此技能而死亡时，你可以视为使用【杀】」；原实现漏掉此机制）
+        // 追击（源 max_xiangyan Death L9511-9524；曾漏实现，已补）：其他角色因此技能死亡时
+        // 可视为使用【杀】。
         group: ['bts_sk_xiangyan_chase'],
         subSkill: {
             chase: {
                 trigger: { global: 'dieAfter' },
                 filter(event, player) {
-                    // 源 L9511-9524：致死伤害 reason 或致死牌 skillName 含 max_xiangyan，
-                    // 且致死来源=不死途（飨宴光伤 reason=bts_sk_xiangyan_light / 虚拟【杀】storage=bts_sk_xiangyan）
+                    // 源 L9511-9524：致死伤害 reason / 致死牌 skillName 含 max_xiangyan 且来源=不死途
+                    //（光伤 reason=bts_sk_xiangyan_light / 虚拟【杀】storage=bts_sk_xiangyan）。
                     const reason = event.reason?.reason;
                     return (
                         event.source === player &&
@@ -77,12 +77,17 @@ export const skill = {
                             (card, source, target) =>
                                 target !== source && player.inRange(target),
                         )
+                        // AI 口径：价值取 get.effect（含态度），无正收益就不选（取消=不追击）
+                        //（源 max_xiangyan Death，L9511-9524）
+                        .set('ai', (t) =>
+                            get.effect(t, { name: 'sha', isCard: true }, player, player),
+                        )
                         .forResult();
                 },
                 async content(event, trigger, player) {
                     if (!event.targets?.length) return;
-                    // 源 max_xiangyan_slash（L9526-9534）：克隆【杀】、skillName 置 max_xiangyan
-                    // （storage bts_sk_xiangyan 供再击杀时本追击链继续判定）
+                    // 源 max_xiangyan_slash（L9526-9534）：克隆【杀】、skillName 置 max_xiangyan（storage
+                    // bts_sk_xiangyan 供再击杀时追击链继续判定）。
                     await player.useCard(
                         {
                             name: 'sha',
@@ -96,12 +101,16 @@ export const skill = {
             },
         },
         ai: {
+            // AI 口径：5怒气换「1点光伤（受伤者附加光属性，联鞭哨/宿怨）+1张虚拟【杀】」；
+            // 无敌人不发动（伤害无落点）（源 st_xiangyan，animal.lua L9489-9510）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_xiangyan')
-                    ? -1
-                    : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xiangyan')) return -1;
+                return lib.bts.aiHelpers.hasEnemy(player) ? 9 : -1;
             },
-            result: { target: -2 },
+            result: {
+                // 1点光伤+视为【杀】：双段输出按目标受损计
+                target: -2,
+            },
         },
     },
 
@@ -115,8 +124,7 @@ export const skill = {
             return event.player !== player && !lib.bts.api.getNature(event);
         },
         async cost(event, trigger, player) {
-            // 源 L9546：目标处于麻痹或为虚数角色 → askForSkillInvoke（免费）；
-            // 否则 → askForCard("Slash")（须弃【杀】）。无名杀版把选择拆为 chooseBool + 选择牌。
+            // 源 L9546：目标麻痹/虚数 → 免费发动；否则须弃【杀】。无名杀拆为 chooseBool + 选牌。
             const free =
                 lib.bts.api.getAbnor(trigger.player, 'numb') ||
                 lib.bts.api.getNature(null, trigger.player) === 'light';
@@ -131,6 +139,16 @@ export const skill = {
             }
             const result = await player
                 .chooseBool('鞭哨：是否将此伤害转为虚数属性？')
+                // AI 口径：转光=目标受伤后附加光属性（再受光伤转麻痹、可供宿怨利用）；
+                // 免费（麻痹/虚数）时对敌即转；须弃杀时仅对敌且【杀】富余（≥2）才转
+                //（源 st_bianshao，L9539-9551）
+                .set('ai', () => {
+                    if (get.attitude(player, trigger.player) >= 0) return false;
+                    if (free) return true;
+                    return (
+                        player.countCards('h', (c) => get.name(c) === 'sha') >= 2
+                    );
+                })
                 .forResult();
             if (!result.bool) {
                 event.result = { bool: false };
@@ -149,6 +167,12 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                 )
+                // AI 口径：弃最不有用的【杀】（没用度分值，同引擎弃牌默认口径）
+                .set('ai', (card) =>
+                    card && typeof card === 'object'
+                        ? 10 - get.useful(card)
+                        : -1,
+                )
                 .forResult();
             if (!choice.bool) {
                 event.result = { bool: false };
@@ -163,7 +187,6 @@ export const skill = {
             // 源 L9547：AddNew(damage, "_light") —— 令伤害获得虚数属性（改触发事件 damageBegin1）
             lib.bts.api.setDamageNature(trigger, 'light');
         },
-        ai: { noe: true },
     },
 
     // ── 锁定技·宿怨（源 st_suyuan = TriggerSkill Compulsory Damaged，L9553-9570）──
@@ -174,7 +197,7 @@ export const skill = {
         forced: true,
         logTarget: 'player',
         filter(event, player) {
-            // 源 L9919：damage.from 须存在（无来源伤害不触发「不为你造成」语义，且 from ~= p）
+            // 源 L9919：damage.from 须存在（无来源不触发「不为你造成」语义）。
             return (
                 event.player &&
                 event.player !== player &&
@@ -195,7 +218,6 @@ export const skill = {
                 trigger.player,
             );
         },
-        ai: { noe: true },
     },
 };
 
@@ -235,8 +257,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_lanhan_faq',

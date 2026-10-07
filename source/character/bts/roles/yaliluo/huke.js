@@ -41,12 +41,37 @@ export const skill = {
             player.addMark('bts_sk_feihuo', 1); // 源 addPlayerMark(@st_feihuo)
         },
         ai: {
+            // AI 口径：3怒=1点炎伤+1枚飞火标记（玩火燃料：每枚≈1名角色1层烧伤）；取攻击范围内
+            // 估值最高的敌方目标，元素互动口径同 ren.js 万死（源 max_feihuo L3675-3698；
+            // 源 AI StarRail-ai.lua #max_feihuo：CanMaxSkillDamage+Enemies_Range_AI、优先级9）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_feihuo')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_feihuo')) return -1;
+                let best = 0;
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    if (get.distance(player, t) > player.getAttackRange()) continue;
+                    let v = 1.5; // 1点炎伤
+                    const nat = lib.bts.api.getNature(null, t);
+                    if (nat && nat !== 'flame') v += 1.5; // 异元素相克：伤害+1
+                    else if (nat === 'flame') v += 0.8; // 同元素：转附加1层烧伤
+                    v += 0.5; // 飞火标记（玩火燃料）
+                    if (v > best) best = v;
+                }
+                if (!best) return -1; // 无攻击范围内敌方目标
+                return best >= 3.5 ? 6 : best >= 2.5 ? 5 : 4;
             },
-            result: { player: 1, target: -1 },
+            result: {
+                player: 1,
+                // 目标受损=炎伤+元素互动（相克+1/同炎转烧伤）
+                target: (player, target) => {
+                    let v = 1.5;
+                    const nat = lib.bts.api.getNature(null, target);
+                    if (nat && nat !== 'flame') v += 1.5;
+                    else if (nat === 'flame') v += 0.8;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -63,7 +88,18 @@ export const skill = {
         async content(event, trigger, player) {
             lib.bts.api.markDamage(trigger, '_critical'); // 源 AddNew "_critical"
         },
-        ai: { noe: true },
+        ai: {
+            // 锁定技（无询问）；给引擎估值补联动：用【杀】命中烧伤目标时伤害视为暴击——暴击伤害来源
+            // 回复1点怒气（rules/globalrules.js L93-94），故对烧伤目标的【杀】提值
+            //（源 st_jiaoyou L3699-3711；联动：bts_sk_wanhuo 附加烧伤）
+            effect: {
+                player: (card, player, target) => {
+                    if (!target || card?.name !== 'sha') return;
+                    if (!lib.bts.api.getAbnor(target, 'burn')) return;
+                    return [1, 0.8]; // 暴击标记 + 暴击回怒≈0.8
+                },
+            },
+        },
     },
 
     // ── 玩火（源 st_wanhuo = OneCardViewAsSkill + EventPhaseStart，L3712-3753）──
@@ -77,9 +113,22 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             const n = player.countMark('bts_sk_feihuo');
+            // 本技为 cost 型触发技：发动与否由下方三段内联 AI 决定（全程最高分≤0→取消）。
+            // AI 口径：有可及敌方目标才发动；弃估值最低的【杀】；目标取敌方、低血线/未烧伤者优先
+            //（源 st_wanhuo L3712-3753；源 AI StarRail-ai.lua @@st_wanhuo：Enemies_ThrowSlash_AI，
+            // 目标数=飞火标记+1、须在攻击范围）
             const r = await player
                 .chooseBool(
                     '玩火：是否弃置一张【杀】令至多' + n + '名角色附加烧伤？',
+                )
+                .set('ai', () =>
+                    game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0 &&
+                            get.distance(player, t) <= player.getAttackRange(),
+                    ),
                 )
                 .forResult();
             if (!r.bool) {
@@ -92,6 +141,7 @@ export const skill = {
                     (card) => get.name(card) === 'sha',
                     '弃置一张【杀】',
                 )
+                .set('ai', (card) => 6 - get.value(card)) // 弃估值最低的【杀】
                 .forResult();
             if (!cards.bool) {
                 event.result = { bool: false };
@@ -106,6 +156,14 @@ export const skill = {
                         t !== p &&
                         get.distance(p, t) <= p.getAttackRange(),
                 )
+                .set('ai', (t) => {
+                    let v = -get.attitude(player, t); // 敌方向正分、友方向负分（全非敌→取消）
+                    if (v > 0) {
+                        if (t.hp <= 2) v += 0.5; // 低血线：烧伤在其出牌阶段压血
+                        if (!lib.bts.api.getAbnor(t, 'burn')) v += 0.3; // 未烧伤者：铺开浇油暴击点
+                    }
+                    return v;
+                })
                 .forResult();
             if (!targets.bool) {
                 event.result = { bool: false };
@@ -121,6 +179,7 @@ export const skill = {
             for (const x of event.targets || []) // event=技能事件，cost 结果目标
                 lib.bts.api.addAbnormal(x, 'burn', 1, player);
         },
+        // 触发技（cost 型）：发动决策在 cost 内联 AI；result 供跨技能估值查询（烧伤≈对方出牌阶段受1伤+攻击范围-1）
         ai: { result: { player: 1, target: -1 } },
     },
 };

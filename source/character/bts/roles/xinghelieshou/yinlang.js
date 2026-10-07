@@ -42,28 +42,52 @@ export const skill = {
                 player,
             );
             lib.bts.api.addCurse(target, lib.bts.api.god(player) ? 3 : 2, player); // 源 L2454-2455
-            // 源 L2461-2462：AddAngry(targets[1], …) 误把怒气给【目标】；按源描述「你回复」与用户定夺改给银狼。
-            // 阈值 >=5/>=3 对应描述「大于2/4」（5层+→2、3-4层→1），未随源码的 >3/>5。
+            // 源 L2461-2462 把怒气给【目标】（笔误）；按描述「你回复」定夺为回复银狼。
+            // 阈值 ≥5→2、≥3→1 按描述「大于2/4」，不随源码 >3/>5。
             const types = lib.bts.api.abnormalCount(target);
             if (types >= 5)
                 lib.bts.api.addAngry(player, 2, player);
             else if (types >= 3) lib.bts.api.addAngry(player, 1, player);
         },
         ai: {
+            // AI 口径：5怒气换敌方2/3层诅咒（下次受伤放大等量）+1种随机基础异常；
+            // 异常种类≥3/5 时回1/2怒气，优先异常已堆积的敌人（源 animal.lua L2446-2470）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_fenghao')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_fenghao'))
+                    return -1;
+                let best = 0; // 最佳敌方收益（诅咒≈0.9/层 + 随机异常，返还怒气加分）
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    let v = (lib.bts.api.god(player) ? 3 : 2) * 0.9 + 1;
+                    const types = lib.bts.api.abnormalCount(t);
+                    if (types >= 5) v += 1; // 回2怒气（接近抵消大招成本）
+                    else if (types >= 3) v += 0.5; // 回1怒气
+                    if (v > best) best = v;
+                }
+                if (!best) return -1;
+                return best >= 3.5 ? 7 : best >= 2.5 ? 5 : 3;
             },
             threaten: 2,
-            result: { player: 1, target: -2 },
+            result: {
+                player: 1,
+                // 目标受损=诅咒放大器+随机异常；异常种类≥3者额外优先（怒气返还驱动）
+                target: (player, target) => {
+                    const curse = lib.bts.api.god(player) ? 3 : 2;
+                    return -(
+                        curse * 0.9 +
+                        0.8 +
+                        (lib.bts.api.abnormalCount(target) >= 3 ? 0.4 : 0)
+                    );
+                },
+            },
         },
     },
 
     // ── 锁定技·程序（源 st_chengxu = TriggerSkill Compulsory TargetSpecified/MarkChanged，L2471-2525）──
     bts_sk_chengxu: {
-        // 源为锁定触发技（Skill_Compulsory），非必杀技本体 → 勿标 bts_bisha（S-B/缇宝忙碌先例）；
-        // 描述中「发动必杀技/链接技后」是被监听对象（封号/更改），程序自身是监听者。
+        // 源为锁定触发技（Skill_Compulsory）、非必杀技本体 → 勿标 bts_bisha（S-B/缇宝忙碌先例）；
+        // 描述中「发动必杀技/链接技后」指被封号/更改，它是被监听对象、程序自身是监听者。
         trigger: { player: 'useCard' },
         forced: true,
         filter(event, player) {
@@ -79,7 +103,9 @@ export const skill = {
         group: ['bts_sk_chengxu_nature'],
         subSkill: {
             nature: {
+                // 源 st_chengxu MarkChanged 分支（Skill_Compulsory，无询问）→ forced。
                 trigger: { global: 'bts_mark_add' },
+                forced: true,
                 filter(event, player) {
                     // 其他角色于你的回合内获得属性（源 MarkChanged + gain>0 + getCurrent==p）
                     return (
@@ -98,10 +124,8 @@ export const skill = {
                         player,
                     );
                 },
-                ai: { noe: true },
             },
         },
-        ai: { noe: true },
     },
 
     // ── 链接技·更改（源 st_genggai = OneCardViewAsSkill + SkillCard，L2526-2558）──
@@ -134,23 +158,54 @@ export const skill = {
                 lib.bts.api.addAbnormal(t, pick, 1, player);
         },
         ai: {
+            // AI 口径：弃1杀把「有属性者」的属性复制给另一名角色——两目标各+1随机异常，
+            // 接收方另经程序·属性监听再+1种；来源与接收方都选敌方最优（源 animal.lua L2526-2558）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_genggai')
-                    ? -1
-                    : 3;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_genggai'))
+                    return -1;
+                const enemy = (t) =>
+                    t.isAlive() && t !== player && get.attitude(player, t) < 0;
+                // 最优：来源与接收方均为敌方（各吃异常，接收方再获属性）
+                if (
+                    game.hasPlayer(
+                        (s) =>
+                            enemy(s) &&
+                            lib.bts.api.getNature(null, s) &&
+                            game.hasPlayer((t) => enemy(t) && t !== s),
+                    )
+                )
+                    return 5;
+                // 次优：牺牲友方属性源、接收方为敌方（仍净赚1层异常）
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            enemy(t) &&
+                            game.hasPlayer(
+                                (s) =>
+                                    s.isAlive() &&
+                                    s !== player &&
+                                    s !== t &&
+                                    lib.bts.api.getNature(null, s),
+                            ),
+                    )
+                )
+                    return 3;
+                return -1; // 无敌方接收方：纯友方向复制（双方各吃1层异常）不划算
             },
             useful: 2,
             value: 3,
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 两段目标共用估值：接收方=属性+随机异常、来源=随机异常；敌方优先，友方仅作凑数项
+                target: (player, target) =>
+                    get.attitude(player, target) < 0 ? -1.2 : -0.3,
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_yinlang_skin1': '皮肤1',
-    'bts_ch_yinlang_skin2': '皮肤2',
-    'bts_ch_yinlang_skin3': '皮肤3',
     'bts_ch_yinlang_skin1': '皮肤1',
     'bts_ch_yinlang_skin2': '皮肤2',
     'bts_ch_yinlang_skin3': '皮肤3',

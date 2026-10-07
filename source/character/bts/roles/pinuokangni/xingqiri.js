@@ -36,7 +36,7 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_zansong');
             const target = event.targets[0];
             lib.bts.api.loseAngry(player, 5); // 源 L5361：LoseAngry(player, 5)
-            // 源 L5362：AddAngry(targets[1], 1, player) —— 目标回复1点怒气（2026-10-02 补缺）
+            // 源 L5362：AddAngry(targets[1], 1, player) —— 目标回复1点怒气（按源补）
             lib.bts.api.addAngry(target, 1, player);
             // 源 L5363：AddBless(targets[1], "@bless_fatal", 3, player)
             await lib.bts.api.addBless(target, 'fatal', 3, player);
@@ -56,12 +56,45 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：怒气≥5 且有受益友方时接（源 AI StarRail-ai.lua max_zansong：估值 9、给怒气最高的
+            // 友方）。3层致命祝福使其伤害令受击者无法回怒气，目标另回1怒气；星启+3暴击并折转一半为致命。
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zansong')
-                    ? -1
-                    : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zansong'))
+                    return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t !== player &&
+                            t.isAlive() &&
+                            get.attitude(player, t) > 0,
+                    )
+                )
+                    return -1; // 无友方可给（result.target 对非友方 ≤0，选不出目标）
+                let value = 6;
+                if (lib.bts.api.god(player)) value += 1;
+                if (
+                    game.hasPlayer(
+                        (t) =>
+                            t !== player &&
+                            t.isAlive() &&
+                            get.attitude(player, t) > 0 &&
+                            lib.bts.api.getAngry(t, 4),
+                    )
+                )
+                    value += 1; // 有接近接满怒气的友方（+1 怒气可能刚好补满）
+                return Math.min(9, value);
             },
-            result: { target: 1 },
+            result: {
+                // 友方收益：3层致命祝福 + 回复1怒气；星启附加3层暴击（半数折转致命）；非友方负分排除
+                target: (player, target) => {
+                    if (target === player) return 0;
+                    if (get.attitude(player, target) <= 0) return -1;
+                    let v = 2;
+                    if (lib.bts.api.god(player)) v += 0.5;
+                    v += Math.min(1, lib.bts.api.getAngry(target) * 0.1); // 源 AI：优先怒气最高友方
+                    return v;
+                },
+            },
         },
     },
 
@@ -87,12 +120,32 @@ export const skill = {
         async cost(event, trigger, player) {
             // 源 L5418：askForUseCard("@@st_enci")；源 Card filter（L5399）：
             // 目标已有致命祝福可免弃【杀】→ 先选目标，目标无致命祝福才补弃【杀】。
+            const hasDiscardableSha = player
+                .getCards('h')
+                .some(
+                    (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                );
             const targetResult = await player
                 .chooseTarget(
                     '恩赐：选择一名其他角色（跳过摸牌和出牌阶段，令其额外回合）',
                     [1, 1],
                     (card, source, target) => target !== source,
                 )
+                // AI 口径（源 AI StarRail-ai st_enci）：只赠友方；已有致命祝福的目标免弃【杀】优先
+                //（源 AI 同样优先此类），空手牌目标额外回合收益下降。
+                .set('ai', (target) => {
+                    const att = get.attitude(player, target);
+                    if (att <= 0) return -1; // 非友方负分：全体非友方时引擎按最高分≤0 取消
+                    const free = lib.bts.api.getBless(target, 'fatal');
+                    if (!free && !hasDiscardableSha) return -1; // 无【杀】可弃：非免弃目标不可行
+                    let score = att * 2; // 额外回合（回合末其+1暴击祝福）为主要收益
+                    if (free) score += 0.5; // 免弃一张【杀】
+                    else score -= 0.5; // 需另付一张【杀】
+                    if (!target.countCards('h')) score -= 0.5;
+                    return score;
+                })
                 .forResult();
             if (!targetResult.bool) {
                 event.result = { bool: false };
@@ -109,6 +162,7 @@ export const skill = {
                             lib.filter.cardDiscardable(card, player),
                         '目标没有致命祝福，须弃置一张【杀】',
                     )
+                    .set('ai', (card) => 6 - get.value(card)) // 弃价值最低的【杀】；全为负分则取消不发动
                     .forResult();
                 if (!cardResult.bool) {
                     event.result = { bool: false };
@@ -173,12 +227,14 @@ export const skill = {
                 },
             },
         },
-        ai: { result: { player: 1 } },
+        // AI 口径：发动决策在 cost 的 chooseTarget/chooseCard 内联 ai（cost 型触发技，引擎不询顶层
+        // check）；此 result 供跨技能估值查询——自身跳摸牌/出牌且可能弃【杀】（-1），目标得额外回合（+1）。
+        ai: { result: { player: -1, target: 1 } },
     },
 
     // ── 锁定技·倾诉（源 st_qingsu = TriggerSkill Compulsory EventPhaseStart Judge，L5425-5443）──
     // 准备阶段开始时，你观看牌堆顶七张牌（仅你能看，保持原序放回牌堆顶）。
-    //（2026-10-02 用户定夺按源描述「准备阶段」回改；源代码为判定阶段口径。）
+    //（定夺按源描述「准备阶段」回改；源代码为判定阶段口径。）
     bts_sk_qingsu: {
         trigger: { player: 'phaseZhunbeiBegin' },
         forced: true,
@@ -192,15 +248,11 @@ export const skill = {
             for (let i = cards.length - 1; i >= 0; i--)
                 ui.cardPile.insertBefore(cards[i], ui.cardPile.firstChild);
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_xingqiri_skin1': '皮肤1',
-    'bts_ch_xingqiri_skin2': '皮肤2',
-    'bts_ch_xingqiri_skin3': '皮肤3',
     'bts_ch_xingqiri_skin1': '皮肤1',
     'bts_ch_xingqiri_skin2': '皮肤2',
     'bts_ch_xingqiri_skin3': '皮肤3',

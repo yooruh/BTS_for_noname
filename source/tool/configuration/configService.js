@@ -2,10 +2,7 @@ import { lib, game } from '../../../../../noname.js';
 import { extensionFilesPath, extensionPath } from '../utils/paths.js';
 import { getFileList } from '../utils/fileSystem.js';
 
-/**
- * 处理配置的加载、备份、恢复等操作
- * 公开接口: getAvailableConfigFiles, decodeBackupToJson, encodeJsonToNewConfig, loadAndApplyConfig, backupCurrentConfig, applyFromBackupFile, applyConfigData
- */
+/** 处理配置的加载、备份、恢复等操作；公开接口: getAvailableConfigFiles 等（见 return） */
 const ConfigService = (() => {
     const _applyToIndexedDB = async (configData) => {
         const { config = {}, data = {} } = configData;
@@ -91,6 +88,15 @@ const ConfigService = (() => {
         });
     };
 
+    /** IndexedDB 失败回调参数转可读文本（引擎 getDB/putDB 的失败回调可能收到原始事件或 Error）。 */
+    const _dbErrorText = (error) => {
+        if (!error) return '未知错误';
+        if (typeof error === 'string') return error;
+        if (error instanceof Error) return error.message;
+        if (typeof error.type === 'string') return `IndexedDB ${error.type}`;
+        return String(error);
+    };
+
     const _putDBAsync = async (type, key, value) => {
         return new Promise((resolve, reject) => {
             game.putDB(type, key, value, (success) => {
@@ -99,6 +105,8 @@ const ConfigService = (() => {
                 } else {
                     reject(new Error(`保存 ${type}.${key} 失败`));
                 }
+            }, (error) => {
+                reject(new Error(`保存 ${type}.${key} 失败：${_dbErrorText(error)}`));
             });
         });
     };
@@ -122,7 +130,11 @@ const ConfigService = (() => {
                                 config: configData || {},
                                 data: dataData || {}
                             });
+                        }, (error) => {
+                            reject(new Error(`获取当前配置失败（data 库）：${_dbErrorText(error)}`));
                         });
+                    }, (error) => {
+                        reject(new Error(`获取当前配置失败（config 库）：${_dbErrorText(error)}`));
                     });
                 }
             } catch (error) {

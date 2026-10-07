@@ -5,29 +5,22 @@
 //
 // 效果：在打出的卡牌下方显示一行小字：“xx对xx使用”“xx打出”“xx弃置”等。
 //
-// 原理：打出动画的唯一入口是 lib.element.player.$throwordered（$throw 把用出的牌转到
-// 场面中央时调用，本体自身也在这里挂 card_animation_info 的卡面信息）。本模块包装该函数：
-// - 开启时：先按原流程调用 $throwordered2 完成动画，再按 _status.event 计算说明文字，把
-//   .cardsetion.bts-card-annotation 注记挂进打出牌节点（复用 node.node.cardsetion 缓存
-//   做幂等更新）；文字经 game.broadcastAll 同步到直连客户端（客户端拿到的 DOM 参数会
-//   退化为普通对象，按 _cardid 找回本次打出的牌——与本体内置注记同款做法）；同时
-//   game.addVideo('cardInfo' …) 记录，由本模块注册的 game.videoContent.cardInfo 在录像
-//   回放时于对应时刻补挂注记。
-// - 关闭时：原样调用原 $throwordered（本体全局设置 card_animation_info 的注记照常生效）。
+// 原理：包装 lib.element.player.$throwordered（打出动画唯一入口，本体也在此挂 card_animation_info）。
+// - 开启时：先走 $throwordered2 完成动画，再按 _status.event 算说明文字，把
+//   .cardsetion.bts-card-annotation 注记挂进打出牌节点（复用 node.node.cardsetion 做幂等更新）；
+//   文字经 game.broadcastAll 同步到直连客户端（DOM 参数退化时按 _cardid 找回打出的牌），
+//   并经 game.addVideo('cardInfo' …) + game.videoContent.cardInfo 在录像回放时补挂。
+// - 关闭时：原样调用原函数（本体 card_animation_info 注记照常生效）。
 //
-// 与叁岛的差异（按本扩展/当前引擎约定调整，2026-09-28 移植）：
-// 1. 开关改用本扩展配置键 bts_cardsInfo：包装常驻、每次打出时实时判开关（叁岛在扩展装载时
-//    按 edit_cardsInfo 一次性决定是否替换 $throwordered）；开启时同样跳过本体 card_animation_info
-//    的注记分支，避免两套文案叠成两行。
-// 2. 直连客户端找回节点用 node._cardid（与本体一致，避免同名同花色点数牌误配；叁岛用
-//    name/number/suit 匹配）。
-// 3. 修正 judge 分支的运算符优先级错误：叁岛原式 `playername + judgestr || '' + '判定牌'`
-//    实为 (playername + judgestr) || …，judgestr 缺失时会拼出“xxundefined”；按原意改为
-//    playername + (judgestr || '判定牌')。
-// 4. 样式收窄到本功能类名 .cardsetion.bts-card-annotation，不覆盖本体的 .cardsetion；
-//    录像回放时不渲染即时注记（_status.video），交由录像记录在正确时刻补挂。
-// 5. useCard 分支 targets 为空（如【无懈可击】等无目标牌）时，叁岛原式会拼出“xx对使用”，
-//    空目标按“xx使用”回退。
+// 与叁岛的差异（按本扩展/当前引擎约定调整）：
+// 1. 开关用本扩展配置键 bts_cardsInfo：包装常驻、每次打出实时判开关（叁岛装载时按 edit_cardsInfo
+//    一次性决定）；开启时跳过本体 card_animation_info 注记分支，避免两套文案叠成两行。
+// 2. 直连客户端找回节点用 node._cardid（与本体一致，防同名同花色点数误配；叁岛按 name/number/suit 匹配）。
+// 3. judge 分支用 playername + (judgestr || '判定牌')：叁岛原式按 (playername + judgestr) || … 求值，
+//    缺 judgestr 会拼出“xxundefined”。
+// 4. 样式仅作用于 .cardsetion.bts-card-annotation，不覆盖本体 .cardsetion；录像回放不渲染
+//    即时注记（_status.video），交由录像记录在对应时刻补挂。
+// 5. useCard 分支 targets 为空（如【无懈可击】等无目标牌）时按“xx使用”回退（叁岛原式会拼出“xx对使用”）。
 import { lib, game, ui, get, _status } from '../../../../../noname.js';
 
 const CONFIG_KEY = 'bts_cardsInfo';
@@ -64,9 +57,7 @@ function installStyle() {
 }
 
 /**
- * 注记渲染。本函数作为 game.broadcastAll 载荷会被序列化发送到直连客户端执行，
- * 因此不得引用模块作用域变量，只可用引擎全局与入参（与本体 $throwordered 内置注记同款）。
- * 客户端收到的 DOM 节点参数会退化为普通对象，此时按 _cardid 找回本次打出的牌。
+ * 注记渲染：随 game.broadcastAll 序列化到直连客户端执行，不得引用模块作用域变量（只用引擎全局与入参）；节点参数退化为普通对象时按 _cardid 找回本次打出的牌。
  */
 function renderCardsetion(node, eventInfo, cardInfo) {
     if (!node || !node.node) {

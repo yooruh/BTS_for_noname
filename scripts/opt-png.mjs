@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * 崩铁杀 PNG 优化脚本
- *
- * 移植自 _others/microtools/PNGfix.pyw，并扩展：
- * - 默认【无损】模式：剥除元数据块（tEXt/zTXt/iTXt/eXIf/tIME 等），保留色彩关键块，
- *   IDAT 采用「永不变大」重压（解压现有滤波流后以 level 9 重新压缩，取更小者）。
- *   当前素材已是最优压缩，主要收益是剔除未来从 PSD 导出的 Photoshop 元数据。
- * - 可选【有损】模式（--lossy）：仅对 colorType 2 的 RGB 图做 256 色中值切割量化 +
- *   Floyd-Steinberg 抖动，编码为调色板 PNG（colorType 3）。实测单张立绘约省 50-66%，
- *   但会改变画风，须先经 --out 输出副本肉眼验收后再原地应用（git 可还原）。
+ * 崩铁杀 PNG 优化脚本。
+ * - 默认【无损】模式：剥除元数据块（tEXt/zTXt/iTXt/eXIf/tIME 等）、保留色彩关键块，
+ *   IDAT「永不变大」重压（解压滤波流后 level 9 重压取更小者）；主要收益是剔除
+ *   Photoshop 等元数据。
+ * - 可选【有损】模式（--lossy）：仅 colorType 2 RGB 图做 256 色中值切割 + Floyd-Steinberg
+ *   抖动，编码为调色板 PNG（colorType 3）；实测单张立绘省 50-66%，会改变画风，须先
+ *   --out 输出副本验收后再原地应用（git 可还原）。
  *
  * 用法:
  *   node scripts/opt-png.mjs                无损优化 image/ 下全部 PNG

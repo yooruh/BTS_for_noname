@@ -1,5 +1,5 @@
-// 角色包构建器（搬运自叁岛，仅 createCharacterSort 改为按 7 阵营分组）
-// 把一组"一文件一角色"的模块聚合成无名杀角色包所需的各 lib 字段。
+// 角色包构建器：把一组"一文件一角色"的模块聚合成无名杀角色包所需的各 lib 字段。
+// createCharacterSort 按 7 阵营（factions.js）分组。
 import { KINGDOMS } from '../../character/bts/factions.js';
 
 function getCharacterId(role, fileName) {

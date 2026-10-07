@@ -37,12 +37,24 @@ export const skill = {
                 await lib.bts.api.addBless(t, 'through', n, player);
         },
         ai: {
+            // AI 口径：5怒气必杀，自身与目标各附加2层（星启3层）残梅/贯通；残梅令「除你外」持贯通者摸牌+1，
+            // 故只在至少1名友方可承接时发动（无友方时贯通只能给敌方，反而利敌）（源 L3075-3098）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yaoduan')
-                    ? -1
-                    : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yaoduan')) return -1;
+                const allies = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) > 0,
+                );
+                if (!allies) return -1;
+                return allies >= 2 ? 8 : lib.bts.api.god(player) ? 6 : 5;
             },
-            result: { player: 1 },
+            result: {
+                player: 1,
+                // 目标获贯通=后续每回合约换1张摸牌（残梅在你处；星启层数2/3）——引擎按态度加权，敌方自然低分
+                target: (player, target) => (lib.bts.api.god(player) ? 2.5 : 2),
+            },
         },
     },
 
@@ -60,15 +72,23 @@ export const skill = {
             if (lib.bts.api.getAbnor(event.player, 'zhanfang')) return false; // 不处于绽放
             return true;
         },
-        async content(event, trigger, player) {
-            const r = await player
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
+            event.result = await player
                 .chooseBool(
                     '分型：是否令' +
                         get.translation(trigger.player) +
                         '附加1层绽放？',
                 )
+                // AI 口径：只对敌方发动——绽放令其进入摸牌阶段时跳过（≈少摸2张）；友方/死者不发动（源 L3099-3133）
+                .set('ai', () =>
+                    trigger.player !== player &&
+                    trigger.player.isAlive() &&
+                    get.attitude(player, trigger.player) < 0,
+                )
                 .forResult();
-            if (!r.bool) return;
+        },
+        async content(event, trigger, player) {
             lib.bts.api.addAbnormal(trigger.player, 'zhanfang', 1, player); // 源 AddAbnormal(@abnormal_zhanfang)（trigger=loseAfter 事件）
         },
         ai: { result: { player: 1, target: -1 } },
@@ -106,6 +126,20 @@ export const skill = {
                     '慢捻：选择至少一名其他角色',
                     [1, Infinity],
                     (c, p, t) => t !== p,
+                    // AI 口径：弦外音=弃置他人手牌后的追击，只给友方；且仅当「友方≥2 或有多余【杀】」
+                    // 才值得弃1【杀】换祝福（否则不选目标→取消发动）（源 L3134-3163）
+                    (t) => {
+                        const allies = game.countPlayer(
+                            (q) =>
+                                q.isAlive() &&
+                                q !== player &&
+                                get.attitude(player, q) > 0,
+                        );
+                        const worth =
+                            allies >= 2 || player.countCards('h', 'sha') >= 2;
+                        if (!worth) return -1;
+                        return get.attitude(player, t) > 0 ? 2 : -1;
+                    },
                 )
                 .forResult();
             if (!targets.bool) {
@@ -121,13 +155,18 @@ export const skill = {
             for (const x of event.targets || []) // event=技能事件，cost 结果目标
                 await lib.bts.api.addBless(x, 'xianwaiyin', 3, player);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            result: {
+                player: 1,
+                // 目标获3层弦外音（每次弃他人手牌的追击机会）——恒定+值，敌友由引擎态度加权分流
+                target: (player, target) => 2,
+            },
+        },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_ruanmei_skin1': '皮肤1',
     'bts_ch_ruanmei_skin1': '皮肤1',
     bts_ch_ruanmei: '阮梅',
     bts_sk_yaoduan: '摇缎',
@@ -233,8 +272,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_canmei_faq',

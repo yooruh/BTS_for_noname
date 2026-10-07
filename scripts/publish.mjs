@@ -1,20 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * 崩铁杀 发布脚本 —— 将代码包提交到 zips 分支并创建 GitHub Release
+ * 崩铁杀 发布脚本 —— 将代码包提交到 zips 分支并创建 GitHub Release。
  *
- * 前置条件:
- *   1. 已执行 npm run build（生成 {版本}-code.zip 到 ../_others/，
- *      并把 zip 元数据写入 version.json）
- *   2. 已安装并登录 GitHub CLI（gh auth login）
+ * 前置：npm run build 已生成 {版本}-code.zip（../_others/）并把 zip 元数据写入 version.json；
+ * 已安装并登录 GitHub CLI（gh auth login）。
  *
- * 本脚本只处理「zips 分支 + v{版本} 分支 + Release」，不运行构建、不触碰 main：
+ * 只处理「zips 分支 + v{版本} 分支 + Release」，不运行构建、不触碰 main：
  *   1. 校验 version.json 与 ../_others/ 中代码包的 size/md5 一致
- *   2. 把代码包提交到 zips 分支的 release/code/ 并推送（GitHub 必需，Gitee 尽力）
- *   3. 推送 v{版本} 分支（基于当前 HEAD，移除 version.json，GitHub 必需，Gitee 尽力）
- *   4. 打 v{版本} 标签并推送
- *   5. 调用 zip 打包脚本生成完整安装包（含 image/、audio/，仅上传 Release，不进 zips 分支）
- *   6. 用 gh 创建 GitHub Release，附加「代码包 + 完整安装包」两个资产
+ *   2. 把代码包提交到 zips 分支 release/code/ 并推送（GitHub 必需，Gitee 尽力）
+ *   3. 推送 v{版本} 分支（基于当前 HEAD、移除 version.json）
+ *   4. 打 v{版本} 标签并推送；调 zip 脚本生成完整安装包（含 image/、audio/，仅上传 Release）
+ *   5. 用 gh 创建 GitHub Release，附加「代码包 + 完整安装包」两个资产
  *
  * 用法:
  *   node scripts/publish.mjs              正式发布

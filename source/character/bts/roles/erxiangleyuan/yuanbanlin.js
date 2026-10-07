@@ -15,6 +15,16 @@ export const character = {
     },
 };
 
+// 魔术 AI 共用口径（cost 内联 chooseBool=发动决策；content 只执行）：
+// 弃【杀】者为友方，或其已持致命祝福（条件分支跳过赠予、纯赚宝石）时发动
+//（源 AI st_moshu=asFriend(弃牌者) or GetBless(fatal)，StarRail-ai.lua L3715）。
+export function moshuWorth(player, target) {
+    if (!target) return false;
+    return (
+        get.attitude(player, target) > 0 || lib.bts.api.getBless(target, 'fatal')
+    );
+}
+
 export const skill = {
     // ── 必杀技·明薪（源 max_mingxin = SkillCard + ZeroCardViewAsSkill，L10393-10421）──
     // 出牌阶段，失5怒气，摸一张牌并展示之（此牌视为【杀】），令任意名其他角色附加暗属性与1层诅咒；
@@ -32,7 +42,7 @@ export const skill = {
             return target !== player;
         },
         selectTarget: [1, Infinity],
-        // 清理子技能：本回合结束时移除视为【杀】的临时技能（定夺 2026-09-12 按源描述补实现）。
+        // 清理子技能：本回合结束时移除视为【杀】的临时技能（按源描述补实现，定夺）。
         group: ['bts_sk_mingxin_clear'],
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_mingxin');
@@ -56,9 +66,8 @@ export const skill = {
                 player.addMark('bts_mk_magic_diamond', 24);
                 // 源 gamerule：extra_draw/extra_play 于回合末执行额外摸牌/出牌阶段——
                 // 无名杀把阶段插入当前回合 phaseList 末尾（同回合内执行，非新回合）
-                // 2026-09-28 修复（实机 3 起「reading 'getParent'」）：主动技 content 的 trigger 为
-                // null（引擎合法形态），`trigger.getParent?.()` 读 null 属性即崩；两处均降级为可选链，
-                // 拿不到 phase 时静默跳过（phaseEvent?.phaseList 既有守卫）。案例：09-26 21:51/23:32、09-27 23:40。
+                // 修复：主动技 content 的 trigger 为 null（引擎合法形态），`trigger.getParent?.()`
+                // 读 null 属性即崩；两处均降级为可选链，拿不到 phase 时静默跳过（phaseEvent?.phaseList 既有守卫）。
                 const phaseEvent =
                     trigger?.getParent?.('phase') ||
                     _status.event?.getParent?.('phase');
@@ -80,7 +89,6 @@ export const skill = {
                 async content(event, trigger, player) {
                     player.removeSkill('bts_sk_mingxin_slash');
                 },
-                ai: { noe: true },
             },
             // ── 临时技·明薪视为杀（明薪展示牌当作【杀】使用；源描述「此牌视为【杀】」，回合结束移除）──
             slash: {
@@ -101,16 +109,36 @@ export const skill = {
                 },
                 viewAs: { name: 'sha' },
                 prompt: '将明薪展示牌当【杀】使用',
-                ai: { order: 8, result: { target: 1 } },
+                // ai 口径：优先消耗明薪展示牌（回合结束移除，不用作废）；目标估值沿用【杀】卡牌自身
+                // result——技能侧 target 必须为负（§7），正值会反号令 AI 不选敌方
+                ai: { order: 8 }, // ai-guard: skip：viewAs 型无独立 content
             },
         },
         ai: {
+            // AI 口径：5怒气必杀，目标各附暗属性+1诅咒（诅咒=下次受伤追加等量）；星启另得24宝石（实验门槛15）
+            // 与本回合额外摸/出牌阶段——星启显著加分，只打敌方（源 AI max_mingxin value/priority 9，
+            // StarRail-ai.lua；源 animal.lua L10390-10421）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_mingxin')
-                    ? -1
-                    : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_mingxin')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门
+                const enemies = game.countPlayer(
+                    (t) => t.isAlive() && t !== player && get.attitude(player, t) < 0,
+                );
+                if (!enemies) return -1; // 无敌方目标：诅咒/暗属性无收益
+                let value = 7;
+                if (lib.bts.api.god(player)) value += 2; // 24宝石+额外摸/出牌阶段
+                if (enemies >= 2) value += 1; // 多目标：诅咒铺开
+                return Math.min(9, value);
             },
-            result: { target: -1 },
+            result: {
+                player: (player) => (lib.bts.api.god(player) ? 2 : 0.5), // 摸1展示当杀；星启+24宝石/额外阶段
+                // 目标受损：1层诅咒（下次受伤+等量）+暗属性（重附→睡眠异常）
+                target: (player, target) => {
+                    let v = 1 + Math.min(2, target.countMark('bts_curse')) * 0.4;
+                    if (lib.bts.api.getNature(null, target) === 'dark') v += 1;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -122,7 +150,7 @@ export const skill = {
         usable: 1,
         filter(event, player) {
             // 源 enabled_at_play（L10456）：严格大于（>7/>15）；源描述「至少7/15」为 ≥，
-            // 源内部矛盾。定夺 2026-09-12 按描述保持 ≥（A-08）。
+            // 源内部矛盾；按描述保持 ≥（定夺 A-08）。
             return player.countCards('h') >= 7 || player.countMark('bts_mk_magic_diamond') >= 15;
         },
         filterTarget(card, player, target) {
@@ -159,12 +187,46 @@ export const skill = {
             lib.bts.api.endPlayPhase(player); // 源 L10084：Global_PlayPhaseTerminated 结束出牌阶段
         },
         ai: {
+            // AI 口径：手牌折2宝石/张、每3宝石1轮（7%起、失败翻倍）的暗伤概率赌；弃光手牌是代价，
+            // 最后摸2并结束出牌阶段——需有敌方目标（源 AI st_shiyan 门槛手>7/宝石>15、value 9/priority 0，
+            // StarRail-ai.lua；源 animal.lua L10451-10461）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_shiyan')
-                    ? -1
-                    : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shiyan')) return -1;
+                if (
+                    player.countCards('h') < 7 &&
+                    player.countMark('bts_mk_magic_diamond') < 15
+                )
+                    return -1; // filter 同门
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() && t !== player && get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1; // 无敌方目标：纯弃牌+摸2
+                const diamonds =
+                    player.countMark('bts_mk_magic_diamond') +
+                    2 * player.countCards('h');
+                if (diamonds < 3) return -1; // 不足1轮
+                let value = 6;
+                if (diamonds >= 15) value += 1; // ≥5轮（源门槛）
+                if (player.countCards('h') >= 7) value += 1; // ≥7手牌（源门槛）
+                if (player.countCards('h') <= 2) value -= 1; // 弃光后空手风险
+                return Math.min(9, value);
             },
-            result: { target: -1 },
+            result: {
+                player: 1, // 收尾摸2
+                // 目标受损：期望命中≈轮数/3.5（7%翻倍循环），封顶4轮；残血击杀加权
+                target: (player, target) => {
+                    const diamonds =
+                        player.countMark('bts_mk_magic_diamond') +
+                        2 * player.countCards('h');
+                    const hits = Math.min(4, Math.floor(diamonds / 3) / 3.5);
+                    let v = Math.max(0.5, hits * 1.5);
+                    if (target.hp <= 1) v += 0.8;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -182,27 +244,35 @@ export const skill = {
                 event.getl?.(event.player)?.hs?.some((card) => get.name(card) === 'sha')
             );
         },
-        async content(event, trigger, player) {
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             // trigger = loseAfter 事件（弃【杀】者在其 .player、弃置详情用 trigger.getl）
             const target = trigger.player;
             const count = trigger
                 .getl(target)
                 .hs.filter((card) => get.name(card) === 'sha').length;
             // 源 L10114：askForSkillInvoke —— 询问是否发动
-            const result = await player
+            event.result = await player
                 .chooseBool(
                     `魔术：是否获得${count * 2}枚宝石并令${get.translation(target)}获得致命祝福？`,
                 )
-                .set('ai', () => get.attitude(player, target) > 0)
+                // AI 口径：友方或已持致命祝福（纯赚宝石）才发动（moshuWorth）
+                //（源 AI st_moshu=asFriend(弃牌者) or GetBless(fatal)，StarRail-ai.lua L3715；源 animal.lua L10463-10489）
+                .set('ai', () => moshuWorth(player, target))
                 .forResult();
-            if (!result.bool) return;
+        },
+        async content(event, trigger, player) {
+            // trigger = loseAfter 事件（弃【杀】者在其 .player、弃置详情用 trigger.getl）
+            const target = trigger.player;
+            const count = trigger
+                .getl(target)
+                .hs.filter((card) => get.name(card) === 'sha').length;
             // 源 L10116：p:gainMark("@magic_diamond", 2*n)
             player.addMark('bts_mk_magic_diamond', count * 2);
             // 源 L10117-10119：目标无致命祝福时附加2层
             if (!lib.bts.api.getBless(target, 'fatal'))
                 await lib.bts.api.addBless(target, 'fatal', 2, player);
         },
-        ai: { noe: true },
     },
 };
 
@@ -215,12 +285,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_yuanbanlin_skin1': '皮肤1',
-    'bts_ch_yuanbanlin_skin2': '皮肤2',
-    'bts_ch_yuanbanlin_skin3': '皮肤3',
-    'bts_ch_yuanbanlin_skin4': '皮肤4',
-    'bts_ch_yuanbanlin_skin5': '皮肤5',
-    'bts_ch_yuanbanlin_skin6': '皮肤6',
     'bts_ch_yuanbanlin_skin1': '皮肤1',
     'bts_ch_yuanbanlin_skin2': '皮肤2',
     'bts_ch_yuanbanlin_skin3': '皮肤3',
@@ -255,8 +319,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_magic_diamond_faq',

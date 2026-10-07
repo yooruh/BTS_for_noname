@@ -45,27 +45,50 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：敌方带烧伤且怒气≥3 时爆破；层数越值（逐层1点即时伤害）、可斩杀另加分；
+            // 单层无斩杀不动（与烧伤自然 tick 每回合1点差别很小）（源 max_kanxi，animal.lua L5861-5889；源 AI StarRail-ai.lua L2496-2506）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_kanxi') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_kanxi')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1; // 与 filter 同门
+                let best = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue; // 只爆破敌方
+                    const layers = lib.bts.api.getAbnor(target, 'burn', -1);
+                    if (!layers) continue;
+                    // 逐层1点即时伤害；≥2层再折算养艺诅咒（下次受伤追加等量，按+1计）
+                    let value = layers + (layers >= 2 ? 1 : 0);
+                    if (target.hp <= layers) value += 2; // 可一击斩杀
+                    best = Math.max(best, value);
+                }
+                if (best < 2) return -1; // 收益太薄：留住怒气
+                return Math.min(9, 4 + best);
             },
-            result: { target: -2 },
+            result: {
+                // 对敌：移除全部烧伤并逐层造成1点无来源伤害；养艺联动再叠等量诅咒
+                target: (player, target) => {
+                    const layers = lib.bts.api.getAbnor(target, 'burn', -1);
+                    if (!layers) return 0;
+                    return -(
+                        layers +
+                        (player.hasSkill('bts_sk_yangyi') ? layers * 0.5 : 0)
+                    );
+                },
+            },
         },
     },
 
     // ── 触发技·迎红（源 st_yinghong = TriggerSkill CardsMoveOneTime，L6233-6246）──
     // 其他角色于其回合外失去牌后，你可以弃置一张【杀】，令其附加1层烧伤。
     bts_sk_yinghong: {
-        // 无名杀标准范式：守成 dcshoucheng（huicui/skill.js）——全牌移事件族 + getl 遍历找
-        // 失去者 + _status.currentPhase 判回合外。界周泰·奋激为弃置限定+排除自弃，
-        // 与迎红"任何失去"不符（源 CardsMoveOneTime 含出牌/自弃），故以守成为准。
+        // 范式：守成 dcshoucheng（huicui/skill.js）——全牌移事件族 + getl 遍历找失去者 +
+        // _status.currentPhase 判回合外；界周泰·奋激为弃置限定，与迎红"任何失去"（源含出牌/自弃）不符。
         trigger: { global: ['equipAfter', 'addJudgeAfter', 'loseAfter', 'gainAfter', 'loseAsyncAfter', 'addToExpansionAfter'] },
         filter(event, player) {
-            // 源 L6237-6242 三重排除：
-            // ① 失去者（move.from）≠ 桂乃芬 —— 桂乃芬自己失牌（含被顺）不触发；
-            // ② 移入桂乃芬手牌/装备的不触发（源 L6240-6241）——含桂乃芬顺手牵羊他人：
-            //    loseAsyncAfter 事件 event.player=接收者=桂乃芬，且 getl 聚合器忽略 getlx=false、
-            //    不会随空模板过滤（旧假设错误，E-01），故须显式按 event.player 排除；
-            // ③ 失去者须于其回合外（_status.currentPhase 判定，源 L6239 NotActive）。
+            // 源 L6237-6242 三重排除：① 失去者（move.from）≠ 桂乃芬——自己失牌（含被顺）不触发；
+            // ② 移入桂乃芬手牌/装备的不触发（源 L6240-6241）——含其顺手牵羊他人：loseAsyncAfter 的
+            //    event.player=接收者，getl 不随空模板过滤（E-01），须按 event.player 显式排除；
+            // ③ 失去者须于其回合外（_status.currentPhase，源 L6239 NotActive）。
             if (event.player === player) return false;
             // 桂乃芬须有【杀】可弃（源 askForCard(Slash)）
             if (
@@ -91,6 +114,12 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L5899：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // AI 口径：只对敌方附加（烧伤=每回合1伤+引爆燃料），未烧伤优先（首次点燃价值更高）；
+            // 弃【杀】按分值扣减，>0 才弃，最高分≤0 由引擎取消=不发动（源 AI StarRail-ai.lua L2508-2511：非敌不交）
+            const loser = trigger._yinghongTarget;
+            const att = loser ? get.attitude(player, loser) : 0;
+            const burning = loser ? lib.bts.api.getAbnor(loser, 'burn') : false;
+            const base = att < 0 ? (burning ? 4 : 5.5) : -10;
             event.result = await player
                 .chooseCard(
                     'h',
@@ -99,18 +128,24 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '迎红：是否弃置一张【杀】令失去牌的角色附加1层烧伤？',
                 )
+                .set('ai', (card) => base - get.value(card))
                 .forResult();
         },
         async content(event, trigger, player) {
             if (event.cards?.length) await player.discard(event.cards); // 弃置所选【杀】作为代价
-            // 源 L6245：AddAbnormal(target=失去者 move.from, "@abnormal_burn", 1, player)。
-            // 失去者由 filter 捕获（trigger._yinghongTarget）；旧实现误用 trigger.player（接收者），
-            // 顺/借等 loseAsync 事件会把烧伤加给接收者而非失去者（E-01）。
+            // 源 L6245：AddAbnormal(失去者 move.from, "@abnormal_burn", 1, player)。
+            // 失去者由 filter 捕获（trigger._yinghongTarget）；勿用 trigger.player——loseAsync 的接收者≠失去者（E-01）。
             const loser = trigger._yinghongTarget || trigger.player;
             if (!loser?.isAlive()) return;
             lib.bts.api.addAbnormal(loser, 'burn', 1, player);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 发动代价=弃1张【杀】；收益=敌方+1层烧伤（负=目标受损，友方由态度加权排除）
+            result: {
+                player: -1,
+                target: (player, target) => -1,
+            },
+        },
     },
 
     // ── 锁定技·养艺（源 st_yangyi = TriggerSkill Compulsory Damaged，L5906-5922）──
@@ -126,15 +161,11 @@ export const skill = {
             // 源 L5915：AddACurse(player=受伤者, p)（trigger=damageEnd 事件）
             lib.bts.api.addCurse(trigger.player, 1);
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_guinaifen_skin1': '皮肤1',
-    'bts_ch_guinaifen_skin2': '皮肤2',
-    'bts_ch_guinaifen_skin3': '皮肤3',
     'bts_ch_guinaifen_skin1': '皮肤1',
     'bts_ch_guinaifen_skin2': '皮肤2',
     'bts_ch_guinaifen_skin3': '皮肤3',

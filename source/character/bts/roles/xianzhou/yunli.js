@@ -30,20 +30,34 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_tianzong');
             lib.bts.api.loseAngry(player, 2); // 源 L6861：LoseAngry(player, 2)
             // 源 L6862：AddBless(player, "@bless_kanpo", 1)
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             await lib.bts.api.addBless(player, 'kanpo', 2, player);
         },
         ai: {
+            // AI 口径：怒气≥4，或（怒气≥2 且已有看破——补层续追击）；低怒无看破时蓄怒等待
+            //（源 AI max_tianzong：GetAngry(4) or (GetAngry(2) and kanpo)，StarRail-ai L2648-2664）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_tianzong') ? -1 : 5;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_tianzong'))
+                    return -1;
+                if (lib.bts.api.getAngry(player, 4)) return 6;
+                if (
+                    lib.bts.api.getAngry(player, 2) &&
+                    lib.bts.api.getBless(player, 'kanpo')
+                )
+                    return 5;
+                return -1;
             },
-            result: { player: 1 },
+            result: {
+                // 自身+2层看破（每层=1次无牌【杀】结算后追1决斗）；已有看破时叠加价值略降
+                player: (player) =>
+                    lib.bts.api.getBless(player, 'kanpo') ? 1.5 : 2.5,
+            },
         },
     },
 
     // ── 锁定技·闪铄（源 st_shanshuo = TriggerSkill Compulsory DamageInflicted，L7238-7265）──
     // 当你受到伤害后，回复1点怒气，视为对伤害来源使用【杀】；若无来源，改为对所有其他角色使用【杀】。
-    // 定夺 2026-09-12（E-05）：由 damageBegin1 改挂 damageEnd——damageBegin 时机插入【杀】的结算
+    // 定夺（E-05）：由 damageBegin1 改挂 damageEnd——damageBegin 时机插入【杀】的结算
     // 更容易导致结算混乱（源 DamageInflicted 为受方最终钩子，无名杀以伤害结算完成后近似）。
     bts_sk_shanshuo: {
         trigger: { player: 'damageEnd' },
@@ -59,7 +73,6 @@ export const skill = {
                 await player.useCard({ name: 'sha', isCard: true }, targets);
             }
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·飞侠（源 st_feixia = TriggerSkill Damaged，L6905-6914）──
@@ -74,7 +87,9 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L6909：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // 源 L6909：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）。
+            // 发动 AI 在本内联选择（cost 型触发技引擎不询顶层 check）：回1体≈1.5、血线低更急；
+            // 弃最低值【杀】（源 st_feixia 无专属 AI）。
             event.result = await player
                 .chooseCard(
                     'h',
@@ -82,6 +97,13 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                     '飞侠：是否弃置一张【杀】回复1点体力？',
+                    (card) => {
+                        if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                        let v = 5; // 回1体(≈1.5)+不与出杀竞争手牌
+                        if (player.hp <= 1) v += 3; // 濒死线上：保命优先
+                        else if (player.hp === 2) v += 1;
+                        return v - get.value(card);
+                    },
                 )
                 .forResult();
         },
@@ -139,7 +161,7 @@ export const buffSkills = {
                 event.player === player &&
                 card?.name === 'sha' &&
                 // 源 CardFinished L1082-1084（subcardsLength()==0）→ 统一 get.is.virtualCard
-                //（2026-09-28；待实机复核）。
+                //（待实机复核）。
                 get.is.virtualCard(card) &&
                 lib.bts.api.getBless(player, 'kanpo')
             );
@@ -157,8 +179,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_kanpo_faq',

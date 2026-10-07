@@ -1,11 +1,8 @@
-// 崩铁杀·音频路径唯一权威模块。
-//
-// 为什么需要它：其余文件一律不得再手拼 "ext:崩铁杀/audio/skill/…" 这类扩展音频路径。
-// 引擎 game.playAudio 对非 blob:/data:/ext:/db: 路径一律前置 'audio/'，且 skill.audio
-// 为数字时会在装包时被引擎改写为 ext:<扩展名>:<N>（不落 audio/skill 子目录）。
-// 崩铁杀音频统一放在 audio/skill、audio/die 子目录，故技能/阵亡的 audio 必须是
-// ext:<扩展名>/audio/... 字符串才能在 precontent 阶段原样透传（registry.fillSkillAudio）。
-// 本模块把扩展名、两条 base 路径、拼装 helper 与字幕键归一化收敛到一处，便于维护与定位。
+// 崩铁杀·音频路径唯一权威模块：其余文件一律不得再手拼 "ext:崩铁杀/audio/skill/…"。
+// 引擎 game.playAudio 对非 blob:/data:/ext:/db: 路径一律前置 'audio/'；数字 skill.audio
+// 会被装包改写为 ext:<扩展名>:<N>（不落 audio/skill 子目录）。故技能/阵亡 audio 必须是
+// ext:<扩展名>/audio/... 字符串才能原样透传（registry.fillSkillAudio 消费）；本模块把
+// 扩展名、base 路径、拼装 helper 与字幕键归一化收敛一处。
 import { extensionPath } from './paths.js';
 
 const EXT_NAME = extensionPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '';
@@ -17,11 +14,9 @@ export const DIE_AUDIO_BASE = `ext:${EXT_NAME}/audio/die/`;
 
 /** 技能语音行数 N → audio 字符串（parseAudio 拆成 path=N、逐行 <技能名><i>）。 */
 export function skillAudioUrl(count) {
-    // 关键：不能写 `${SKILL_AUDIO_BASE}:${count}`。引擎 parseAudio 对 ext:<path>:N 用
-    // regex 捕获 <path> 后会再补一个 '/'，若 <path> 本身以 '/' 结尾则产生双斜杠 `//`，
-    // 导致 textMap 的字幕键变成 #ext:…/audio/skill//…（多于 normalizeVoiceKeys 生成的
-    // 单斜杠键 → 技能台词查不到；音频文件因浏览器吞掉 // 仍能播放，阵亡用显式文件名
-    // 走 lastIndexOf("/") 分支恰恰不受影响，故此前仅阵亡台词正常）。
+    // 勿写 `${SKILL_AUDIO_BASE}:${count}`：引擎 parseAudio 对 ext:<path>:N 捕获 <path> 后会
+    // 再补一个 '/'，路径基以 '/' 结尾→双斜杠 `//`，字幕键变成 #ext:…/skill//…（多一斜杠、
+    // 技能台词查不到；音频因浏览器吞 // 仍能播，阵亡走显式文件名不受影响）。
     // 故 count 形式的路径基须不含末尾斜杠，让引擎恰好补一个。
     return `${SKILL_AUDIO_BASE.slice(0, -1)}:${count}`;
 }

@@ -2,11 +2,9 @@ import { lib, game, ui, get, ai, _status } from '../../../../../noname.js';
 import { extensionPath } from '../utils/paths.js'
 import { themeManager } from './themeManager.js';
 
-// ── 内置 HTML 文档（help.html / update.html 等）经 showDocModal 在 srcdoc
-//    iframe 中打开；该文档 URL 是 about:srcdoc，页内锚点（#xxx）会按“父文档
-//    基准 URL”解析成跨文档导航——浏览器会把整个游戏页面加载进 iframe
-//    （手机 file:// 下则白屏）。2026-09-29：统一拦截文档内链接点击——
-//    页内锚点改为手动滚动定位，其余链接一律阻止 iframe 内导航。
+// ── 内置 HTML 文档（help.html / update.html 等）经 showDocModal 在 srcdoc iframe 打开：
+//    文档 URL 为 about:srcdoc，页内锚点（#xxx）按“父文档基准 URL”解析成跨文档导航
+//    （手机 file:// 下白屏）；故统一拦截文档内链接点击——页内锚点手动滚动定位，其余链接阻止 iframe 内导航。
 const installDocLinkHandler = (doc) => {
     if (!doc || doc.__btsDocLinkHandler) return;
     doc.__btsDocLinkHandler = true;
@@ -31,7 +29,7 @@ const installDocLinkHandler = (doc) => {
 };
 
 /**
- * 样式隔离的对话框组件 - 重构版
+ * 样式隔离的对话框组件。
  * 公开接口: loading, complexLoading, alert, confirm, choice, input, filesManager, showCountdownDialog, showDocModal, textEditor, closeAll
  */
 const DialogManager = (() => {
@@ -82,13 +80,7 @@ const DialogManager = (() => {
     };
 
     // ========== 关闭管理方法 ==========
-    /**
-     * 统一关闭入口 - 所有关闭方式都经过这里
-     * @param {HTMLElement} overlay - 遮罩层元素
-     * @param {Function} callback - 关闭后的回调
-     * @param {string} reason - 关闭原因：'esc' | 'back' | 'overlay' | 'button' | 'programmatic'
-     * @param {*} result - 关闭时返回的结果
-     */
+    /** 统一关闭入口：所有关闭方式都经过这里（reason: 'esc' | 'back' | 'overlay' | 'button' | 'programmatic'）。 */
     const _close = (overlay, callback, reason = 'programmatic', result) => {
         if (_isClosing || !overlay || overlay._isClosed) return Promise.resolve(false);
         _isClosing = true;
@@ -122,10 +114,6 @@ const DialogManager = (() => {
             }
         }
 
-        // 延迟释放锁，防止连续触发
-        // setTimeout(() => {
-        //     _isClosing = false;
-        // }, 50);
         _isClosing = false;
         return Promise.resolve(true);
     };
@@ -190,8 +178,7 @@ const DialogManager = (() => {
     };
 
     /**
-     * 重写返回键处理 - 使用 Hash 方案替代 History API
-     * 避免历史记录污染，移动端兼容性更好
+     * 返回键处理：用 hash 变化捕获返回键，不用 History API（避免历史记录污染，移动端更稳）。
      */
     const _createBackHandler = (overlay, onClose, result) => {
         // 使用 hash 变化来捕获返回键，更可靠
@@ -357,13 +344,10 @@ const DialogManager = (() => {
         };
     };
 
-    // ========== 重构后的公开方法 ==========
+    // ========== 公开方法 ==========
 
     return {
-        /**
-         * 统一创建对话框的基础方法
-         * 所有具体对话框类型都基于此方法构建
-         */
+        /** 统一创建对话框的基础方法；所有具体对话框类型都基于此构建。 */
         async createBaseDialog(config) {
             await _initCSS();
 
@@ -425,7 +409,7 @@ const DialogManager = (() => {
             });
         },
 
-        // ========== 基于统一基础方法重构具体对话框 ==========
+        // ========== 基于统一基础方法的具体对话框 ==========
 
         async choice(title, message, buttons, primaryIdx) {
             if (!primaryIdx && buttons) primaryIdx = buttons.length - 1;
@@ -442,9 +426,7 @@ const DialogManager = (() => {
         },
 
         /**
-         * 转圈加载框：适用于没有进度回调、无法显示确定进度的场景。
-         * 与 complexLoading（确定进度条）区分开，避免显示不会更新的“假”进度条。
-         * 返回控制器 { updateText, close }；禁止遮罩/Esc/返回键关闭。
+         * 转圈加载框：用于无法显示确定进度的场景（区别于 complexLoading 的确定进度条，避免“假”进度条）；禁止遮罩/Esc/返回键关闭。
          */
         async loading(title, message, options = {}) {
             await _initCSS();
@@ -1062,8 +1044,7 @@ const DialogManager = (() => {
         },
 
         async filesManager(title, message, items, options = {}) {
-            // 选中项集合：提升到方法作用域，供 buildContent 与按钮 result 共享
-            // （按钮闭包无法访问 createBaseDialog 内的局部 dialog，故不在此查询 dialog）
+            // 选中项集合：提升到方法作用域，供 buildContent 与按钮 result 共享（按钮闭包无法访问 createBaseDialog 内的局部 dialog）
             const selectedFiles = new Set();
             return await this.createBaseDialog({
                 title,

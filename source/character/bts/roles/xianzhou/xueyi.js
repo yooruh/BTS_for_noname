@@ -43,10 +43,33 @@ export const skill = {
             await damage;
         },
         ai: {
+            // AI 口径：攻击范围内有元素之敌=3伤并移除其元素（8分档），仅1伤时降至5；无合法敌方不发动
+            //（源 AI max_tianfa：CanMaxSkillDamage(3)、优先有元素之敌，StarRail-ai L2576-2601）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_tianfa') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_tianfa'))
+                    return -1;
+                let best = 0; // 0=无合法敌方；1=仅1伤目标；2=有元素目标
+                for (const t of game.players) {
+                    if (
+                        !t.isAlive() ||
+                        t === player ||
+                        get.attitude(player, t) >= 0 ||
+                        !player.inRange(t)
+                    )
+                        continue;
+                    best = Math.max(
+                        best,
+                        lib.bts.api.getNature(null, t) ? 2 : 1,
+                    );
+                }
+                if (!best) return -1;
+                return best === 2 ? 8 : 5;
             },
-            result: { target: -2 },
+            result: {
+                // 有元素3伤、无元素1伤
+                target: (player, target) =>
+                    lib.bts.api.getNature(null, target) ? -4.5 : -1.5,
+            },
         },
     },
 
@@ -58,9 +81,9 @@ export const skill = {
         // 进入弃牌堆即触发（无空城要求，源描述「手牌被弃置后」亦一致），
         // 或 MarkChanged 其他角色获得元素（@n_ 前缀、gain>0）。
         // 无名杀映射：全局 discard 事件（仅真正的「弃置」，对应源 DISCARD reason）+ addMark。
-        // 修复①：原 filter 误写 e.markname（应为 e.markName），获得元素分支永不触发；
-        // 修复②：原实现用 loseAfter + countCards('h')===0（空城才触发，注释误读源），已按原版改回任意弃手牌。
-        // 触发阈值：2026-10-02 用户定夺按源描述「达到至少10枚」（源代码口径 ≥9）。
+        // 防回归：①原 filter 误写 e.markname（应为 markName）→ 元素分支永不触发；
+        // ②原用空城口径（countCards('h')===0），已按原版改回任意弃手牌。
+        // 触发阈值：按源描述「达到至少10枚」（定夺；源代码口径 ≥9）。
         trigger: { global: ['discard', 'bts_mark_add'] },
         forced: true,
         filter(event, player, triggername) {
@@ -93,7 +116,6 @@ export const skill = {
                 );
             }
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·诸恶（源 st_zhue = TriggerSkill Damaged，L6069-6085）──
@@ -111,7 +133,10 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // 源 L6076：askForCard(p, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // 源 L6076：askForCard(p, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）。
+            // 发动 AI 在本内联选择（cost 型触发技引擎不询顶层 check）：只打敌方（源 AI
+            // @st_zhue→ThrowSlash_AI typ1 非敌不发，StarRail-ai L2603-2605）；可击杀时优先。
+            const target = trigger.player;
             event.result = await player
                 .chooseCard(
                     'h',
@@ -119,6 +144,13 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                     '诸恶：是否弃置一张【杀】对量子属性受伤角色造成1点量子属性伤害？',
+                    (card) => {
+                        if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                        if (get.attitude(player, target) >= 0) return -1;
+                        let v = 6; // 1点量子伤(≈1.5)+暗属性位转睡眠（元素体系）
+                        if (target.hp <= 1) v += 3; // 可击杀
+                        return v - get.value(card);
+                    },
                 )
                 .forResult();
         },
@@ -130,7 +162,10 @@ export const skill = {
             lib.bts.api.setDamageNature(damage, 'dark');
             await damage;
         },
-        ai: { result: { target: -1 } },
+        ai: {
+            // 目标受损：1点量子伤(≈1.5)+其暗属性位在伤害结算后替换为睡眠异常(≈1)
+            result: { target: -2.5 },
+        },
     },
 };
 
@@ -143,7 +178,6 @@ export const marks = {
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_xueyi_skin1': '皮肤1',
     'bts_ch_xueyi_skin1': '皮肤1',
     bts_ch_xueyi: '雪衣',
     bts_sk_tianfa: '天罚',
@@ -172,8 +206,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_ebao_faq',

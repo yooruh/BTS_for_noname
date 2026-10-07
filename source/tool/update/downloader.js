@@ -87,8 +87,7 @@ class SmartDownloader {
     }
 
     // TLS 证书校验类错误（UNABLE_TO_VERIFY_LEAF_SIGNATURE / CERT_* 等）。
-    // 常见于国内网络/代理中间证书场景下访问 raw.githubusercontent.com 等站点，
-    // 是 downloadViaNode 降级为宽松校验重试的触发条件。
+    // 国内网络/代理中间证书场景常见；是降级为宽松校验重试的触发条件。
     isCertError(error) {
         const code = error?.code || '';
         return /^(UNABLE_TO_VERIFY_LEAF_SIGNATURE|DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|ERR_TLS_CERT_ALTNAME_INVALID|CERT_)/.test(code);
@@ -268,8 +267,7 @@ class SmartDownloader {
     async download(task, onProgress, stateManager = null) {
         if (this.isCancelled) throw new Error('下载已取消');
 
-        // 显式 URL 列表（代码包哨兵）或默认的 raw + 镜像 + 备用源
-        // （github 平台：raw.githubusercontent → gitee 镜像 → jsdelivr；gitee 平台：gitee raw → github raw）
+        // 显式 URL 列表（代码包哨兵）或默认三源：raw → 镜像 → 备用（见 repository.js）
         const urls = task.urls && task.urls.length > 0
             ? task.urls.slice()
             : [this.repo.getURL(task.remote), this.repo.getMirrorURL(task.remote), this.repo.getFallbackURL(task.remote)];

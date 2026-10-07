@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * 崩铁杀 素材迁移脚本（合并 migrate-assets / migrate-skins / migrate-bgm）。
- *
- * 从「太阳神备份根目录」把立绘 / 皮肤 / 音频 / BGM 迁到无名杀扩展目录。
- * 按子命令/参数区分三个功能：
- *   --assets <太阳神目录>   基础素材：立绘 + 技能音/角色音（ogg→mp3，依赖 ffmpeg）
- *   --skins  <太阳神目录>   皮肤 v3：默认皮肤 + 可选皮肤 + 音频命名修正（皮肤名写入各角色文件 translate）
- *   --bgm    <太阳神目录>   BGM：主公专属曲 + duel 随机曲 → audio/bgm
- * 均可加 --dry-run 只预览；无参数时进入交互菜单（先选迁移类型，再询问源目录）。
+ * 崩铁杀 素材迁移脚本：从「太阳神备份根目录」把立绘 / 皮肤 / 音频 / BGM 迁到扩展目录。
+ * 子命令（均可加 --dry-run 只预览；无参数进交互菜单）：
+ *   --assets <源目录>   立绘 + 技能音/角色音（ogg→mp3，依赖 ffmpeg）
+ *   --skins  <源目录>   皮肤 v3：默认+可选皮肤 + 音频命名修正（皮肤名写入各角色 translate）
+ *   --bgm    <源目录>   BGM：主公专属曲 + duel 随机曲 → audio/bgm
  *
  * 用法:
  *   node scripts/migrate.mjs --assets "<太阳神备份根目录>" [--dry-run]
@@ -153,7 +150,7 @@ function migrateAssets(srcRoot, { dryRun }) {
 
 // 皮肤显示名幂等写入角色文件 translate（bts_<角色>_skinN 键，随角色 translate 进 fullTranslate）。
 // 皮肤图片仍由引擎经 character.skinPath 目录扫描发现，无需注册 characterSubstitute。
-const SKIN_KEY_RE = /^    bts_[\w]+_skin\d+: '皮肤\d+',\n/gm;
+const SKIN_KEY_RE = /^    'bts_[\w]+_skin\d+': '皮肤\d+',\n/gm;
 const SKIN_COMMENT_RE = /^    \/\/ 可选皮肤显示名.*\n/gm;
 function updateRoleTranslateSkinKeys(file, entries) {
     entries.sort(([a], [b]) => a.localeCompare(b));
@@ -206,7 +203,7 @@ function migrateSkins(srcRoot, { dryRun }) {
             base[0].toUpperCase() + base.slice(1),
         ];
         // 立绘只取「局内素材」= image/fullskin/generals/full（源全身立绘）；
-        // 不取 image/generals/card 的角色卡素材（无名杀不用卡图，2026-10-03 用户定案）。
+        // 不取 image/generals/card 的角色卡素材（无名杀不用卡图，定案）。
         for (const dir of [SRC_FULLSKIN]) {
             if (!existsSync(dir)) continue;
             const files = readdirSync(dir);
@@ -229,7 +226,7 @@ function migrateSkins(srcRoot, { dryRun }) {
         const dst = join(DST_CHARACTER, `${id}.png`);
         const src = findDefaultSource(id);
         if (src) {
-            // fullskin 已是 png：直接复制（原逻辑就区分 card 需转码，现口径仅 fullskin）
+            // fullskin 已是 png：直接复制，无需转码
             if (dryRun) { okDefault++; continue; }
             copyFileSync(join(src.dir, src.file), dst);
             okDefault++;
@@ -359,7 +356,7 @@ function migrateSkins(srcRoot, { dryRun }) {
     } else {
         console.log('  无可选皮肤，跳过');
     }
-    // 旧聚合文件 skins.js 已不再生成；若历史残留则删除（角色文件 translate 为皮肤名唯一来源）
+    // 皮肤名唯一来源为各角色文件 translate；废弃聚合文件 skins.js 若残留则删除
     if (existsSync(SKINS_MODULE)) {
         if (dryRun) console.log('  [dry-run] 将删除遗留聚合文件 skins.js');
         else {

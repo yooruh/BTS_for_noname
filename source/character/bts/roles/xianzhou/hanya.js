@@ -40,10 +40,31 @@ export const skill = {
             if (count > 0) await target.draw(player, count);
         },
         ai: {
+            // AI 口径：友方补牌数=双方手牌差（缺口越大越值）+罚恶自己摸1；无友方缺口则不动
+            //（源 max_zunxing，animal.lua L5925-5947；源 AI StarRail-ai.lua L2553-2569）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zunxing') ? -1 : 6;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zunxing')) return -1;
+                if (!lib.bts.api.getAngry(player, 3)) return -1; // 与 filter 同门
+                let best = 0;
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) <= 0) continue; // 只给友方补牌
+                    best = Math.max(
+                        best,
+                        player.countCards('h') - target.countCards('h'),
+                    );
+                }
+                if (best <= 0) return -1; // 无缺口：3怒气仅换罚恶1张
+                return Math.min(9, 4 + best);
             },
-            result: { target: 1 },
+            result: {
+                player: 1, // 罚恶：发动后自己摸1
+                // 目标补牌数=手牌差（友方获益为正；敌方由态度加权排除）
+                target: (player, target) => {
+                    const gap = player.countCards('h') - target.countCards('h');
+                    return gap > 0 ? gap : 0;
+                },
+            },
         },
     },
 
@@ -67,8 +88,14 @@ export const skill = {
                     filterCard: (card) => get.name(card) === 'sha',
                     selectCard: 1,
                     filterTarget: (card, source, target) => target !== source,
+                    // cost 型触发技：发动与否由内联 ai1/ai2 决定（最高分≤0 → 引擎取消）。
+                    // AI 口径：ai1=交分值最低的【杀】；ai2=只交友方（受伤者略优先，源 AI L2571-2572 仅交受伤友军）
                     ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => get.attitude(player, target),
+                    ai2: (target) => {
+                        const att = get.attitude(player, target);
+                        if (att <= 0) return att; // 非友军不交
+                        return att + (target.isDamaged() ? 0.5 : 0);
+                    },
                 })
                 .forResult();
         },
@@ -76,11 +103,14 @@ export const skill = {
             // 源 L5956：obtainCard 交给牌 —— 结算移入 content（自选数据在 event.cards/targets）
             if (event.cards?.length && event.targets?.length)
                 await player.give(event.cards, event.targets[0]);
-            // 源 L6333（罚恶）：系缚后摸一张牌。系缚为触发技不产生 useSkill/useCard 事件，
-            // 罚恶的 useSkillAfter 监听不到 → 此处显式结算（遵行仍走罚恶，避免双触发）。
+            // 源 L6333（罚恶）：系缚后摸一张牌。触发技不产生 useSkill/useCard 事件、useSkillAfter
+            // 监听不到 → 此处显式结算（遵行仍走罚恶，避免双触发）。
             await player.draw(player);
         },
-        ai: { result: { target: 1 } },
+        ai: {
+            // 收益=友方获得1张【杀】；发动同时触发罚恶摸1（content 显式结算）
+            result: { player: 1, target: 1 },
+        },
     },
 
     // ── 锁定技·罚恶（源 st_fae = TriggerSkill Compulsory CardUsed，L5983-5994）──
@@ -90,23 +120,19 @@ export const skill = {
         trigger: { player: 'useSkillAfter' },
         forced: true,
         filter(event) {
-            // 源 L6331：遵行/系缚的技能牌使用后摸1。无名杀 useSkillAfter 仅对主动技触发，
-            // 系缚为触发技（phaseZhunbeiBegin）不产生 useSkill 事件 → 其摸牌在系缚 content
-            // 内显式结算（见 bts_sk_xifu content），此处仅剩遵行一条路径。
+            // 源 L6331：遵行/系缚后摸1。useSkillAfter 仅对主动技触发；系缚的摸牌已在
+            // bts_sk_xifu content 显式结算，此处仅剩遵行一条路径。
             return event.skill === 'bts_sk_zunxing';
         },
         async content(event, trigger, player) {
             // 源 L6333：player:drawCards(1)
             await player.draw(player);
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_hanya_skin1': '皮肤1',
-    'bts_ch_hanya_skin2': '皮肤2',
     'bts_ch_hanya_skin1': '皮肤1',
     'bts_ch_hanya_skin2': '皮肤2',
     bts_ch_hanya: '寒鸦',

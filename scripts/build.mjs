@@ -75,9 +75,8 @@ async function buildAndZip(zip = false, dryRun = false) {
         log.ok(`${dryRun ? '将同步' : '已同步'}：${changed.join('、')}`);
     else log.ok('所有发布产物均已同步');
 
-    // 双源码树约定：zip/source ↔ _others/smoke 镜像须保持一致。
-    // 放在 rebuildProject 之后，使镜像也拿到本轮再生的清单文件（index.js/bgm-list.js 等）；
-    // --dry-run 时只预览待同步文件，不写盘。
+    // 双源码树约定：zip/source ↔ _others/smoke 镜像须保持一致；须在 rebuildProject 之后同步，
+    // 让镜像拿到本轮再生的清单文件（index.js/bgm-list.js 等）；--dry-run 只预览、不写盘。
     syncMirror({ dryRun });
 
     if (zip && !dryRun) {

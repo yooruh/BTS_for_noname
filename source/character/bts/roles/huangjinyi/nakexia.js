@@ -39,12 +39,31 @@ export const skill = {
                 lib.bts.api.addAbnormal(target, 'shenghua', 1, player);
         },
         ai: {
+            // AI 口径：怒气≥5（filter 同门）；对每名敌方各附1层升华（元素易伤：附加元素时再附加该元素，
+            // 并与揭露≥2种异常连锁、驱虚重复轮联动）；无敌人不放（对友方挂升华是纯负收益）
+            //（源 animal.lua L7862-7883；源 AI max_shisu 估值 8/优先 5.3，StarRail-ai.lua L893-909）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_shisu')
-                    ? -1
-                    : 5.3;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shisu')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // 怒气<5 且无额外怒气上限：不可用
+                let value = 0; // 敌方侧收益合计
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue; // 只算敌方
+                    let v = 1.4; // 1层升华
+                    if (lib.bts.api.abnormalCount(target) >= 1) v += 0.4; // 已有异常：更接近揭露连锁
+                    value += v;
+                }
+                if (!value) return -1; // 无敌人：不放
+                return Math.min(8, 4.5 + value);
             },
-            result: { target: -1 },
+            result: {
+                // 目标受损：升华≈元素易伤（附加元素时再附加该元素），已有异常者另有揭露/驱虚联动
+                target: (player, target) => {
+                    let v = 1.2;
+                    if (lib.bts.api.abnormalCount(target) >= 1) v += 0.3;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -53,7 +72,7 @@ export const skill = {
     bts_sk_jielu: {
         // 源 st_jielu（animal.lua L7885-7902）：MarkChanged；源代码作 mark.gain<0，翻译写
         // 「当其他角色附加异常后」——同族 7 处 gain 方向与描述相反的系统性笔误，
-        // 2026-10-02 用户定夺按描述方向实现（bts_mark_add）。事件在新值写入后派发，
+        // 定夺按描述方向实现（bts_mark_add）。事件在新值写入后派发，
         // 升华自身附加时 guard「不处于升华」即拍住，不会自附加连环。
         trigger: { global: 'bts_mark_add' },
         forced: true,
@@ -72,7 +91,6 @@ export const skill = {
             // 源 L7894：AddAbnormal(player, "@abnormal_shenghua", 1, p)（trigger=addMark 事件）
             lib.bts.api.addAbnormal(trigger.player, 'shenghua', 1, player);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·驱虚（源 st_quxu = TriggerSkill EventPhaseStart Finish + OneCardViewAsSkill，L7903-7958）──
@@ -100,7 +118,17 @@ export const skill = {
                     filterTarget: (card, source, target) => target !== source,
                     selectTarget: [1, Infinity],
                     ai1: (card) => 6 - get.value(card),
-                    ai2: (target) => -get.attitude(player, target),
+                    // AI 口径：只选敌方；上次失败者（本次概率翻倍）、已处升华者（命中触发重复轮）、
+                    // 残血者（1点伤害可击杀）加分；全 ≤0 → 取消
+                    ai2: (target) => {
+                        if (target === player) return -1;
+                        if (get.attitude(player, target) >= 0) return -1;
+                        let s = 2;
+                        if (target.countMark('bts_sk_quxu') > 0) s += 1; // 失败补偿：概率翻倍
+                        if (lib.bts.api.getAbnor(target, 'shenghua')) s += 0.5; // 升华：重复轮
+                        if (target.hp <= 1) s += 0.5; // 残血：可击杀
+                        return s;
+                    },
                 })
                 .forResult();
         },
@@ -154,23 +182,42 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：结束阶段弃1张【杀】换敌方每人25%（爱诗40%；上次失败者翻倍）的1点随机元素伤；
+            // 期望随敌方人数与失败补偿增长，【杀】富余时可接受单敌低概率（源 animal.lua L7903-7958；
+            // 源 AI 有敌可伤即发动，StarRail-ai.lua L911-926）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_quxu') ? -1 : 4;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_quxu')) return -1;
+                if (!player.getCards('h').some((card) => get.name(card) === 'sha'))
+                    return -1; // filter 同门：无【杀】可弃
+                const base = player.hasSkill('bts_sk_aishi') ? 0.4 : 0.25; // 组合形态：概率+15
+                let ev = 0; // 敌方期望命中量（每点伤害≈2分）
+                for (const target of game.players) {
+                    if (!target.isAlive() || target === player) continue;
+                    if (get.attitude(player, target) >= 0) continue;
+                    let p = base;
+                    if (target.countMark('bts_sk_quxu') > 0) p = Math.min(1, p * 2); // 失败补偿
+                    if (lib.bts.api.getAbnor(target, 'shenghua')) p = Math.min(1, p * 1.3); // 升华：重复轮
+                    ev += p * 2;
+                }
+                const spare = player.countCards('h', 'sha') >= 2; // 余杀：机会成本更低
+                if (ev < 1 && !spare) return -1; // 期望不足且无余杀：不发动
+                return Math.min(7, 3 + ev);
             },
-            result: { player: 1, target: -1 },
+            result: {
+                player: -1, // 弃1张【杀】成本
+                // 目标受损：命中=1点随机元素通常伤害（升华目标附带重复轮联动）
+                target: (player, target) => {
+                    let v = 1.2;
+                    if (lib.bts.api.getAbnor(target, 'shenghua')) v += 0.2;
+                    return -v;
+                },
+            },
         },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_nakexia_skin1': '皮肤1',
-    'bts_ch_nakexia_skin2': '皮肤2',
-    'bts_ch_nakexia_skin3': '皮肤3',
-    'bts_ch_nakexia_skin4': '皮肤4',
-    'bts_ch_nakexia_skin5': '皮肤5',
-    'bts_ch_nakexia_skin6': '皮肤6',
-    'bts_ch_nakexia_skin7': '皮肤7',
     'bts_ch_nakexia_skin1': '皮肤1',
     'bts_ch_nakexia_skin2': '皮肤2',
     'bts_ch_nakexia_skin3': '皮肤3',
@@ -212,8 +259,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_abnormal_shenghua_faq',

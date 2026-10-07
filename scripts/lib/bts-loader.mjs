@@ -1,18 +1,14 @@
 /**
  * 崩铁杀构建工具链 — 引擎存根加载器（Node ≥22）。
- *
- * 用途：build 期（scripts/generate.mjs）需要直接 import 角色/全局内容模块以读取
- * 标签（markKind/permanent/glossaryId 等）生成派生数据；但这些模块顶层会
- * `import ... from '../../../../../noname.js'`（开发树该路径是编辑器中转桩，链到
- * 真实引擎浏览器包，Node 无法加载）。本加载器把任何解析到 `<...>/noname.js` 的
- * specifier 改道到内存存根（镜像 _others/smoke/app/noname.js），使模块可被 import。
+ * 用途：build 期（generate.mjs）直接 import 内容模块读标签生成派生数据，而模块顶层的
+ * `import ... from '../../../../../noname.js'` 在 Node 下不可加载；本加载器把解析到
+ * `<...>/noname.js` 的 specifier 改道到内存存根（镜像 _others/smoke/app/noname.js）。
  *
  * 注意：
- *  - 本文件仅供 build 期使用，随 zip/scripts 分发，不进安装包。
- *  - `module.register`（Node ≥20.6）稳定可用；勿用需 ≥22.20 的 registerHooks。
- *  - Node 会打印 ExperimentalWarning，无害。
- *  - 兜底方案（防将来 Node 升级）：数据读取改回正则解析源码块（见
- *    lib/roles.mjs 说明）；校验逻辑抽共用，两路径同审计。
+ *  - 仅供 build 期使用，随 zip/scripts 分发、不进安装包。
+ *  - 用 `module.register`（Node ≥20.6）；勿用需 ≥22.20 的 registerHooks；会打印
+ *    ExperimentalWarning，无害。
+ *  - 兜底（防将来 Node 升级）：数据读取改回正则解析（见 lib/roles.mjs）；校验逻辑抽共用。
  */
 
 import { register } from 'node:module';

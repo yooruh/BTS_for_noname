@@ -86,9 +86,48 @@ export const skill = {
             }
         },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_shiyue') ? -1 : 9,
-            result: { target: 2 },
+            // AI 口径：记忆满12/24换「黄金裔友方得爱诗（永久『诗歌』加成，未持有者优先）／
+            // 其他友方摸3」；无友方可喂则不喂敌（目标价值经态度加权排除敌方）。首次发动另
+            // 附乐土+怒气豁免礼包，星启再加额外回合（源 max_shiyue StarRail-ai.lua L1517-1550 估值9）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shiyue')) return -1;
+                const need =
+                    lib.bts.api.god(player) ||
+                    player.countMark('bts_mk_shiyue_used')
+                        ? 12
+                        : 24;
+                if (player.countMark('bts_mk_jiyi') < need) return -1; // filter 同门
+                const poemTarget = game.hasPlayer(
+                    (t) =>
+                        t !== player &&
+                        t.isAlive() &&
+                        t.group === 'huangjinyi' &&
+                        get.attitude(player, t) > 0 &&
+                        !t.hasSkill('bts_sk_aishi'),
+                );
+                const hasTarget =
+                    poemTarget ||
+                    game.hasPlayer(
+                        (t) =>
+                            t !== player &&
+                            t.isAlive() &&
+                            get.attitude(player, t) > 0,
+                    );
+                if (!hasTarget) return 0; // 仅敌方/中立可喂：保留记忆（源 AI 不选敌）
+                let value = poemTarget ? 8 : 6; // 首选授诗；退而摸3
+                if (!player.countMark('bts_mk_shiyue_used')) value += 1; // 首次：乐土+怒气豁免
+                if (lib.bts.api.god(player)) value += 1; // 星启：获豁免角色各额外回合
+                return Math.min(9, value);
+            },
+            result: {
+                // 目标获益：黄金裔得爱诗（未持有更高）；其他摸3；敌方获益由态度加权排除
+                target: (player, target) =>
+                    target.group === 'huangjinyi'
+                        ? target.hasSkill('bts_sk_aishi')
+                            ? 0.5
+                            : 3
+                        : 1.5,
+            },
         },
     },
 
@@ -105,7 +144,6 @@ export const skill = {
             // 源 L9170-9175：决斗+3，杀+1，gainMark("@jiyi", n)（trigger=useCard 事件）
             player.addMark('bts_mk_jiyi', trigger.card.name === 'juedou' ? 3 : 1);
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·众愿（源 st_zhongyuan = TriggerSkill EventPhaseStart NotActive，L9180-9205）──
@@ -129,6 +167,8 @@ export const skill = {
             if (trigger.player !== player) {
                 event.result = await player
                     .chooseBool('众愿：是否获得1枚记忆标记？')
+                    // AI 口径：本移植由昔涟自决、纯收益无代价，恒取
+                    //（源 st_zhongyuan 由回合结束者征询、按「其视昔涟为友」门控——决策归属差异）
                     .set('ai', () => true)
                     .forResult();
                 return;
@@ -150,6 +190,19 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '众愿：是否弃置一张【杀】获得3枚记忆并重获乐土？',
                 )
+                // cost 型内层：最高分≤0 即取消（引擎 ai/basic.js）。3枚记忆可推进誓约进度，
+                // 另暂获乐土（杀当决斗+爱诗产粮）；弃低价值【杀】才划算，接近阈值时加码
+                //（6 - 杀价值 的口径参照风堇「虹光」cost）
+                .set('ai', (card) => {
+                    let value = 6 - get.value(card);
+                    const need =
+                        lib.bts.api.god(player) ||
+                        player.countMark('bts_mk_shiyue_used')
+                            ? 12
+                            : 24;
+                    if (player.countMark('bts_mk_jiyi') + 3 >= need) value += 1;
+                    return value;
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -215,8 +268,8 @@ export const skill = {
                     if (triggername === 'phaseUseBegin')
                         return player.getExpansions('bts_letu').length > 0;
                     // 源 #st_letu L9573-9579：can_trigger = 伤害来源 hasSkill("st_aishi")
-                    //（player＝Damage 事件焦点＝伤害来源）。定夺 2026-09-12（C-02）由
-                    //「技能持有者查爱诗」改为「伤害来源查爱诗」（对齐源）。
+                    //（player＝Damage 事件焦点＝伤害来源）。定夺（C-02）：由「技能持有者查爱诗」
+                    // 改为「伤害来源查爱诗」（对齐源）。
                     return (
                         event.num > 0 &&
                         event.source?.isAlive() &&
@@ -293,7 +346,25 @@ export const skill = {
                 ai: { order: 1, result: { player: 1 } },
             },
         },
-        ai: { order: 6, result: { target: -1 } },
+        ai: {
+            // ai-guard: skip：viewAs 型无独立 content（杀→决斗转化在使用流程内结算，不会空转）
+            // AI 口径：手牌【杀】≥2张且有敌方时才把杀当【决斗】（决斗不可闪、逼资源）；仅1张时
+            // 若拿去决斗、对方出杀后自身无杀续拼将反受伤害——保留应对
+            order(item, player) {
+                if (player.countCards('h', 'sha') < 2) return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1;
+                return 6;
+            },
+            result: { target: -1 },
+        },
     },
 
     // ── 关联技·爱诗（源 st_aishi = 空触发技（纯标记），L9235-9241；由誓约授予黄金裔）──
@@ -350,10 +421,6 @@ export const translate = {
     'bts_ch_xilian_skin3': '皮肤3',
     'bts_ch_xilian_skin53': '皮肤53',
     bts_mk_shiyue_used: '誓约已用',
-    'bts_ch_xilian_skin1': '皮肤1',
-    'bts_ch_xilian_skin2': '皮肤2',
-    'bts_ch_xilian_skin3': '皮肤3',
-    'bts_ch_xilian_skin53': '皮肤53',
     bts_ch_xilian: '昔涟',
     bts_sk_shiyue: '誓约',
     bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过此技能则改为12枚）并选择一名角色：若其为黄金裔，其获得${get.poptip('bts_sk_aishi')}；否则其摸三张牌。首次发动后你获得${get.poptip('bts_sk_letu')}，选择任意名角色使其下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各执行一个额外回合。`,
@@ -408,8 +475,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_extra_st_faq',

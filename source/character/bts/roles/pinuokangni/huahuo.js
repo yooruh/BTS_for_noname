@@ -24,7 +24,7 @@ export const skill = {
             lib.bts.api.loseAngry(player, 5);
             // 源：摸 x 张牌并展示（星启为 5 张，否则 4 张），再逐张公开分配。
             // 注：源 L4660 `if God(player) then n = 5 end` 为死代码（n 赋值未用、x 恒 4），
-            // 按源描述「若你为星启则改为五张」实现摸 5（用户 2026-09-02 定夺保持现状）。
+            // 按源描述「若你为星启则改为五张」实现摸 5（定夺保持现状）。
             const num = lib.bts.api.god(player) ? 5 : 4;
             const cards = get.cards(num);
             for (const card of cards) card.addKnower('everyone');
@@ -36,6 +36,16 @@ export const skill = {
                         [1, 1],
                         () => true,
                     )
+                    // AI 口径：标记牌在谁手谁能当【杀】——优先给缺【杀】的友方；无合适对象时
+                    // 自留（选自己=不交出；全负分=取消，源 L4652-4759 逐张分配）
+                    .set('ai', (target) => {
+                        if (target === player) return 2;
+                        const att = get.attitude(player, target);
+                        if (att <= 0) return -1;
+                        return (
+                            att + (target.countCards('h', 'sha') === 0 ? 2 : 0)
+                        );
+                    })
                     .forResult();
                 const target = result.bool ? result.targets[0] : player;
                 if (target !== player && get.position(card) === 'h')
@@ -50,7 +60,7 @@ export const skill = {
             )) {
                 if (!target.hasSkill('bts_sk_qianyi_slash', true))
                     // 引擎签名 addAdditionalSkill(分组键, 技能)：第一参为分组键、第二参为实际技能；
-                    // 单参调用会把 undefined 当技能数组，在 player.js L10004 崩溃（2026-09-26 连续游玩实机崩溃点）。
+                    // 单参调用会把 undefined 当技能数组，在 player.js L10004 崩溃（实机崩溃教训）。
                     // 分组键带来源 playerid，避免不同花火互相按同键清组。
                     target.addAdditionalSkill(
                         'bts_sk_qianyi_' + player.playerid,
@@ -79,12 +89,36 @@ export const skill = {
                 },
                 viewAs: { name: 'sha' },
                 prompt: '将千役标记牌当【杀】使用',
-                ai: { order: 8, result: { target: 1 }, respondSha: true },
+                ai: {
+                    order: 8, // 标记牌当杀用（保留真【杀】应对决斗/反制）——viewAs 无 content，无空转路径
+                    result: { target: 1 },
+                    // 协议标签（消费方 Player#hasSha）：仅手握千役标记牌才可视为有杀，缺牌不得虚报
+                    //——条件化，必须配 skillTagFilter（§3）
+                    respondSha: true,
+                    skillTagFilter(player) {
+                        return player
+                            .getCards('h')
+                            .some((card) => card.storage?.bts_sk_qianyi);
+                    },
+                },
             },
         },
         ai: {
-            order: (item, player) =>
-                lib.bts.aiGuard.blocked(player, 'bts_sk_qianyi') ? -1 : 6,
+            // AI 口径：失5怒摸4/5张（星启5）并逐张分配——标记牌在谁手谁能当【杀】；
+            // 有缺【杀】友方时更积极（支援到位），否则自留亦强（源 L4652-4759）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_qianyi')) return -1;
+                const base = lib.bts.api.god(player) ? 7 : 6;
+                const poor = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) > 0 &&
+                        t.countCards('h', 'sha') === 0,
+                );
+                return poor > 0 ? base + 1 : base;
+            },
+            // 自方收益=净得4/5张牌，分配环节可自留（供外部 get.effect 参考）
             result: { player: 2 },
         },
     },
@@ -94,7 +128,6 @@ export const skill = {
                 return num + 2;
             },
         },
-        ai: { noe: true },
     },
     bts_sk_youyu: {
         // 源 st_youyu = EventPhaseStart + Player_NotActive（L4749-4757），非 global——
@@ -115,6 +148,8 @@ export const skill = {
                     filterCard: (card) => get.name(card) === 'sha',
                     selectCard: 2,
                     filterTarget: (card, source, target) => target !== source,
+                    // AI 口径：代价=2【杀】+翻面（下回合休息），收益全在目标（额外回合+致命祝福）；
+                    // 敌方/中立态度为负 → 不选，无友方时取消（源 L4749-4757）
                     ai1: (card) => 6 - get.value(card),
                     ai2: (target) => get.attitude(player, target),
                 })

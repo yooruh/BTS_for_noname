@@ -39,10 +39,26 @@ export const skill = {
                 lib.bts.api.addAbnormal(target, 'baixie', 1, player);
         },
         ai: {
+            // AI 口径：怒气≥5（filter 同门）；失5怒为每名敌人附加1层败谢（受到属性伤害时弃1手牌）；
+            // 敌方越多收益越大；无敌方时不发动（源 animal.lua L5736-5765）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_chenni') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_chenni')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1; // filter 同门
+                let foes = 0;
+                for (const t of game.players)
+                    if (t.isAlive() && t !== player && get.attitude(player, t) < 0)
+                        foes++;
+                if (!foes) return -1;
+                return Math.min(9, 4 + foes * 1.5); // 每名敌人1层败谢：敌多线性放大
             },
-            result: { target: -1 },
+            result: {
+                player: 0.5, // 施加败谢的攒标价值
+                // 对敌：1层败谢（受属性伤害时弃1手牌）；已有层数者边际低、无可弃牌者损失小
+                target: (player, target) => {
+                    if (lib.bts.api.getAbnor(target, 'baixie')) return -0.5;
+                    return target.countCards('h') > 0 ? -1 : -0.6;
+                },
+            },
         },
     },
 
@@ -86,7 +102,6 @@ export const skill = {
                 trigger.source,
             );
         },
-        ai: { noe: true },
     },
 
     // ── 触发技·舔舐（源 st_tianshi = TriggerSkill EventPhaseStart Finish + OneCardViewAsSkill，L5493-5527）──
@@ -125,7 +140,15 @@ export const skill = {
             await lib.bts.api.addBless(player, 'gongwu', 1, player);
             await lib.bts.api.addBless(event.targets[0], 'gongwu', 1, player);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 本技为 cost 型触发技：引擎不走默认 chooseBool、无顶层 check 读取点，发动与否全由 cost 内
+            // ai1/ai2 决定（对齐试点·虹光范式）；此 result 供跨技能估值查询——目标获益=1层共舞祝福
+            //（属性伤害触发弃牌/置牌强化，属性型盟友价值更高）（源 animal.lua L5493-5527）
+            result: {
+                player: 1,
+                target: (player, target) => (lib.bts.api.naturePlayer(target) ? 2 : 1),
+            },
+        },
     },
 };
 
@@ -184,8 +207,8 @@ export const buffSkills = {
             const gongwuHand = event.player?.getCards('h') || [];
             return (
                 event.source === player &&
-                // 2026-09-28：按描述「对其他角色」补门控（源描述参照本 L14120；源条件未显式自查，
-                // 无名杀存在自伤带来源路径〔xiadie.js:179 player.damage(player,…)〕→ 不门控会自触发）。
+                // 按描述「对其他角色」补门控（源描述参照本 L14120；无名杀存在自伤带来源路径
+                //〔xiadie.js:179 player.damage(player,…)〕→ 不门控会自触发，定夺补）。
                 event.player !== player &&
                 event.num > 0 &&
                 lib.bts.api.getNature(event) &&
@@ -236,8 +259,7 @@ export const buffSkills = {
     },
 };
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_bless_gongwu_faq',

@@ -3,10 +3,7 @@ import { configService } from './configService.js';
 import { dialogManager } from '../ui/dialogManager.js';
 import { extensionFilesPath } from '../utils/paths.js';
 
-/**
- * 管理用户交互流程，协调其他模块
- * 公开接口: main
- */
+/** 管理用户交互流程，协调其他模块；公开接口: main */
 const ConfigFlow = (() => {
     let _reloadTimer = null;
     let _isReloading = false;

@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 崩铁杀重建脚本。
- *
- * 扫描八阵营角色并同步角色入口/包清单，同时生成运行时文件的 Directory.json。
+ * 崩铁杀重建脚本：扫描八阵营角色并同步角色入口/包清单，生成运行时 Directory.json。
  * 用法：node scripts/rebuild.mjs [--check]
  */
 import { createHash } from 'node:crypto';
@@ -69,8 +67,8 @@ export async function scanRoles() {
     const characterIds = new Set();
     const skillIds = new Set();
     const translateIds = new Set();
-    // 直接 import 角色文件读 character/skill/translate/sort 对象（lib/roles.mjs 缓存），
-    // 不再用正则解析源码；注释掉的块（import 不可见）不会误当作定义。
+    // 直接 import 角色文件读 character/skill/translate/sort（lib/roles.mjs 缓存）——
+    // 注释掉的块 import 不可见，不会误当作定义（不再用正则解析源码）。
     const roleMods = await loadRoleMods(rolesRoot);
     for (const faction of getDirectories(rolesRoot)) {
         if (!FACTIONS.has(faction)) {
@@ -153,9 +151,8 @@ function updateManifest(checkOnly) {
 }
 
 /**
- * 生成 audio/bgm/ 可用 BGM 清单（source/bgm-list.js）。
- * content.js 的 BGM 跟随主公据此判断「主公有无专属 BGM」：
- * 有 → 播放专属；没有 → 随机对战音乐（duel1-12）。
+ * 生成 audio/bgm/ 可用 BGM 清单（source/bgm-list.js）：content.js 的 BGM 跟随主公
+ * 据此判断「有专属 → 播放；无 → 随机对战音乐（duel1-12）」。
  */
 function updateBgmList(checkOnly) {
     const files = readdirSync(resolve(ROOT, 'audio', 'bgm'))
@@ -292,10 +289,36 @@ function listDirFiles(dir, ext, out = []) {
 }
 
 /**
- * 根据 audio/skill/bts_<skill><n>.mp3 生成角色包的静态技能音频行数表，并交叉校验
- * 语音/阵亡字幕键与实际 mp3 一一对应。
- * 生成 source/character/bts/audio.js（运行时用 AUDIO_COUNTS 给匹配技能补 audio: N，
- * 由 registry.js fillSkillAudio 按 ext: 前缀转换）。
+ * 读取 scripts/voice-exclude.txt 的阵亡豁免条目（`.die` / `.all` 后缀；支持 * 通配）。
+ * 与 voice.mjs 共用清单：本处只取阵亡语义（无后缀=技能、`.bgm` 与语音键检查无关）。
+ */
+function loadDieExemptPatterns() {
+    const file = resolve(ROOT, 'scripts', 'voice-exclude.txt');
+    const patterns = [];
+    let raw = '';
+    try {
+        raw = readFileSync(file, 'utf8');
+    } catch {
+        return patterns; // 清单缺失：按无豁免处理
+    }
+    for (const line of raw.split(/\r?\n/)) {
+        const p = line.replace(/#.*$/, '').trim();
+        if (!p) continue;
+        const sm = /\.(die|all)$/.exec(p);
+        if (!sm) continue;
+        const id = p.slice(0, -sm[0].length);
+        if (!/^bts_/.test(id)) continue;
+        patterns.push({
+            p,
+            re: new RegExp('^' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*') + '$'),
+        });
+    }
+    return patterns;
+}
+
+/**
+ * 生成角色包静态技能音频行数表（audio/skill/bts_<skill><n>.mp3 → source/character/bts/audio.js；
+ * 运行时由 registry.js fillSkillAudio 按 ext: 前缀转换），并交叉校验语音/阵亡字幕键与 mp3 一一对应。
  * @returns {{changed: boolean, errorCount: number}}
  */
 export async function rebuildAudioMap({ checkOnly = false } = {}) {
@@ -333,11 +356,12 @@ export async function rebuildAudioMap({ checkOnly = false } = {}) {
     const changed = previous !== next;
     if (!checkOnly && changed) writeText(outputPath, next);
 
-    // 2) 语音/阵亡字幕键 ↔ mp3 交叉校验
-    // 直接 import 读 translate 的 $ / ~ 键（lib/roles.mjs 缓存）；注释掉的语音键
-    // import 不可见 → 视为未声明（即 rebuild --audio --check 的「注释豁免」机制，语义不变）。
+    // 2) 语音/阵亡字幕键 ↔ mp3 交叉校验：直接 import 读 translate 的 $ / ~ 键（lib/roles.mjs
+    // 缓存）；注释掉的语音键 import 不可见 → 视为未声明（rebuild --audio --check 的「注释豁免」）。
     const declaredSkill = {};
     const declaredDies = new Set();
+    // 阵亡检查豁免（scripts/voice-exclude.txt 的 .die/.all 条目；与 voice.mjs 共用清单）
+    const dieExempt = loadDieExemptPatterns();
     const roleMods = await loadRoleMods(rolesRoot);
     for (const [, mod] of roleMods) {
         for (const [k] of Object.entries(mod.translate ?? {})) {
@@ -361,6 +385,7 @@ export async function rebuildAudioMap({ checkOnly = false } = {}) {
         }
     }
     for (const charId of declaredDies) {
+        if (dieExempt.some((e) => e.re.test(charId))) continue; // 豁免：该角色阵亡语音不进检查
         if (!existsSync(join(dieDir, `${charId}.mp3`))) {
             errors.push(`角色 ${charId} 声明了阵亡语音但 audio/die/${charId}.mp3 不存在`);
         }
@@ -372,6 +397,7 @@ export async function rebuildAudioMap({ checkOnly = false } = {}) {
     }
     for (const full of listDirFiles(dieDir, '.mp3')) {
         const base = basename(full, '.mp3');
+        if (dieExempt.some((e) => e.re.test(base))) continue; // 豁免：同上
         if (!declaredDies.has(base)) {
             warnings.push(`audio/die/${base}.mp3 无对应阵亡语音键 ~${base}`);
         }
@@ -379,6 +405,12 @@ export async function rebuildAudioMap({ checkOnly = false } = {}) {
 
     for (const e of errors.sort()) console.error(`✗  ${e}`);
     for (const w of warnings.sort()) console.log(`⚠  ${w}`);
+    const dieExemptHits = [
+        ...new Set([...declaredDies, ...listDirFiles(dieDir, '.mp3').map((f) => basename(f, '.mp3'))]),
+    ]
+        .filter((id) => dieExempt.some((e) => e.re.test(id)))
+        .sort();
+    if (dieExemptHits.length) console.log(`·  阵亡豁免生效：${dieExemptHits.join('、')}`);
 
     const errorCount = errors.length;
     console.log(

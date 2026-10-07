@@ -15,9 +15,24 @@ export const character = {
     },
 };
 
+// 雷狩 AI 口径（cost 内联 ai 定发动）：为这些目标出【杀】须为净收益——有敌方且无友方
+//（content 对全部目标结算，混入友方会误伤；源 L7207-7232）。
+export function leishouWorth(player, targets) {
+    const valid = (targets || []).filter(
+        (target) =>
+            target.isAlive() &&
+            player.canUse({ name: 'sha', isCard: true }, target, true),
+    );
+    if (!valid.length) return false;
+    return (
+        valid.some((target) => get.attitude(player, target) < 0) &&
+        !valid.some((target) => get.attitude(player, target) > 0)
+    );
+}
+
 export const skill = {
     // ── 必杀技·凿荒（源 st_zaohuang = SkillCard + ZeroCardViewAsSkill + 两段杀，L7096-7204）──
-    // 定夺 2026-09-12（E-02）：按太阳神描述实现（源描述与代码矛盾，按描述）——
+    // 定夺（E-02）：按太阳神描述实现（源描述与代码矛盾，按描述）——
     // 弃6飞黄，攻击范围于此技能结算完毕前+6，视为使用两张致命【杀】（目标相同、有距离限制），
     // 每张【杀】使用时二选一：风杀（目标拥有属性则伤害值+1）/ 弃目标手牌（无属性+1，星启再+1）；
     // 星启时以此法造成的伤害视为贯通伤害且弃置的牌数+1。
@@ -87,7 +102,17 @@ export const skill = {
                             '弃置目标手牌（无属性+1张，星启+1张）',
                         )
                         .set('prompt', '凿荒：选择本次【杀】的结算方式')
-                        .set('ai', () => 0)
+                        // AI 口径：目标有属性→风杀+1伤；全无属性→风杀不增伤，改弃牌（无属性2张/星启3张）
+                        .set('ai', () => {
+                            const targets = trigger.targets.filter((target) =>
+                                target.isAlive(),
+                            );
+                            return targets.some((target) =>
+                                lib.bts.api.getNature(null, target),
+                            )
+                                ? 0
+                                : 1;
+                        })
                         .forResult();
                     if (result.index === 0) {
                         // 描述选项1：此【杀】视为风【杀】，若目标拥有属性，伤害值+1（目标级，damage 子技判定）
@@ -109,7 +134,6 @@ export const skill = {
                         }
                     }
                 },
-                ai: { noe: true },
             },
             damage: {
                 // 凿荒【杀】伤害：致命化 + 风属性（目标拥有属性则+1）+ 贯通（星启）
@@ -133,14 +157,32 @@ export const skill = {
                     // 描述：星启时以此法造成的伤害视为贯通伤害
                     if (lib.bts.api.god(player)) lib.bts.api.markDamage(trigger, '_through');
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：飞黄≥6（filter 同门）且有射程（+6）内敌方目标才砸满——两段致命【杀】的收官
+            // 爆发；星启=贯通+弃牌+1（源 animal.lua L7096-7204）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_zaohuang') ? -1 : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_zaohuang')) return -1;
+                if (player.countMark('bts_mk_feihuang') < 6) return -1;
+                if (
+                    !game.hasPlayer(
+                        (target) =>
+                            target.isAlive() &&
+                            target !== player &&
+                            get.attitude(player, target) < 0 &&
+                            get.distance(player, target) <=
+                                player.getAttackRange() + 6,
+                    )
+                )
+                    return -1; // 无射程内敌方：不发动
+                return lib.bts.api.god(player) ? 9 : 8;
             },
-            result: { target: -2 },
+            result: {
+                // 受动方（敌方）：两段致命【杀】≈2点伤害；目标有属性时风杀再+1（态度负→敌方向计正分）
+                target: (player, target) =>
+                    lib.bts.api.getNature(null, target) ? -2.5 : -2,
+            },
         },
     },
 
@@ -159,23 +201,29 @@ export const skill = {
                 )
             );
         },
+        async cost(event, trigger, player) {
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
+            // 源 L7221：askForSkillInvoke —— AI 口径：只追击纯敌方目标集（详见 leishouWorth；
+            // 对全部 trigger.targets 判定，非 content 过滤后的数组；源 L7207-7232）
+            event.result = await player
+                .chooseBool('雷狩：是否视为对这些目标使用【杀】并获得1枚飞黄？')
+                .set('ai', () => leishouWorth(player, trigger.targets))
+                .forResult();
+        },
         async content(event, trigger, player) {
             const targets = trigger.targets.filter( // trigger=useCardAfter 事件
                 (target) =>
                     player.canUse({ name: 'sha', isCard: true }, target, true)
             );
             if (!targets.length) return;
-            // 源 L7221：askForSkillInvoke
-            const result = await player
-                .chooseBool('雷狩：是否视为对这些目标使用【杀】并获得1枚飞黄？')
-                .forResult();
-            if (result.bool) {
-                player.addMark('bts_mk_feihuang', 1); // 源 L7222：p:gainMark("@feihuang")
-                // 源 L7223：ViewAsCard(p, tos) —— 视为对这些目标使用【杀】
-                await player.useCard({ name: 'sha', isCard: true }, targets);
-            }
+            player.addMark('bts_mk_feihuang', 1); // 源 L7222：p:gainMark("@feihuang")
+            // 源 L7223：ViewAsCard(p, tos) —— 视为对这些目标使用【杀】
+            await player.useCard({ name: 'sha', isCard: true }, targets);
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 供跨技能估值：无成本追击=1枚飞黄+1次额外【杀】（是否发动见 cost 内联 ai：leishouWorth）
+            result: { player: 1 },
+        },
     },
 
     // ── 触发技·钺贯（源 st_yueguan = TriggerSkill EventPhaseStart Start，L7234-7263）──
@@ -188,6 +236,9 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L7238：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 决定（最高分 ≤0 → 取消，
+            // 见引擎 ai/basic.js chooseCard）。AI 口径：飞黄满6在即→垫最后一枚（凿荒质变）；有锦囊→
+            // 本回合转化风【杀】可用；否则只攒进度，弃价值最低的【杀】（源 L7234-7263）
             event.result = await player
                 .chooseCard(
                     'h',
@@ -196,19 +247,33 @@ export const skill = {
                         lib.filter.cardDiscardable(card, player),
                     '钺贯：是否弃置一张【杀】获得飞黄，并令锦囊牌本回合视为风【杀】？',
                 )
+                .set('ai', (card) => {
+                    // 满6在即：最后一枚=凿荒（两段致命【杀】）→ 必换；有锦囊：本回合风杀转化可用 → 较积极；
+                    // 否则只攒进度 → 仅低价值【杀】考虑
+                    let base = 3;
+                    if (player.countMark('bts_mk_feihuang') >= 5) base = 6;
+                    else if (
+                        player.countCards(
+                            'h',
+                            (c) => get.type(c) === 'trick',
+                        )
+                    )
+                        base = 5;
+                    return base - get.value(card); // 弃价值最低的【杀】（最高分 ≤0 → 取消）
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
             if (event.cards?.length) await player.discard(event.cards); // 弃置所选【杀】作为代价
             // 源 L7244：gainMark(@feihuang)；L7245：acquireSkill("#st_yueguan-clear")——
             // 源为 FilterSkill 动态挂摘；无名杀 installBuffSkillLifecycle 按「标记名==技能名」
-            // 才自动挂载，bts_sk_yueguan_buff ≠ 标记名，故须显式 addSkill（曾漏挂，整块失效）。
+            // 才自动挂载，bts_sk_yueguan_buff ≠ 标记名，故须显式 addSkill（漏挂则整块失效）。
             player.addMark('bts_mk_feihuang', 1);
             player.addMark('bts_mk_yueguan-clear', 1);
             await player.addSkill('bts_sk_yueguan_buff');
         },
         // 回合结束清理（源描述「于此回合内」，L12975；源 acquireSkill("#st_yueguan-clear")
-        // 无 detach 实际整局持久——按用户定夺「源码没定义按描述来」补回合清理）
+        // 无 detach 实际整局持久——按定夺「源码没定义按描述来」补回合清理）
         group: ['bts_sk_yueguan_clear'],
         subSkill: {
             clear: {
@@ -222,13 +287,12 @@ export const skill = {
                     player.removeSkill('bts_sk_yueguan_buff');
                     player.removeSkill('bts_sk_yueguan_buff_hit');
                 },
-                ai: { noe: true },
             },
             // ── 关联技·钺贯强化（源 st_yueguan_buff = FilterSkill "#st_yueguan-clear"，L7251-7263）──
             // 本回合（有钺贯标记时）手牌锦囊视为风【杀】。
             // 源描述「不能被响应且无距离限制」（L12975）：「无距离限制」源代码经 gamerule_card
-            // distance_limit_func 实现（L1814-1816，skillName 含 st_yueguan → 距离1000）；「不能被响应」
-            // 源代码未实现（_wind_hit 仅翻译键）——按用户定夺「源码没定义按描述来」补直接命中。
+            // distance_limit_func 实现（L1814-1816）；「不能被响应」源代码未实现（_wind_hit 仅翻译键）
+            // ——按定夺「源码没定义按描述来」补直接命中。
             buff: {
                 sub: true,
                 sourceSkill: 'bts_sk_yueguan',
@@ -257,7 +321,12 @@ export const skill = {
                     storage: { _btsNature: 'wind', bts_sk_yueguan: true },
                 },
                 group: ['bts_sk_yueguan_buff_hit'],
-                ai: { order: 5, result: { target: -1 } },
+                ai: {
+                    // AI 口径：锦囊当风【杀】（不能被响应+无距离限制）的转化攻击——估值≈标准【杀】
+                    //（源 L7251-7263；是否转化由引擎选牌 AI 与出牌顺序权衡）
+                    order: 5,
+                    result: { target: -1 },
+                },
             },
             // ── 关联技·钺贯直接命中（原 bts_sk_yueguan_buff.subSkill.hit；父技能并入本 parent
             //    的 subSkill 后按注册名规则升为兄弟键，保留 bts_sk_yueguan_buff_hit 注册名）──
@@ -275,10 +344,12 @@ export const skill = {
                     // event 只是技能自身的 "trigger" 包装事件（directHit 恒为 false），不能写。
                     trigger.directHit.addArray(trigger.targets);
                 },
-                ai: { noe: true },
             },
         },
-        ai: { result: { player: 1 } },
+        ai: {
+            // 供跨技能估值：弃1【杀】=1枚飞黄+本回合锦囊转化风【杀】的资格（发动决策见 cost 内联）
+            result: { player: 1 },
+        },
     },
 };
 
@@ -318,8 +389,7 @@ export const simpleTranslate = {
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
-// ── 角色专属词条（TODO 任务3 自 glossary.js 归位；正文引用本角色技能）。
-// 词条数据随角色包 gather('glossary') 聚合进 fullTranslate（详见 character/bts/index.js）。
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
 export const glossary = [
     {
         id: 'bts_glossary_feihuang_faq',

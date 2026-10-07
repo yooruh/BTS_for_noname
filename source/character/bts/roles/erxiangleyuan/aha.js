@@ -1,4 +1,4 @@
-// 阿哈（原创角色，2026-09-29 定稿；非太阳神移植——源 animal.lua 无阿哈）—— 愿力、愉使与欢愉万相。
+// 阿哈（原创角色，非太阳神移植——源 animal.lua 无阿哈）—— 愿力、愉使与欢愉万相。
 // 技能：阿哈！（必杀技·弃8愿力连发【欢愉万相】）、愉使（弃杀钦定唯一欢愉令使，不限次；被指定者可用1张
 // 虚拟【杀】）、公演（使用/弃置【杀】或执行欢愉行动攒愿力）。规则：①【无中生有】在阿哈手上变为【欢愉万相】；②阿哈时刻——欢愉时刻
 // （源 FunnyTime，本移植原本无触发点）改由阿哈的准备阶段开始时触发；③「欢愉升格」豁免源版
@@ -51,7 +51,6 @@ export const skill = {
                     player.removeMark('bts_mk_aha_pending', 1);
                     await lib.bts.api.useHuanjuWanxiang(player);
                 },
-                ai: { noe: true },
             },
             // 规则技（非显示）：①【无中生有】在阿哈手上变为【欢愉万相】；②阿哈时刻（欢愉时刻改由阿哈准备阶段触发）
             rule: {
@@ -73,7 +72,6 @@ export const skill = {
                         if (name === 'wuzhong') return 'bts_cd_huanju_wanxiang';
                     },
                 },
-                ai: { noe: true },
             },
         },
         // 欢愉行动注册（自注册重构）：funnyAct 泛化派发时执行——视为使用【欢愉万相】
@@ -86,19 +84,27 @@ export const skill = {
             },
         },
         ai: {
+            // AI 口径：愿力≥8（filter 门控）即发动——收益=3 次万相（自己+令使+全场各摸1、欢愉升格）；
+            // 令使在场时万相额外给其摸1，评分略高（原创设计）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_aha') ? -1 : 9;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_aha')) return -1;
+                return game.hasPlayer(
+                    (p) => p.isAlive() && p.countMark('bts_mk_huanju_lingshi') > 0,
+                )
+                    ? 9
+                    : 8;
             },
+            // 自己摸 1~2 张 + 欢愉升格；万相结算详见 card/bts_cd
             result: { player: 2 },
         },
     },
 
     // ── 主动技·愉使（原创设计）──
-    // 出牌阶段（不限次），弃置一张【杀】并选择一名角色（含阿哈自己）：其成为唯一的「欢愉令使」。
+    // 出牌阶段（不限次），弃置一张【杀】并选择一名其他角色（不可选自己）：其成为唯一的「欢愉令使」。
     // 注：id 取「愉使者」拼写（yushizhe），避免与风堇·愈世（bts_sk_yushi）撞名。
     bts_sk_yushizhe: {
         enable: 'phaseUse',
-        usable: Infinity, // 「每回合无限制」（2026-09-30 用户要求显式声明；不写 usable 时本就不限次）
+        usable: Infinity, // 「每回合无限制」（显式声明；不写 usable 时本就不限次）
         filter(event, player) {
             return (
                 player.countCards('he', (card) => get.name(card) === 'sha') > 0
@@ -113,7 +119,7 @@ export const skill = {
         selectCard: 1,
         position: 'he',
         filterTarget(card, player, target) {
-            return target !== player; // 其他角色（2026-09-30 起不可再选自己——用户要求）
+            return target !== player; // 其他角色（不可选自己）
         },
         selectTarget: 1,
         async content(event, trigger, player) {
@@ -130,8 +136,8 @@ export const skill = {
             }
             const target = event.targets[0];
             target.addMark('bts_mk_huanju_lingshi', 1);
-            // 2026-09-30 新增（用户要求）：被指定为欢愉令使的角色可使用1张虚拟【杀】——
-            // 不计入使用次数；即时机会（此刻不用则作废，须待阿哈再次指定）。
+            // 被指定为欢愉令使的角色可使用1张虚拟【杀】——不计入使用次数；
+            // 即时机会（此刻不用则作废，须待阿哈再次指定）。
             if (!target.isAlive()) return;
             const vsha = { name: 'sha', isCard: true };
             if (
@@ -143,6 +149,7 @@ export const skill = {
             }
             const want = await target
                 .chooseBool('愉使：是否使用一张虚拟【杀】（不计次数）？')
+                // AI 口径：存在对令使（评估者）净收益为正的目标（get.effect 含态度）才用刀（原创设计）
                 .set('ai', () =>
                     game.hasPlayer(
                         (p) =>
@@ -160,6 +167,8 @@ export const skill = {
                     [1, 1],
                     (card, p, t) => t !== p && p.canUse(vsha, t, true),
                 )
+                // AI 口径：价值取 get.effect（对敌为正、对友为负→自然不误伤）（原创设计）
+                .set('ai', (t) => get.effect(t, vsha, target, target))
                 .forResult();
             const t = result.targets?.[0];
             if (!t) return;
@@ -180,14 +189,28 @@ export const skill = {
                 async content(event, trigger, player) {
                     player.addMark('bts_mk_yuanli', 1);
                 },
-                ai: { noe: true },
             },
         },
         ai: {
+            // AI 口径：弃1【杀】换唯一令使（其回合开始+1愿力）；已有友方令使不再换人（白耗杀）；
+            // 距8愿力临门（≥6）时借令使管道加速（原创设计）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_yushizhe') ? -1 : 4;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yushizhe')) return -1;
+                const lingshi = game.filterPlayer(
+                    (p) => p.isAlive() && p.countMark('bts_mk_huanju_lingshi') > 0,
+                );
+                if (lingshi.length && lingshi.every((p) => get.attitude(player, p) >= 0))
+                    return -1;
+                const sha = player.countCards('he', (c) => get.name(c) === 'sha');
+                if (!sha) return -1; // filter 兜底（防按钮评估期误评）
+                if (player.countMark('bts_mk_yuanli') >= 6) return 6;
+                return sha >= 2 ? 4 : 2;
             },
-            result: { player: 1 },
+            result: {
+                // 令使管道每回合+1愿力（持续收益）；目标获1张虚拟【杀】机会=目标获益（态度加权排除敌方）
+                player: (player) => (player.countMark('bts_mk_yuanli') >= 6 ? 2 : 1.5),
+                target: 1,
+            },
         },
     },
 
@@ -212,7 +235,6 @@ export const skill = {
         async content(event, trigger, player) {
             player.addMark('bts_mk_yuanli', 1);
         },
-        ai: { noe: true },
     },
 };
 

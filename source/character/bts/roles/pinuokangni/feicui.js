@@ -61,13 +61,27 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：怒气≥5（filter 同门）；失5怒对每名敌人1点暗伤（星启：全局必杀基数+1→2点；
+            // 元素相克再+1）并自得2枚狱契（烁牙满8时弃1枚令暗杀不可响应）；怒≥7（留一发余量）时更积极
+            //（源 animal.lua L4799-4818；可选链守卫写法保留）
             order(item, player) {
                 if (lib.bts?.aiGuard?.blocked(player, 'bts_sk_yuqi'))
                     return -1;
                 return lib.bts.api.getAngry(player) >= 7 ? 6 : 3;
             },
             threaten: 3,
-            result: { player: 1 },
+            result: {
+                player: 1, // 得2枚狱契
+                // 对敌：1点暗伤（星启2点）＋相克+1；击杀加分
+                target: (player, target) => {
+                    const d = lib.bts.api.god(player) ? 2 : 1;
+                    let v = d * 1.5;
+                    const nat = lib.bts.api.getNature(null, target);
+                    if (nat && nat !== 'dark') v += 1.5;
+                    if (target.hp <= d) v += 2.5;
+                    return -v;
+                },
+            },
         },
     },
 
@@ -75,9 +89,13 @@ export const skill = {
     bts_sk_sibao: {
         trigger: { player: 'phaseUseBegin' },
         filter(event, player) {
-            // 若没有角色拥有契约祝福
-            return !game.hasPlayer(
-                (p) => p.isAlive() && lib.bts.api.getBless(p, 'yingzi'),
+            // 若没有角色拥有契约祝福；且手牌有【杀】可弃（源 askForUseCard 的 Slash 限定——
+            // 无杀时不可发动，否则空跑一轮询问后取消）
+            return (
+                !game.hasPlayer(
+                    (p) => p.isAlive() && lib.bts.api.getBless(p, 'yingzi'),
+                ) &&
+                player.getCards('h').some((card) => get.name(card) === 'sha')
             );
         },
         async cost(event, trigger, player) {
@@ -87,17 +105,27 @@ export const skill = {
                     [1, 1],
                     (card, p, target) => target !== p,
                 )
-                .set('ai', (target) =>
-                    get.attitude(player, target) > 0 ? 2 : -1,
-                )
+                // AI 口径：契约祝福=额定摸牌+1（3层≈3回合）且其造成伤害助烁牙累积 → 只给友军，
+                // 属性型盟友更优；敌方/中立不给分（全员非友军→整体取消发动）（源 animal.lua L4820-4852）
+                .set('ai', (target) => {
+                    const attitude = get.attitude(player, target);
+                    if (attitude <= 0) return -1;
+                    let v = 2 + attitude / 2;
+                    if (lib.bts.api.naturePlayer(target)) v += 1;
+                    return v;
+                })
                 .forResult();
             if (!r.bool) return;
             const cards = await player
                 .chooseCard(
                     'h',
-                    (card) => get.name(card) === 'sha',
+                    (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
                     '弃置一张【杀】',
                 )
+                // AI 口径：代价=献出价值最低的【杀】；分值≤0（杀太珍贵）则整体取消发动
+                .set('ai', (card) => 6 - get.value(card))
                 .forResult();
             if (!cards.bool) return;
             event.result = {
@@ -113,10 +141,11 @@ export const skill = {
             lib.bts.api.addBless(event.targets[0], 'yingzi', 3, player); // 源 L4827
         },
         ai: {
+            // 触发技+cost：此 order 与 content 首行 record 为 aiGuard 既有接线（按批次要求保留）；
+            // 发动与否的实际决策在 cost 内联 ai（cost 型触发技无默认 chooseBool 读取点）
             order(item, player) {
                 return lib.bts.aiGuard.blocked(player, 'bts_sk_sibao') ? -1 : 5;
             },
-            noe: true,
         },
     },
 
@@ -168,7 +197,6 @@ export const skill = {
                 `当前有${storage}枚烁牙；达到8枚时弃8枚，视为对所有受到过由你造成的伤害的角色使用暗【杀】。`,
         },
         markimage: `${extensionPath}/image/mark/bts_sk_shuoya.png`,
-        ai: { noe: true },
     },
 };
 

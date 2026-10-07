@@ -1,4 +1,4 @@
-// 崩铁杀全局 buff 定义（阶段2 迁自 rules/buffs.js；buildMarkSkill 已迁 rules/markRegistry.js）。
+// 崩铁杀全局 buff 定义（构建器见 rules/markRegistry.js）。
 // 内容层：只放定义（markKind/glossaryId/permanent 标签 + 效果字段），显示文本一律进 translate。
 // 由 character/bts/index.js 合并 { 全局, ...roles.merge('buffSkills') } → buildMarkSkill 烘焙。
 import { lib, game, get } from '../../../../noname.js';
@@ -14,9 +14,8 @@ export const buffSkills = {
             return (
                 event.source === player &&
                 event.num > 0 &&
-                // 无 reason（无名杀本体/其他扩展伤害）按源 getReason() 语义视为非 common（≈卡名）：
-                // 性质升级祝福对普通伤害同样生效（源 ConfirmDamage L1126-1134 无 _common 排除；
-                // 用户定夺 2026-09-12 回退），仅显式 _bts_reason_common 豁免。
+                // 空 reason（本体/其他扩展伤害）不豁免——性质升级祝福对普通伤害同样生效
+                //（源 ConfirmDamage L1126-1134 无 _common 排除，定夺回退）；仅显式 _bts_reason_common 豁免。
                 !event.reason?.includes('_bts_reason_common')
             );
         },
@@ -34,23 +33,23 @@ export const buffSkills = {
             return (
                 event.source === player &&
                 event.num > 0 &&
-                // 无 reason（无名杀本体/其他扩展伤害）按源 getReason() 语义视为非 common（≈卡名）：
-                // 性质升级祝福对普通伤害同样生效（源 ConfirmDamage L1126-1134 无 _common 排除；
-                // 用户定夺 2026-09-12 回退），仅显式 _bts_reason_common 豁免。
+                // 空 reason（本体/其他扩展伤害）不豁免——性质升级祝福对普通伤害同样生效
+                //（源 ConfirmDamage L1126-1134 无 _common 排除，定夺回退）；仅显式 _bts_reason_common 豁免。
                 !event.reason?.includes('_bts_reason_common')
             );
         },
         async content(event, trigger, player) {
             lib.bts.api.markDamage(trigger, '_through');
         },
-        // 「破防具」（2026-10-01 用户定夺：持贯通祝福 = 青釭剑式无视防具，范围仅祝福持有者）。
-        // 引擎防具（仁王盾/藤甲/八卦阵…）在各自 filter 与 AI 估值里读取攻击方 skillTag
-        // `unequip`（参数 {name, target, card}）；hasSkillTag 从技能 ai 字段取值，故在定义上声明。
-        // skillTagFilter 必填：带对象参数而无过滤器时，引擎会打印「疑似忘给 skillTagFilter」告警。
+        // 「破防具」（定夺：持贯通祝福 = 青釭剑式无视防具，范围仅祝福持有者）。
+        // 四向契约（《AI设计规范》§3）：行动端 gameplay=`unequip`（防具 filter：仁王盾/藤甲/八卦阵…），
+        // 行动端 AI=`unequip_ai`（防具 AI effect 与杀/武器估值）；两查询均带参数 {name, target, card}。
+        // skillTagFilter 必填——带对象参数而无过滤器时引擎会告警；两 tag 无条件放行（祝福对所有来源生效）。
         ai: {
             unequip: true,
+            unequip_ai: true,
             skillTagFilter(player, tag) {
-                return tag === 'unequip';
+                return tag === 'unequip' || tag === 'unequip_ai';
             },
         },
     },
@@ -64,9 +63,8 @@ export const buffSkills = {
             return (
                 event.source === player &&
                 event.num > 0 &&
-                // 无 reason（无名杀本体/其他扩展伤害）按源 getReason() 语义视为非 common（≈卡名）：
-                // 性质升级祝福对普通伤害同样生效（源 ConfirmDamage L1126-1134 无 _common 排除；
-                // 用户定夺 2026-09-12 回退），仅显式 _bts_reason_common 豁免。
+                // 空 reason（本体/其他扩展伤害）不豁免——性质升级祝福对普通伤害同样生效
+                //（源 ConfirmDamage L1126-1134 无 _common 排除，定夺回退）；仅显式 _bts_reason_common 豁免。
                 !event.reason?.includes('_bts_reason_common')
             );
         },
@@ -77,15 +75,14 @@ export const buffSkills = {
     bts_bless_busi: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_busi_faq',
-        // 触发仅 dying（防死）。归零→濒死不在此监听：bts_mark_remove 在层数归零时 busi 技能已被
-        // content.js 生命周期 removeSkill 卸载（收不到自身事件），改在 utils.js removeBless 的
-        // busi 钩子统一结算（源 MarkChanged animal.lua L570-571，覆盖衰减/倏忽等全部移除路径）。
+        // 触发仅 dying（防死）。归零→濒死不在此监听：层数归零时本技能已被 content.js 生命周期
+        // removeSkill 卸载（收不到自身 bts_mark_remove），改在 utils.js removeBless 的 busi 钩子统一
+        // 结算（源 MarkChanged L570-571，覆盖衰减/倏忽等全部移除路径）。
         trigger: { player: 'dying' },
         forced: true,
         silent: true,
         filter(event, player) {
-            // 源 EnterDying（animal.lua L1457-1459）仅在有祝福层数时阻断濒死：
-            // 归零濒死（removeBless 钩子触发）时层数已为 0，不在此拦截，正常走求救流程。
+            // 源 EnterDying（L1457-1459）仅在有层数时阻断濒死；归零濒死（removeBless 钩子）层数已为 0，不拦截。
             return (
                 event.player === player &&
                 player.hp < 1 &&
@@ -93,10 +90,9 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
-            // 「防止濒死」范式：不 cancel 濒死事件（否则濒死未完成结算、_status.dying 不移除），
-            // 而对濒死事件自身设 nodying（dying step1/step2 查 event.nodying，content.js L11752/11785），
-            // 使濒死正常收尾并清除 _status.dying；不回复体力（忠于原版 EnterDying return true）。
-            // 相关范式：baie.js bts_sk_fanshi_huanyuan、wandi.js bts_sk_dengshen（后者另 recover 至 hp>0）。
+            // 「防止濒死」范式：不 cancel 濒死事件（否则结算不完、_status.dying 不清），而设
+            // trigger.nodying（dying step1/2 查 event.nodying，content.js L11752/11785）——
+            // 濒死正常收尾且不回复体力（源 EnterDying return true）。同范式：baie 燔世还原、wandi 登神。
             trigger.nodying = true;
         },
     },
@@ -110,15 +106,15 @@ export const buffSkills = {
     bts_bless_god: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_god_faq',
-        // 星启祝福：层数仅供星启来源判断（utils.js god()），沉为仅记录标记（mark:false）。
-        // 不设 permanent：技能星启随结束阶段自然衰减（用户定夺 2026-09-09，忠于原版 Player_Finish 衰减）；
-        // 主公星启走 isZhu 分支常驻（utils.js god()），归零时 syncMarkSources 自动撤 skill 来源仅留 zhu。
+        // 星启祝福：层数供星启来源判断（utils.js god()），设为仅记录标记（mark:false）。
+        // 不设 permanent：随结束阶段自然衰减（定夺；忠于源 Player_Finish）；主公星启走 isZhu 常驻，
+        // 归零时 syncMarkSources 撤 skill 来源、仅留 zhu。
         mark: false,
     },
     bts_bless_yingzi: {
         markKind: 'bless',
         glossaryId: 'bts_glossary_bless_yingzi_faq',
-        // 契约祝福随结束阶段自然衰减（原版 animal.lua L13868 每回合衰减；用户定夺 2026-09-09）。
+        // 契约祝福随结束阶段自然衰减（源 L13868；定夺）。
         trigger: { player: 'phaseDrawBegin2' },
         forced: true,
         silent: true,
@@ -141,15 +137,12 @@ export const buffSkills = {
         async content(event, trigger, player) {
             let n = 1;
             if (player.hp <= 1)
-                // 2026-09-28 修复：补 isAlive()——源 L1707 遍历 room:getAlivePlayers()，
-                // game.filterPlayer 含阵亡角色（原会统计尸体生机）。
+                // 须补 isAlive()：源 L1707 遍历 room:getAlivePlayers()，game.filterPlayer 含阵亡角色。
                 n += game.filterPlayer(
                     (p) => p.hasSkill('bts_sk_shengji') && p.isAlive(),
                 ).length;
-            // 源 L1577：RecoverStruct(nil) —— who=nil 无来源。须无来源回复：
-            // 否则 source=持有者会再触发娜塔莎·生机 recoverBegin 造成双倍回复（源语义下
-            // recover.who=nil → 生机 filter 恒 false）。recover('nosource') 令 source 保持
-            // undefined，仅走 zhiyu 内置的生机加成（上面 n 的 +1），不再额外触发一次。
+            // 源 L1577：RecoverStruct(nil) 无来源——须 nosource，否则 source=持有者会再触发
+            // 娜塔莎·生机 recoverBegin 造成双倍回复（源 recover.who=nil → 生机 filter 恒 false）。
             await player.recover('nosource', n);
         },
     },
@@ -161,15 +154,13 @@ export const buffSkills = {
         silent: true,
         filter(event, player, triggername) {
             if (triggername === 'useSkillAfter') {
-                // 源 L1085-1086：使用 SkillCard 且技能名含 "max_"（必杀技）；
-                // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）
+                // 源 L1085-1086：使用 SkillCard 且技能名含 "max_"（必杀技）；以 bts_bisha 标签判定（勿子串匹配）。
                 return (
                     event.player === player &&
                     lib.skill[event.skill]?.bts_bisha === true
                 );
             }
-            // 源 L1103：damage.reason 含 "max_"（必杀技，含 _common 通常伤害如乖离）；
-            // 无名杀以 isBishaReason 判定（已修正：原 `_common` 排除误伤乖离类必杀技）
+            // 源 L1103：damage.reason 含 "max_"（必杀技含 _common 通常伤害如乖离）；以 isBishaReason 判定。
             return (
                 event.source === player &&
                 event.num > 0 &&
@@ -198,8 +189,7 @@ export const buffSkills = {
             return (
                 event.source === player &&
                 event.num > 0 &&
-                // 源版 L1155-1158：cifu 无 _common 排除，_common 技能杀（无属性）持赐福照样转虚数
-                //（2026-09-13 回退至源版）。
+                // 源 L1155-1158：cifu 无 _common 排除，无属性技能杀持赐福照样转虚数（定夺回退源版）。
                 event.card?.name === 'sha' &&
                 !lib.bts.api.getNature(event)
             );
@@ -380,8 +370,18 @@ export const buffSkills = {
         selectCard: 1,
         position: 'h',
         prompt: '地狱：将一张手牌当【决斗】使用',
-        ai: { order: 1, result: { player: 1 } },
-        // 使用【决斗】时失去1点体力（源 PreCardUsed L996-1000；resolver useCard 迁入，2026-09-04）。
+        ai: {
+            // AI 口径：手牌视为【决斗】；每次使用【决斗】失去1点体力（源 PreCardUsed L996-1000）。
+            // 本体【决斗】ai.basic.order=5（card/standard.js）——多付1点体力、但可用任意手牌转攻，量级略降；
+            // 1血禁用（失体即濒死），2血保守。viewAs 无独立 content，空选由引擎 _aiexclude 兜底。
+            // ai-guard: skip
+            order(item, player) {
+                if (player.hp <= 1) return -1;
+                return player.hp >= 3 ? 4 : 2;
+            },
+            result: { player: 1 },
+        },
+        // 使用【决斗】时失去1点体力（源 PreCardUsed L996-1000）。
         trigger: { player: 'useCard' },
         forced: true,
         silent: true,
@@ -428,15 +428,32 @@ export const buffSkills = {
                 const absorbed = Math.min(shield, trigger.num);
                 trigger.num -= absorbed;
                 lib.bts.api.removeShield(player, absorbed);
-                // 因伤抵扣护盾后广播 bts_shield_removed；「特权」（三月七）等持技者由自身触发器响应
-                //（源：RemoveShield 后 findPlayersBySkillName("st_tequan") → ViewAsCardOnly；
-                //  2026-10-02 补齐，2026-10-02 自注册重构：效果移回技能本体 sanyueqi.js）。
+                // 抵扣后广播 bts_shield_removed；「特权」（三月七）等由自身技能监听结算
+                //（源 RemoveShield 后 findPlayersBySkillName("st_tequan")）。
                 await lib.bts.api.emit('bts_shield_removed', {
                     player,
                     source: trigger.source || null,
                     absorbed,
                 });
             }
+        },
+        // AI 估值协议：护盾=可抵扣伤害的资源——供杀/决斗等伤害类卡牌 AI 读 `filterDamage`
+        //（本体 card/standard.js sha result.target 等；白银狮子 filterDamage 范式）。
+        // 带参时排除打穿护盾的情形：攻击方持贯通祝福（trigger 的 '_through' 豁免同义）或带 jueqing。
+        ai: {
+            filterDamage: true,
+            skillTagFilter(player, tag, arg) {
+                if (tag !== 'filterDamage') return false;
+                if (lib.bts.api.getShield(player) <= 0) return false;
+                const from = arg?.player;
+                if (
+                    from &&
+                    (from.hasSkillTag('jueqing', false, player) ||
+                        lib.bts.api.getBless(from, 'through'))
+                )
+                    return false;
+                return true;
+            },
         },
     },
     bts_bless_funny: {
@@ -462,9 +479,8 @@ export const buffSkills = {
             lib.bts.api.removeAbnormal(player, 'st_luoxuan', -1); // 源 RemoveAbnormal(..., -1)
         },
         mod: {
-            // 源 gamerule_pro L1787：拥有螺旋异常时 `not card:isKindOf("SkillCard")` → 禁止。
-            // 无名杀以 cardEnabled 实现（同睡眠禁基本牌/冻结禁装备/石化禁锦囊范式）：
-            // 非技能牌（杀/锦囊/装备/基本）无合法目标 → 无法使用，仅技能牌可用。
+            // 源 gamerule_pro L1787：非技能牌禁止。以 cardEnabled 实现（同睡眠/冻结/石化范式）：
+            // 非技能牌无合法目标 → 无法使用，仅技能牌可用。
             cardEnabled(card, player) {
                 if (
                     lib.bts.api.getAbnor(player, 'st_luoxuan') &&
@@ -491,8 +507,7 @@ export const translate = {
     bts_bless_critical: '暴击祝福',
     bts_bless_critical_info: `来源：${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_enci')}赋予；伤害视为${get.poptip('bts_glossary_bless_critical_faq')}；回合结束自然减少1层`,
     bts_bless_busi: '不死祝福',
-    // 不含「无悔」：新版源 st_wuhui（参照本 L8079-8092、文本 L14274）不再授予不死祝福
-    //（V2.2 重做血仇路线）——2026-09-28 按新版本核实删除。
+    // 不含「无悔」：新版源 st_wuhui 不再授予不死祝福（V2.2 重做血仇路线；L8079-8092/L14274）。
     bts_bless_busi_info: `来源：${get.poptip('bts_sk_jiejin')}、${get.poptip('bts_sk_shuhu')}赋予；防止濒死；归零且体力<1时立即濒死；回合结束自然减少1层`,
     bts_bless_maxhp: '体力上限祝福',
     bts_bless_maxhp_info: `来源：${get.poptip('bts_glossary_xuechou_faq')}、${get.poptip('bts_sk_yushi')}、${get.poptip('bts_sk_chenhun')}赋予；每层+1${get.poptip('bts_glossary_bless_maxhp_faq')}（${get.poptip('bts_glossary_bless_yuguotianqing_faq')}时翻倍）；回合结束自然减少1层`,

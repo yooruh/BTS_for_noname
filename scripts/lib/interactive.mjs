@@ -1,14 +1,10 @@
 /**
- * 崩铁杀 脚本通用交互式命令行 UI
- *
- * 供各自动化脚本在「无传参」时提供编号菜单 / 自由输入，让用户交互选择，
- * 而非默认执行某一功能。基于 node:readline 的事件队列实现：
- *  - 对真实终端输入、以及 `printf ... | node scripts/xx.mjs` 管道/脚本化输入都稳定
- *  - 与 scripts/lib/git-cli.mjs 各自维护独立的 readline 接口，互不冲突
- *  - 所有交互结束后应调用 closeInteractive() 关闭流，避免进程挂起
+ * 崩铁杀 脚本通用交互式命令行 UI（编号菜单 / 自由输入；基于 node:readline 事件队列）。
+ * 供各自动化脚本在「无传参」时交互选择，而非默认执行某一功能；真实终端与
+ * `printf ... | node scripts/xx.mjs` 管道输入都稳定；与 git-cli.mjs 各自维护独立
+ * readline 接口；交互结束后须调用 closeInteractive()，避免进程挂起。
  *
  * 用法：
- *   import { menu, prompt, closeInteractive } from './interactive.mjs';
  *   const choice = await menu('请选择操作', ['选项A', '选项B']);
  *   const name = await prompt('请输入名称', { required: true });
  */

@@ -36,7 +36,9 @@ export const skill = {
             lib.bts.aiGuard.record(player, 'bts_sk_guanyun');
             const target = event.targets[0];
             lib.bts.api.loseAngry(player, 3); // 源 L5818：LoseAngry(player, 3)
-            await target.damage(player, 1, 'nocard'); // 源 L5819：room:damage
+            const damage = target.damage(player, 1, 'nocard'); // 源 L5819：room:damage（DamageStruct(max_guanyun)）
+            damage.reason = 'bts_sk_guanyun'; // 供星启必杀+1（isBishaReason）识别
+            await damage;
             // 源 L5820-5821：星启时 askForUseCard("@@st_guanyun_buff!") 选任意名角色
             if (!lib.bts.api.god(player)) return;
             const result = await player
@@ -45,9 +47,15 @@ export const skill = {
                     [0, Infinity],
                     (card, source, target) => target !== source,
                 )
+                // AI 口径：祝福只给友方（源 AI @@max_guanyun_buff 全选 friends_noself，
+                // StarRail-ai L2442-2448）；非友方不给分=不选
+                .set('ai', (target) => {
+                    const att = get.attitude(player, target);
+                    return att > 0 ? att + 1 : 0;
+                })
                 .forResult();
             // 源 L5794-5799：自己与所选角色各+1暴击、+1致命祝福
-            // 平衡改动（2026-09-28 用户定夺）：出牌阶段叠 1 层会被当回合结束阶段自然衰减抹掉 → 改 2 层（源为 1）。
+            // 平衡改动（定夺）：出牌阶段叠1层会被当回合结束阶段自然衰减抹掉 → 改2层（源为1）。
             await lib.bts.api.addBless(player, 'critical', 2, player);
             await lib.bts.api.addBless(player, 'fatal', 2, player);
             for (const target of result.targets || []) {
@@ -56,10 +64,37 @@ export const skill = {
             }
         },
         ai: {
+            // AI 口径：非星启仅1点伤害降档；星启时伤害+1（必杀增幅）且自身+2暴击+2致命、
+            // 友方各+2（源 AI max_guanyun：星启且友方>0 时接，StarRail-ai L2428-2448）
             order(item, player) {
-                return lib.bts.aiGuard.blocked(player, 'bts_sk_guanyun') ? -1 : 7;
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_guanyun'))
+                    return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1; // 无敌不发动
+                if (!lib.bts.api.god(player)) return 4; // 非星启：1伤对3怒，低优先
+                let val = 7; // 星启：自身+2暴击+2致命（暴击回怒）
+                const friends = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) > 0,
+                );
+                if (friends >= 2) val += 2;
+                else if (friends >= 1) val += 1;
+                return Math.min(9, val);
             },
-            result: { target: -1 },
+            result: {
+                // 星启时自身+2暴击+2致命（≈2.5）；伤害目标1.5（星启必杀+1则更重）
+                player: (player) => (lib.bts.api.god(player) ? 2.5 : 0),
+                target: (player) => (lib.bts.api.god(player) ? -3 : -1.5),
+            },
         },
     },
 
@@ -72,7 +107,9 @@ export const skill = {
             return player.getCards('h').some((card) => get.name(card) === 'sha');
         },
         async cost(event, trigger, player) {
-            // 源 L5841：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // 源 L5841：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）。
+            // 发动 AI 在本内联选择（cost 型触发技引擎不询顶层 check）：未星启且怒气≥3 才换星启
+            //（源 AI @st_tianque：GetAngry 3 且 not God，星启用于贯云循环，StarRail-ai L2450-2455）。
             event.result = await player
                 .chooseCard(
                     'h',
@@ -80,6 +117,12 @@ export const skill = {
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
                     '天阙：是否弃置一张【杀】获得星启祝福？',
+                    (card) => {
+                        if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                        if (lib.bts.api.god(player)) return -1; // 已星启不再叠加
+                        if (!lib.bts.api.getAngry(player, 3)) return -1; // 攒不满大招不急于转星启
+                        return 6 - get.value(card);
+                    },
                 )
                 .forResult();
         },
@@ -100,14 +143,11 @@ export const skill = {
             // 源 L5855：AddBless(player, "@bless_cifu")
             await lib.bts.api.addBless(player, 'cifu', 1, player);
         },
-        ai: { noe: true },
     },
 };
 
 export const translate = {
     // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
-    'bts_ch_yukong_skin1': '皮肤1',
-    'bts_ch_yukong_skin2': '皮肤2',
     'bts_ch_yukong_skin1': '皮肤1',
     'bts_ch_yukong_skin2': '皮肤2',
     bts_ch_yukong: '驭空',
