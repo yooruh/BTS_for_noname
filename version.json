@@ -2,7 +2,7 @@
   "defaultBranch": "main",
   "versions": [
     {
-      "extensionVersion": "26.10.3.2",
+      "extensionVersion": "26.10.3.3",
       "gameVersion": ">=1.11.2",
       "branch": "main",
       "description": "崩铁杀公开测试版本",
@@ -13,11 +13,11 @@
         "根据上个版本的反馈，在帮助文档新增了Q&A"
       ],
       "zip": {
-        "filename": "26.10.3.2-code.zip",
-        "size": 710195,
-        "md5": "33836a0705141c7d9cf4c6f995db06f0",
+        "filename": "26.10.3.3-code.zip",
+        "size": 711530,
+        "md5": "5412b2d437864d23ba9feae1511455ac",
         "branch": "zips",
-        "tag": "v26.10.3.2-code-zip"
+        "tag": "v26.10.3.3-code-zip"
       }
     }
   ]

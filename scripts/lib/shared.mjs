@@ -73,6 +73,17 @@ export function releaseTag(version) {
     return `${withV(version)}-code-zip`;
 }
 
+/**
+ * 本体包文件名（含扩展名）。
+ * 命名约定：`v{版本}_{完全体|丐版}[_不含崩铁杀].zip`
+ * —— 「包含崩铁杀」不写后缀（视为默认形态）；仅「不含崩铁杀」时追加 `_不含崩铁杀`。
+ * @param {{ version: string, variant: 'full'|'slim', withBts: boolean }} o
+ */
+export function bodyZipName({ version, variant, withBts }) {
+    const suffix = variant === 'full' ? '完全体' : '丐版';
+    return `${withV(version)}_${suffix}${withBts ? '' : '_不含崩铁杀'}.zip`;
+}
+
 export const log = {
     info(message) {
         console.log(`\x1b[36m[INFO]\x1b[0m ${message}`);

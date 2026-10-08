@@ -3149,7 +3149,7 @@
   },
   "extension.js": {
     "size": 4727,
-    "md5": "349386905e2c15c912131a6d4af5302a"
+    "md5": "04b685ca3b3aea6dc1349cfac4b1c7fe"
   },
   "image/character/bts_ch_agelaiya.png": {
     "size": 166670,
@@ -5261,7 +5261,7 @@
   },
   "info.json": {
     "size": 215,
-    "md5": "3e0cb6f58b49475fa0b5d1a0cb87d982"
+    "md5": "d418a9e6e2e41fdbcb50e5ee8b0e8368"
   },
   "LICENSE": {
     "size": 35147,
@@ -5636,8 +5636,8 @@
     "md5": "069eff213bfe2dbaf2828ffa515cd694"
   },
   "source/config.js": {
-    "size": 5973,
-    "md5": "be7e29cb9278064740c8002d9cbdfd58"
+    "size": 6120,
+    "md5": "b3537b3e6f609818fa16c791e970d253"
   },
   "source/content.js": {
     "size": 7851,
@@ -5692,8 +5692,8 @@
     "md5": "23794a8ca3f30ca2f06cb4546f9f0c83"
   },
   "source/tool/ai/characterPick.js": {
-    "size": 15724,
-    "md5": "6d7b0f3bd484d5e15012feadcddcc891"
+    "size": 18076,
+    "md5": "4fbc91dc1c2d15acee667220f9e00f6c"
   },
   "source/tool/ai/characterPickWeights.js": {
     "size": 11107,
@@ -5828,8 +5828,8 @@
     "md5": "5883945e587509888ad673b639b6b72a"
   },
   "style/html/help.html": {
-    "size": 42115,
-    "md5": "8a73d33a7aad5608a31a6399463c3ada"
+    "size": 42523,
+    "md5": "8e80f9e5acb7822534740eae04e924fb"
   },
   "style/html/update.html": {
     "size": 3816,

@@ -58,10 +58,11 @@
  *     --dry-run            只检查与统计，不写任何文件
  *
  * ── 输出（默认 _others/打包目录/…）─────────────────────────────────────
- *   本体打包/   v{版本}_完全体[_含崩铁杀].zip ｜ v{版本}_丐版[_含崩铁杀].zip
+ *   本体打包/   v{版本}_完全体[_不含崩铁杀].zip ｜ v{版本}_丐版[_不含崩铁杀].zip
+ *               （含崩铁杀时不加后缀；仅不含崩铁杀时追加 _不含崩铁杀）
  *               {基座名}_合体_{本体包名}.zip
- *   APK打包/    {本体包名}.apk
- *   安装器打包/ {本体包名}_安装器.exe
+ *   APK打包/    {本体包名}.ApK
+ *   安装器打包/ {本体包名}_电脑安装器.exe
  *
  * ── 依赖 ────────────────────────────────────────────────────────────────
  *   · 构建树 noname-build：dist（当前应处于「官方 1.11.6 + 崩铁杀扩展」状态）；
@@ -91,7 +92,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import { crc32 } from './lib/crc32.mjs';
-import { PATHS, withV } from './lib/shared.mjs';
+import { PATHS, bodyZipName } from './lib/shared.mjs';
 import { pack as PACK_CFG } from './lib/dev-config.mjs';
 import { menu, prompt, confirm, closeInteractive } from './lib/interactive.mjs';
 
@@ -681,7 +682,7 @@ async function runBodyBuild({ variant, withBts, dryRun }) {
     const ver = detectGameVersion();
     if (!ver) throw new Error('无法从 dist 检测游戏版本（缺少 game/update.js）');
     const suffix = variant === 'full' ? '完全体' : '丐版';
-    const out = join(CFG.bodyDir, `${withV(ver)}_${suffix}${withBts ? '_含崩铁杀' : ''}.zip`);
+    const out = join(CFG.bodyDir, bodyZipName({ version: ver, variant, withBts }));
     const { idbPath, guardPath, cfgPath } = assertPatchedDesktopTree();
     let cfgText = readFileSync(cfgPath, 'utf8');
     if (withBts) {
@@ -784,7 +785,7 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
     const ver = detectGameVersion();
     if (!ver) warn('无法检测游戏版本（dist/update.js 缺失），输出名不强制用版本号');
     const stem = basename(bodyZip).replace(/\.zip$/i, '');
-    const out = join(CFG.apkDir, `${stem}.apk`);
+    const out = join(CFG.apkDir, `${stem}.ApK`);
 
     // 壳层独有文件 = APK assets/public 内、但构建树 dist 中不存在的文件（如 cordova.js、_pnpm/** 等）；
     // 并强制保留 preload.js —— 手机版 SAF 桥接：entry.js 动态 import('/preload.js') 成功时用它覆写
@@ -1252,7 +1253,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
         if (!base || !existsSync(base)) throw new Error(`需要电脑基座但未找到可用基座（目录：${CFG.baseDir || '(未配置)'}），可用 --base 指定`);
     }
     const stem = basename(zipPath).replace(/\.zip$/i, '');
-    const exeOut = join(CFG.setupDir, `${stem}_安装器.exe`);
+    const exeOut = join(CFG.setupDir, `${stem}_电脑安装器.exe`);
     const verGuess = detectGameVersion() || ((stem.match(/(\d+\.\d+(?:\.\d+)*)/) || [])[1] || '0.0');
     const m = stem.match(/^v?(\d+\.\d+(?:\.\d+)*)_(.+)$/);
     const displayName = m ? `无名杀 ${m[1]}（${m[2].split('_').join(' · ')}）` : `无名杀（${stem}）`;

@@ -1,6 +1,8 @@
 // 身份模式 AI 选将（扩展配置 bts_ai_character_mode）：
 //   random = 不干预（无名杀原生行为）；score = 太阳神权重表（characterPickWeights.js）+ 主公启发式；
 //   style = 手工标定的技能定位标签（STYLE_TAGS），按身份偏好序列挑选。
+//   score 取位＝「评分排名 + 排名概率抽取」（仿太阳神 GeneralSelector，见下方小节）；
+//   主公位评分另用体力价值饱和曲线（同小节），避免混开武将池时被极端体力武将霸榜。
 //
 // ── 引擎现状与拦截点（对本 fork 实测）───────────────────────────────
 // identity.js L1589-1728：主公 20% 取 list2[0] 否则 list[0]；忠臣 50% 取首个同势力
@@ -18,6 +20,8 @@
 //
 // ── 范围与限制 ──────────────────────────────────────────────────────────────
 //   · 仅单机、identity_mode=normal 的标准身份；明忠/谋攻/3v3v2 与联机不拦截（保持引擎行为）；
+//   · 主公位候选含本体武将（混开武将池时允许本体当主公），但体力项按引擎 get.condition 口径
+//     饱和（hp>4 时 4+√(hp−4)）——线性体力计分正是「无脑选高体力（兀突骨 15 / 董卓 8）」的根因；
 //   · 双将第二将仍按引擎逻辑（list[1]）；候选在 lib.characterReplace 中时引擎照旧再随机替换；
 //   · 配置每次调用时读取，设置项切换后下一局生效。
 import { lib, game, _status } from '../../../../../noname.js';
@@ -176,14 +180,16 @@ function scoreCandidate(candidateId, identity, zhuShort) {
     return generic + specific;
 }
 
-/** 主公位无权重表数据：启发式评分（体力上限、技能数、主公技、流派适配）。 */
+/** 主公位无权重表数据：启发式评分（体力价值、技能数、主公技、流派适配）。 */
 function scoreLordCandidate(candidateId) {
     const character = lib.character[candidateId];
     if (!character) return 0;
-    let hp = character[2];
+    // 兼容两种取法：1.11+ 的 Character 对象（hp/skills 属性）与旧式数组（[2]/[3]）。
+    let hp = character.hp ?? character[2];
     if (typeof hp === 'string') hp = parseFloat(hp) || 0;
-    const skillCount = Array.isArray(character[3]) ? character[3].length : 0;
-    let score = hp * 0.5 + skillCount * 0.3;
+    const skills = character.skills ?? character[3];
+    const skillCount = Array.isArray(skills) ? skills.length : 0;
+    let score = lordHpValue(hp) * 0.5 + skillCount * 0.3;
     if (character.isZhugong) score += 1.5;
     const styles = stylesOf(candidateId);
     if (styles?.some((style) => ['防御', '辅助', '资源'].includes(style))) {
@@ -192,22 +198,48 @@ function scoreLordCandidate(candidateId) {
     return score;
 }
 
-function pickByScore(candidates, identity, zhuShort) {
-    let best = -Infinity;
-    let top = [];
-    for (const candidate of candidates) {
-        const score =
-            identity === 'zhu'
-                ? scoreLordCandidate(candidate)
-                : scoreCandidate(candidate, identity, zhuShort);
-        if (score > best) {
-            best = score;
-            top = [candidate];
-        } else if (score === best) {
-            top.push(candidate);
-        }
+/** 体力价值曲线：沿用引擎 get.condition（noname/get/index.js:6216）——体力 >4 时按 4+√(hp−4) 递减增长。
+ *  本体极端体力（兀突骨 15 / 董卓 8）若按线性计分会把主公位评分拉满，即「无脑选高体力」的根因。 */
+function lordHpValue(hp) {
+    return hp > 4 ? 4 + Math.sqrt(hp - 4) : hp;
+}
+
+// ── 取位：评分排名 + 排名概率抽取（仿太阳神 GeneralSelector）──────────────────
+// 太阳神按分值排序取前 6 名，再按累计百分位抽取（70%/15%/7%/3%/2%/2%）。
+const RANK_PROB = [70, 85, 92, 95, 97, 99];
+
+/** 按评分降序排名（主公位用主公启发式，其余用太阳神权重表）；同分随机定序，
+ *  保证并列候选等概率进入任一排名（不依赖引擎调用前的 randomSort）。 */
+function rankByScore(candidates, identity, zhuShort) {
+    return candidates
+        .map((candidate) => ({
+            candidate,
+            score:
+                identity === 'zhu'
+                    ? scoreLordCandidate(candidate)
+                    : scoreCandidate(candidate, identity, zhuShort),
+            tie: Math.random(),
+        }))
+        .sort((a, b) => b.score - a.score || a.tie - b.tie)
+        .map((item) => item.candidate);
+}
+
+/** 排名概率抽取：第 1~6 名依次 70%/15%/7%/3%/2%/2%（候选不足 6 名时末位吸收剩余概率）。
+ *  与源参考一致——权重/启发式只决定排名，抽选保留随机性，避免「每局固定同一名」。 */
+function sampleByRank(ranked) {
+    if (!ranked.length) return null;
+    const pool = ranked.slice(0, RANK_PROB.length);
+    if (pool.length === 1) return pool[0];
+    const rnd = Math.random() * 100;
+    for (let index = 0; index < RANK_PROB.length; index++) {
+        if (rnd < RANK_PROB[index]) return pool[Math.min(index, pool.length - 1)];
     }
-    return top.length ? pickRandom(top) : null;
+    return pool[pool.length - 1];
+}
+
+/** 评分模式取位（全身份一致）：评分排名 + 排名概率抽取。 */
+function pickByScore(candidates, identity, zhuShort) {
+    return sampleByRank(rankByScore(candidates, identity, zhuShort));
 }
 
 // ── 流派（style）────────────────────────────────────────────────────────────
@@ -244,7 +276,7 @@ function computePick(player, list) {
     }
 
     if (mode === 'score') {
-        return pickByScore(candidates, identity, zhuShort) ?? pickRandom(candidates);
+        return pickByScore(candidates, identity, zhuShort);
     }
     return pickByStyle(candidates, identity);
 }
@@ -367,8 +399,11 @@ export function installCharacterPickAI() {
             computePick,
             pickByScore,
             pickByStyle,
+            rankByScore,
+            sampleByRank,
             scoreCandidate,
             scoreLordCandidate,
+            lordHpValue,
             stylesOf,
             STYLE_TAGS,
             STYLE_PREFERENCE,

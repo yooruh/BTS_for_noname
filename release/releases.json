@@ -2,8 +2,8 @@
   "defaultBranch": "main",
   "releases": [
     {
-      "version": "26.10.3.2",
-      "displayVersion": "v26.10.3.2 对标太阳神v2.4",
+      "version": "26.10.3.3",
+      "displayVersion": "v26.10.3.3 对标太阳神v2.4",
       "gameVersion": ">=1.11.2",
       "branch": "main",
       "description": "崩铁杀公开测试版本",

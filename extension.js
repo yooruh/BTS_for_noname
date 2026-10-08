@@ -11,7 +11,7 @@ export let type = 'extension';
 // 结构框架借鉴"叁岛世界"（Legend of Island Three）扩展。
 export default async function () {
 	// 特别提醒+最低版本限制
-	const btsVersion = "26.10.3.2", minGameVersion = "1.10.0".split('.').slice(), gameVersion = lib.version.split('.').slice();
+	const btsVersion = "26.10.3.3", minGameVersion = "1.10.0".split('.').slice(), gameVersion = lib.version.split('.').slice();
 	// 版本号写入后的「最多自动重载一次」标记，防止写盘异常时无限重载
 	const versionReloadLock = 'bts_version_reload_lock';
 	const alertsConfig = [
