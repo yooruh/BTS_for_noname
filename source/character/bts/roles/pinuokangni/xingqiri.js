@@ -206,6 +206,7 @@ export const skill = {
             // ── 临时技·恩赐祝福（挂在目标身上，源 gamerule L1621：消费 extra_turn 标记时
             //   令目标+1暴击祝福；无名杀以目标额外回合准备阶段开始时授予、随后自卸）──
             bless: {
+                audio: 'bts_sk_enci',
                 sub: true,
                 sourceSkill: 'bts_sk_enci',
                 charlotte: true,

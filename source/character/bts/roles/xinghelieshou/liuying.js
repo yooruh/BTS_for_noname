@@ -43,6 +43,7 @@ export const skill = {
             after: {
                 // 源 max_huoying EventPhaseStart·NotActive 分支：回合结束自动 满燃+额外回合（无询问）。
                 trigger: { player: 'phaseJieshuBegin' }, // 源 NotActive 回合结束
+                audio: 'bts_sk_huoying',
                 forced: true,
                 filter(event, player) {
                     return player.countMark('bts_sk_huoying') > 0;

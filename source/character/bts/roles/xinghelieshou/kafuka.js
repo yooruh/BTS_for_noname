@@ -198,6 +198,7 @@ export const skill = {
         subSkill: {
             numb: {
                 // 源 st_canku DamageCaused 分支（Skill_Compulsory）：残酷【杀】伤害改为附加麻痹，无询问。
+                audio: 'bts_sk_canku',
                 trigger: { source: 'damageBegin1' },
                 forced: true,
                 filter(event, player) {

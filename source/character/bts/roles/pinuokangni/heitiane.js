@@ -10,6 +10,18 @@ export const character = {
         skills: ['bts_sk_biwan', 'bts_sk_jizhu', 'bts_sk_shizhui'],
     },
 };
+// 机杼 AI 口径（顶层 check 与 cost 内联 ai 共用）：只对敌方追加中毒（中毒=弃牌阶段失去1体力
+// 且手牌上限-1，源 gamerule_ex L1577-1587）；友方不加深（源 L4612-4629）。check 成立即
+//「异常伤害的受伤者为敌方」，追加1层中毒无任何代价 → 满足 ≥90% 门槛。
+export function jizhuWorth(player, target) {
+    return (
+        Boolean(target) &&
+        target !== player &&
+        target.isAlive() &&
+        get.attitude(player, target) < 0
+    );
+}
+
 export const skill = {
     // ── 必杀技·臂湾（源 st_biwan = SkillCard + ZeroCardViewAsSkill，L4589-4610）──
     // 出牌阶段，失5怒气并令至少一名其他角色各附加2层揭露异常。
@@ -70,6 +82,12 @@ export const skill = {
     bts_sk_jizhu: {
         trigger: { global: 'damageEnd' },
         logTarget: 'player',
+        // frequent:'check'：check 成立（异常伤害的受伤者为敌方）时引擎自动确认，免去每次手点；
+        // 不成立时照常弹询问。check 与 cost 内联 ai 共用 jizhuWorth。
+        check(trigger, player) {
+            return jizhuWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             // 源 L4620：受伤者 ≠ 你、reason 含 "abnormal_"（异常伤害）、且处于其回合内
             return (
@@ -79,19 +97,14 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
-            // 源 L4620：askForSkillInvoke（trigger=damageEnd 事件）
-            event.result = await player
-                .chooseBool(
-                    `机杼：是否令${get.translation(trigger.player)}附加1层中毒？`,
-                )
-                // AI 口径：只对敌方追加中毒（中毒=弃牌阶段失去1体力+手牌上限-1，源 gamerule_ex L1577-1587）；
-                // 友方不加深（源 L4612-4629）
-                .set('ai', () =>
-                    trigger.player !== player &&
-                    trigger.player.isAlive() &&
-                    get.attitude(player, trigger.player) < 0,
-                )
+            const ask = player.chooseBool(
+                `机杼：是否令${get.translation(trigger.player)}附加1层中毒？`,
+            );
+            // 本体·狂骨范式（bingshi/skill.js potkuanggu）：frequent 型触发技的自动确认须由 cost 自行
+            // 转发 frequentSkill（引擎只把它挂在 <技能>_cost 事件上）；此处仅在引擎判定命中时转发。
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
+                .set('ai', () => jizhuWorth(player, trigger.player))
                 .forResult();
         },
         async content(event, trigger, player) {

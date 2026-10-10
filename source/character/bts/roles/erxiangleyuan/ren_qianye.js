@@ -152,6 +152,7 @@ export const skill = {
             alliance: {
                 // 同盟分支（源 L9668-9677）：伤害来源非持技者、从未伤害过千冶·刃（累计 DamageLink==0）
                 // 且双方同意时，由千冶·刃代发1层煞火（来源仍记为伤害来源）。
+                audio: 'bts_sk_jinchang',
                 trigger: { global: 'damageEnd' },
                 filter(event, player) {
                     const source = event.source;

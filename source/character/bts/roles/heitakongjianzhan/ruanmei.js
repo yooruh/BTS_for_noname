@@ -14,6 +14,18 @@ export const character = {
     },
 };
 
+// 分型 AI 口径（顶层 check 与 cost 内联 ai 共用）：只对敌方发动——绽放令其进入摸牌阶段时跳过
+//（≈少摸2张）；友方/死者不发动（源 L3099-3133）。check 成立即「失去所有手牌者为敌方」，
+// 给敌方附加1层绽放无任何代价 → 满足 ≥90% 门槛。
+export function fenxingWorth(player, target) {
+    return (
+        Boolean(target) &&
+        target !== player &&
+        target.isAlive() &&
+        get.attitude(player, target) < 0
+    );
+}
+
 export const skill = {
     // ── 必杀技·摇缎（源 st_yaoduan = ZeroCardViewAsSkill，L3075-3098）──
     bts_sk_yaoduan: {
@@ -62,6 +74,12 @@ export const skill = {
     bts_sk_fenxing: {
         trigger: { global: 'loseAfter' },
         logTarget: 'player',
+        // frequent:'check'：check 成立（失去所有手牌者为敌方）时引擎自动确认，免去每次手点；
+        // 不成立时照常弹询问。check 与 cost 内联 ai 共用 fenxingWorth。
+        check(trigger, player) {
+            return fenxingWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             if (!event.player || event.player === player) return false;
             // 源 L3265：from_places 含手牌 且 失去的是最后手牌 —— 空手弃装备不触发
@@ -73,19 +91,16 @@ export const skill = {
             return true;
         },
         async cost(event, trigger, player) {
-            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
-            event.result = await player
-                .chooseBool(
-                    '分型：是否令' +
-                        get.translation(trigger.player) +
-                        '附加1层绽放？',
-                )
-                // AI 口径：只对敌方发动——绽放令其进入摸牌阶段时跳过（≈少摸2张）；友方/死者不发动（源 L3099-3133）
-                .set('ai', () =>
-                    trigger.player !== player &&
-                    trigger.player.isAlive() &&
-                    get.attitude(player, trigger.player) < 0,
-                )
+            const ask = player.chooseBool(
+                '分型：是否令' +
+                    get.translation(trigger.player) +
+                    '附加1层绽放？',
+            );
+            // 本体·狂骨范式（bingshi/skill.js potkuanggu）：frequent 型触发技的自动确认须由 cost 自行
+            // 转发 frequentSkill（引擎只把它挂在 <技能>_cost 事件上）；此处仅在引擎判定命中时转发。
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
+                .set('ai', () => fenxingWorth(player, trigger.player))
                 .forResult();
         },
         async content(event, trigger, player) {

@@ -43,3 +43,10 @@ bts_ch_yinlang_lv999.bgm
 
 # 2026-10-04：阵亡语音豁免（换肤 substitution、无角色注册的遗留项——原 --audio 警告基线）
 bts_ch_shiwaluo.die
+
+# 2026-10-09：diy 包首个角色——技能语音/阵亡/BGM 三域均无音频素材，整体豁免
+bts_diy_ch_baie_yingxing.all
+
+# 2026-10-09：真珠（二相乐园 BOSS 包）——太阳神源侧无角色曲（与 aha 同列），BGM 域豁免；
+# 技能/阵亡语音无音频素材（台词键已注释保留），清单照常列出「缺音频（待补）」占位。
+bts_ch_zhenzhu.bgm

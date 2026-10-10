@@ -151,28 +151,27 @@ export const skill = {
     // 你可以弃置一张【杀】获得3枚记忆标记，于下个回合的回合结束前拥有乐土（临时乐土）。
     // （无名杀 phaseAfter 即回合结束事件，与源 EventPhaseStart+NotActive 同义；
     //   临时乐土于下个自己的回合结束时回收，源 L9187-9189 同款。）
+    // 结构：「他人回合结束 +1 记忆」（源 L9191-9193，每名他人的回合都来一次、纯收益）拆为子技能
+    //   other 并标 frequent——引擎 checkFrequent 命中即给 chooseBool 打 frequentSkill，chooseBool 见之
+    //   直接 ui.click.ok()（content.js:3607-3621 / 7676），免去每回合手动点确定；可选性质不变
+    //   （仍走 chooseBool，只是自动确认）。自己回合结束的复杂交互（弃【杀】重获乐土）留在本技能
+    //   cost/content，不受影响——子技能 filter 已排除自己回合。
     bts_sk_zhongyuan: {
-        trigger: { global: 'phaseAfter' },
+        trigger: { player: 'phaseAfter' },
+        // 子技能随父挂载（expandSkills 按 group 展开；本库范式：bts_sk_shijie_damage / bts_sk_liubu_take）
+        group: ['bts_sk_zhongyuan_other'],
+        // 本体范式（界限突破·奋励 refenli、一将成名·奋励 fenli：group + subfrequent + subSkill 子技自带 frequent）：
+        // subfrequent 把「自动发动」开关挂到本技能条目上，控制 <父>_<子>（get/index.js 读它渲染开关；
+        // ui/click autoskill2 写 autoskilllist；chooseBool 再读 autoskilllist 决定是否自动确认）。
+        subfrequent: ['other'],
         filter(event, player) {
-            // 源 L9191：他人回合结束 → 可获1记忆
-            if (event.player !== player) return true;
             // 源 L9187-9196：自己回合结束 → 有临时乐土需回收 / 无乐土且手牌有【杀】可弃
             if (player.hasSkill('bts_sk_letu'))
                 return player.getStorage('bts_mk_zhongyuan_used', false);
             return player.getCards('h').some((card) => get.name(card) === 'sha');
         },
         async cost(event, trigger, player) {
-            // trigger=phaseAfter 事件，event.player=回合结束者
-            // 源 L9191：他人回合结束 → askForSkillInvoke（可选获得1记忆）
-            if (trigger.player !== player) {
-                event.result = await player
-                    .chooseBool('众愿：是否获得1枚记忆标记？')
-                    // AI 口径：本移植由昔涟自决、纯收益无代价，恒取
-                    //（源 st_zhongyuan 由回合结束者征询、按「其视昔涟为友」门控——决策归属差异）
-                    .set('ai', () => true)
-                    .forResult();
-                return;
-            }
+            // trigger=phaseAfter 事件（仅自己回合——他人回合的「+1 记忆」已移入子技能 other）
             // 源 L9187-9189：自己回合结束且有临时乐土 → 直接回收（无交互）
             if (
                 player.hasSkill('bts_sk_letu') &&
@@ -207,11 +206,6 @@ export const skill = {
         },
         async content(event, trigger, player) {
             // trigger=phaseAfter 事件；event.cost_data/event.cards 为自选结果（标准约定）
-            if (trigger.player !== player) {
-                // 源 L9193：p:gainMark("@jiyi") —— 他人回合结束得1记忆
-                player.addMark('bts_mk_jiyi', 1);
-                return;
-            }
             if (event.cost_data?.strip) {
                 // 源 L9187-9189：临时乐土于下个自己回合结束回收（移除技能并清标记）
                 player.setStorage('bts_mk_zhongyuan_used', false, true);
@@ -227,6 +221,28 @@ export const skill = {
             player.addMark('bts_mk_letu_active', 1);
         },
         ai: { result: { player: 1 } },
+        subSkill: {
+            // ── 众愿·他人回合（源 L9191-9193）──
+            // 他人回合结束时你可以获得1枚记忆。纯收益无代价（本移植由昔涟自决、恒取）→ frequent 让
+            // 引擎自动确认，不再每回合手点确定（源由回合结束者征询、按「其视昔涟为友」门控——决策归属差异）。
+            // 译名由引擎 subSkill 注册自动继承父技能（lib.translate[子] = lib.translate[父] = '众愿'，
+            // game/index.js:8259-8263），故 logSkill/popup 与拆分前一致；audio 直接写父技键＝复用父技能
+            // 语音（本体范式：奋励子技 audio:"refenli"；引擎按技能名取该技 audio，get/audio.js:194）。
+            other: {
+                audio: 'bts_sk_zhongyuan',
+                trigger: { global: 'phaseAfter' },
+                frequent: true,
+                prompt: '众愿：是否获得1枚记忆标记？',
+                filter(event, player) {
+                    // 他人回合结束（自己回合走父技能 cost/content）
+                    return event.player !== player;
+                },
+                async content(event, trigger, player) {
+                    // 源 L9193：p:gainMark("@jiyi") —— 他人回合结束得1记忆
+                    player.addMark('bts_mk_jiyi', 1);
+                },
+            },
+        },
     },
 
     // ── 关联技·乐土（源 st_letu = FilterSkill，L9222-9233）──

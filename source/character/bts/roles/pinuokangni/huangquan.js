@@ -74,6 +74,7 @@ export const skill = {
         subSkill: {
             // 蚀（源 st_canmeng_dis，L4793-4813）：额外出牌阶段限三次，弃置一名角色一张牌并标记。
             dis: {
+                audio: 'bts_sk_canmeng',
                 enable: 'phaseUse',
                 filter(event, player) {
                     return (
@@ -134,6 +135,7 @@ export const skill = {
             // 残梦出牌阶段结束结算（源 st_canmeng L4826-4842）：
             // 出牌阶段结束时对被蚀角色各造成1点伤害，并解除全场封锁。
             finisher: {
+                audio: 'bts_sk_canmeng',
                 trigger: { player: ['phaseAfter', 'death'] },
                 forced: true,
                 filter(event, player, triggername) {

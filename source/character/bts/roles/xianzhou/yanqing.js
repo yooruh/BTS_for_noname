@@ -99,6 +99,7 @@ export const skill = {
         subSkill: {
             follow: {
                 // 源 L6331-6333：Damage 后 ViewAsCardOnly —— 视为对受伤者使用【杀】
+                audio: 'bts_sk_hujian',
                 trigger: { source: 'damageEnd' },
                 forced: true,
                 filter(event, player) {
@@ -123,6 +124,7 @@ export const skill = {
             },
             freeze: {
                 // 源 L6326-6328：呼剑追击【杀】造成伤害时改为附加冻结（呼剑为锁定技、转换无询问）→ forced。
+                audio: 'bts_sk_hujian',
                 trigger: { source: 'damageBegin1' },
                 forced: true,
                 filter(event) {

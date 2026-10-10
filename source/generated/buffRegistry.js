@@ -74,6 +74,7 @@ export const MARKS_REGISTRY = {
         'bts_pet_yijiang'
     ],
     'mark': [
+        'bts_diy_mk_huozhong',
         'bts_mk_aha_pending',
         'bts_mk_angry',
         'bts_mk_baihua',
@@ -286,6 +287,7 @@ export const BUFF_GLOSSARY = {
     'bts_bless_zhigaozhizi': 'bts_glossary_bless_zhigaozhizi_faq',
     'bts_bless_zhisheng': 'bts_glossary_bless_zhisheng_faq',
     'bts_bless_zhiyu': 'bts_glossary_bless_zhiyu_faq',
+    'bts_diy_mk_huozhong': 'bts_diy_glossary_huozhong_faq',
     'bts_mk_angry': 'bts_glossary_nuqi_faq',
     'bts_mk_baihua': 'bts_glossary_baihua_faq',
     'bts_mk_canmeng': 'bts_glossary_canmeng_faq',

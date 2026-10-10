@@ -67,6 +67,7 @@ export const skill = {
                 // 伤害令目标 +1 乱蝶。定夺挂 damageBefore（最早钩子，先于 damageBegin1-4；《技能开发
                 // 规范》A13），先于雪球的 damageEnd「已持有」门控；打无乱蝶目标：先 +1、雪球再 +1 = 共 2 层。
                 // 源为 events 自动触发（无询问）→ forced（否则每次乱蝶伤害都多弹一次「是否发动」）。
+                audio: 'bts_sk_luandie',
                 trigger: { source: 'damageBefore' },
                 forced: true,
                 filter(event, player) {
@@ -154,6 +155,7 @@ export const skill = {
             // ExtraPhase(Play)）。连击：杀于额外出牌期再续——本实现于「额外 Play 阶段结束」重判标记。
             chase: {
                 // 源 L4180-4190 为锁定技内部自动结算（events 无询问）→ forced。
+                audio: 'bts_sk_zaixian',
                 trigger: { player: 'phaseAfter' },
                 forced: true,
                 filter(event, player) {

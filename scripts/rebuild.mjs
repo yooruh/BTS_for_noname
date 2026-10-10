@@ -16,13 +16,17 @@ import { dirname, relative, resolve, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PATHS, log, readText, writeText } from './lib/shared.mjs';
 import { menu, closeInteractive } from './lib/interactive.mjs';
-import { loadRoleMods } from './lib/roles.mjs';
+import {
+    PACKS,
+    loadRoleMods,
+    packIndexPathOf,
+    packOfKey,
+    rolesRootOf,
+} from './lib/roles.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, '..');
 const SELF_PATH = fileURLToPath(import.meta.url);
-const rolesRoot = resolve(ROOT, 'source', 'character', 'bts', 'roles');
-const packIndexPath = resolve(ROOT, 'source', 'character', 'bts', 'index.js');
 const manifestPath = resolve(ROOT, 'source', 'tool', 'pack', 'manifest.js');
 const bgmListPath = resolve(ROOT, 'source', 'bgm-list.js');
 const FACTIONS = new Set([
@@ -60,64 +64,78 @@ function getDirectories(directory) {
         .sort();
 }
 
-/** 扫描八阵营角色文件并校验，返回模块相对路径（roles/<阵营>/<文件>）与错误。 */
+/** 扫描各角色包的阵营角色文件并校验，返回按包分组的模块相对路径（roles/<阵营>/<文件>）与错误。 */
 export async function scanRoles() {
-    const modules = [];
+    const packs = [];
     const errors = [];
     const characterIds = new Set();
     const skillIds = new Set();
     const translateIds = new Set();
-    // 直接 import 角色文件读 character/skill/translate/sort（lib/roles.mjs 缓存）——
-    // 注释掉的块 import 不可见，不会误当作定义（不再用正则解析源码）。
-    const roleMods = await loadRoleMods(rolesRoot);
-    for (const faction of getDirectories(rolesRoot)) {
-        if (!FACTIONS.has(faction)) {
-            errors.push(`未知阵营目录：roles/${faction}`);
+    for (const pack of PACKS) {
+        const rolesRoot = rolesRootOf(pack.dir);
+        const modules = [];
+        if (!existsSync(rolesRoot)) {
+            packs.push({ ...pack, rolesRoot, modules });
             continue;
         }
-        const directory = join(rolesRoot, faction);
-        const files = readdirSync(directory, { withFileTypes: true })
-            .filter(
-                (entry) =>
-                    entry.isFile() &&
-                    entry.name.endsWith('.js') &&
-                    !entry.name.startsWith('_'),
-            )
-            .map((entry) => basename(entry.name, '.js'))
-            .sort();
-        for (const file of files) {
-            const relativePath = `roles/${faction}/${file}`;
-            const mod = roleMods.get(join(directory, `${file}.js`));
-            const chars = Object.keys(mod?.character ?? {});
-            const skills = Object.keys(mod?.skill ?? {});
-            const translates = Object.keys(mod?.translate ?? {});
-            const sort = mod?.sort;
-            if (chars.length !== 1 || !chars[0].startsWith('bts_'))
-                errors.push(
-                    `${relativePath} 必须且只能定义一个 bts_ 前缀主角色`,
-                );
-            if (sort !== faction)
-                errors.push(`${relativePath} 的 sort 必须为 ${faction}`);
-            if (chars[0] && !translates.includes(chars[0]))
-                errors.push(`${relativePath} 缺少角色翻译 ${chars[0]}`);
-            if (chars[0] && !chars[0].slice(7).startsWith(file))
-                errors.push(`${relativePath} 文件名必须是角色 ID 的资源主名`);
-            for (const id of chars) {
-                if (characterIds.has(id)) errors.push(`重复角色 ID：${id}`);
-                characterIds.add(id);
+        // 直接 import 角色文件读 character/skill/translate/sort（lib/roles.mjs 缓存）——
+        // 注释掉的块 import 不可见，不会误当作定义（不再用正则解析源码）。
+        const roleMods = await loadRoleMods(rolesRoot);
+        for (const faction of getDirectories(rolesRoot)) {
+            if (!FACTIONS.has(faction)) {
+                errors.push(`${pack.dir}/roles/${faction}：未知阵营目录`);
+                continue;
             }
-            for (const id of skills) {
-                if (skillIds.has(id)) errors.push(`重复技能 ID：${id}`);
-                skillIds.add(id);
+            const directory = join(rolesRoot, faction);
+            const files = readdirSync(directory, { withFileTypes: true })
+                .filter(
+                    (entry) =>
+                        entry.isFile() &&
+                        entry.name.endsWith('.js') &&
+                        !entry.name.startsWith('_'),
+                )
+                .map((entry) => basename(entry.name, '.js'))
+                .sort();
+            for (const file of files) {
+                const relativePath = `roles/${faction}/${file}`;
+                const where = `${pack.dir}/${relativePath}`;
+                const mod = roleMods.get(join(directory, `${file}.js`));
+                const chars = Object.keys(mod?.character ?? {});
+                const skills = Object.keys(mod?.skill ?? {});
+                const translates = Object.keys(mod?.translate ?? {});
+                const sort = mod?.sort;
+                if (chars.length !== 1 || !chars[0].startsWith(pack.idPrefix))
+                    errors.push(
+                        `${where} 必须且只能定义一个 ${pack.idPrefix} 前缀主角色`,
+                    );
+                if (sort !== faction)
+                    errors.push(`${where} 的 sort 必须为 ${faction}`);
+                if (chars[0] && !translates.includes(chars[0]))
+                    errors.push(`${where} 缺少角色翻译 ${chars[0]}`);
+                if (
+                    chars[0] &&
+                    !chars[0].slice(pack.idPrefix.length).startsWith(file)
+                )
+                    errors.push(`${where} 文件名必须是角色 ID 的资源主名`);
+                for (const id of chars) {
+                    if (characterIds.has(id)) errors.push(`重复角色 ID：${id}`);
+                    characterIds.add(id);
+                }
+                for (const id of skills) {
+                    if (skillIds.has(id)) errors.push(`重复技能 ID：${id}`);
+                    skillIds.add(id);
+                }
+                for (const id of translates) {
+                    if (translateIds.has(id))
+                        errors.push(`重复翻译键：${id}`);
+                    translateIds.add(id);
+                }
+                modules.push(relativePath);
             }
-            for (const id of translates) {
-                if (translateIds.has(id)) errors.push(`重复翻译键：${id}`);
-                translateIds.add(id);
-            }
-            modules.push(relativePath);
         }
+        packs.push({ ...pack, rolesRoot, modules });
     }
-    return { modules, errors };
+    return { packs, errors };
 }
 
 function replaceIfChanged(filePath, next, checkOnly) {
@@ -127,25 +145,29 @@ function replaceIfChanged(filePath, next, checkOnly) {
     return true;
 }
 
-function updateRoleIndex(modules, checkOnly) {
-    const source = readText(packIndexPath);
+function updateRoleIndex(pack, checkOnly) {
+    const source = readText(packIndexPathOf(pack.dir));
     // JSON.stringify(modules, null, 4)：多行 4 空格数组；键/值替换为单引号、
     // 补尾随逗号，与 prettier 输出逐字节一致（保证 rebuild 幂等）。
     const next = source.replace(
         /const ROLE_FILES\s*=\s*\[[\s\S]*?\];/,
-        `const ROLE_FILES = ${JSON.stringify(modules, null, 4)
+        `const ROLE_FILES = ${JSON.stringify(pack.modules, null, 4)
             .replace(/"([^"]+)"/g, "'$1'")
             .replace(/\n\]$/, ',\n]')};`,
     );
     if (next === source && !/const ROLE_FILES\s*=/.test(source))
-        throw new Error('未找到 bts/index.js 的 ROLE_FILES');
-    return replaceIfChanged(packIndexPath, next, checkOnly);
+        throw new Error(`未找到 ${pack.dir}/index.js 的 ROLE_FILES`);
+    return replaceIfChanged(packIndexPathOf(pack.dir), next, checkOnly);
 }
 
 function updateManifest(checkOnly) {
     const source = readText(manifestPath);
+    const packList = PACKS.map((pack) => `'${pack.dir}/index'`).join(', ');
     const next = source
-        .replace(/(CHARACTER_PACK_FILES\s*=\s*)\[[^\]]*\]/, "$1['bts/index']")
+        .replace(
+            /(CHARACTER_PACK_FILES\s*=\s*)\[[^\]]*\]/,
+            `$1[${packList}]`,
+        )
         .replace(/(CARD_PACK_FILES\s*=\s*)\[[^\]]*\]/, "$1['bts_cd/index']");
     return replaceIfChanged(manifestPath, next, checkOnly);
 }
@@ -244,14 +266,15 @@ export function updateDirectoryJson(checkOnly = false) {
 }
 
 export async function rebuildProject({ checkOnly = false, silent = false } = {}) {
-    const { modules, errors } = await scanRoles();
+    const { packs, errors } = await scanRoles();
     if (errors.length)
         throw new Error(`角色校验失败：\n- ${errors.join('\n- ')}`);
+    const roleCount = packs.reduce((sum, pack) => sum + pack.modules.length, 0);
     const results = [
-        {
-            file: 'source/character/bts/index.js',
-            changed: updateRoleIndex(modules, checkOnly),
-        },
+        ...packs.map((pack) => ({
+            file: `source/character/${pack.dir}/index.js`,
+            changed: updateRoleIndex(pack, checkOnly),
+        })),
         {
             file: 'source/tool/pack/manifest.js',
             changed: updateManifest(checkOnly),
@@ -267,7 +290,7 @@ export async function rebuildProject({ checkOnly = false, silent = false } = {})
             .filter((result) => result.changed)
             .map((result) => result.file);
         log.ok(
-            `已校验 ${modules.length} 个角色；${changed.length ? `${checkOnly ? '存在待同步文件' : '已同步'}：${changed.join('、')}` : '所有清单已是最新'}`,
+            `已校验 ${roleCount} 个角色；${changed.length ? `${checkOnly ? '存在待同步文件' : '已同步'}：${changed.join('、')}` : '所有清单已是最新'}`,
         );
     }
     return results;
@@ -317,16 +340,15 @@ function loadDieExemptPatterns() {
 }
 
 /**
- * 生成角色包静态技能音频行数表（audio/skill/bts_<skill><n>.mp3 → source/character/bts/audio.js；
+ * 生成角色包静态技能音频行数表（audio/skill/bts_<skill><n>.mp3 → source/character/<包>/audio.js；
  * 运行时由 registry.js fillSkillAudio 按 ext: 前缀转换），并交叉校验语音/阵亡字幕键与 mp3 一一对应。
  * @returns {{changed: boolean, errorCount: number}}
  */
 export async function rebuildAudioMap({ checkOnly = false } = {}) {
     const audioDir = resolve(ROOT, 'audio', 'skill');
     const dieDir = resolve(ROOT, 'audio', 'die');
-    const outputPath = resolve(ROOT, 'source', 'character', 'bts', 'audio.js');
 
-    // 1) 技能音频行数表
+    // 1) 技能音频行数表（按角色包分文件：audio/skill 全量扫一次，键按 PACKS 前缀归属）
     const counts = {};
     for (const full of listDirFiles(audioDir, '.mp3')) {
         const match = /^(bts_[\w]+?)(\d+)$/.exec(basename(full, '.mp3'));
@@ -337,24 +359,30 @@ export async function rebuildAudioMap({ checkOnly = false } = {}) {
     const ordered = Object.fromEntries(
         Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)),
     );
-    const audioLines = Object.entries(ordered)
-        .map(([skill, count]) => `    '${skill}': ${count},`)
-        .join('\n');
-    const next = [
-        '// 本文件由 scripts/rebuild.mjs 根据 audio/skill 自动生成，请勿手动编辑。',
-        '// 键为 bts_ 技能 ID，值为可随机播放的语音行数。',
-        'export const AUDIO_COUNTS = {',
-        audioLines,
-        '};',
-    ].join('\n');
-    let previous = '';
-    try {
-        previous = readText(outputPath);
-    } catch {
-        /* 首次生成 */
+    let changed = false;
+    for (const pack of PACKS) {
+        const audioLines = Object.entries(ordered)
+            .filter(([skill]) => (packOfKey(skill) ?? PACKS[0]).dir === pack.dir)
+            .map(([skill, count]) => `    '${skill}': ${count},`)
+            .join('\n');
+        const next = [
+            '// 本文件由 scripts/rebuild.mjs 根据 audio/skill 自动生成，请勿手动编辑。',
+            '// 键为 bts_ 技能 ID，值为可随机播放的语音行数。',
+            'export const AUDIO_COUNTS = {',
+            audioLines,
+            '};',
+        ].join('\n');
+        const outputPath = resolve(ROOT, 'source', 'character', pack.dir, 'audio.js');
+        let previous = '';
+        try {
+            previous = readText(outputPath);
+        } catch {
+            /* 首次生成 */
+        }
+        if (previous === next) continue;
+        changed = true;
+        if (!checkOnly) writeText(outputPath, next);
     }
-    const changed = previous !== next;
-    if (!checkOnly && changed) writeText(outputPath, next);
 
     // 2) 语音/阵亡字幕键 ↔ mp3 交叉校验：直接 import 读 translate 的 $ / ~ 键（lib/roles.mjs
     // 缓存）；注释掉的语音键 import 不可见 → 视为未声明（rebuild --audio --check 的「注释豁免」）。
@@ -362,13 +390,15 @@ export async function rebuildAudioMap({ checkOnly = false } = {}) {
     const declaredDies = new Set();
     // 阵亡检查豁免（scripts/voice-exclude.txt 的 .die/.all 条目；与 voice.mjs 共用清单）
     const dieExempt = loadDieExemptPatterns();
-    const roleMods = await loadRoleMods(rolesRoot);
-    for (const [, mod] of roleMods) {
-        for (const [k] of Object.entries(mod.translate ?? {})) {
-            let m = /^\$(bts_[\w]+?)(\d+)$/.exec(k);
-            if (m) { (declaredSkill[m[1]] ??= new Set()).add(Number(m[2])); continue; }
-            m = /^~(bts_[A-Za-z0-9_]+)$/.exec(k);
-            if (m) declaredDies.add(m[1]);
+    for (const pack of PACKS) {
+        const roleMods = await loadRoleMods(rolesRootOf(pack.dir));
+        for (const [, mod] of roleMods) {
+            for (const [k] of Object.entries(mod.translate ?? {})) {
+                let m = /^\$(bts_[\w]+?)(\d+)$/.exec(k);
+                if (m) { (declaredSkill[m[1]] ??= new Set()).add(Number(m[2])); continue; }
+                m = /^~(bts_[A-Za-z0-9_]+)$/.exec(k);
+                if (m) declaredDies.add(m[1]);
+            }
         }
     }
 

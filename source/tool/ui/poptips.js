@@ -1,10 +1,10 @@
 // 崩铁杀 poptip 注册：
 //  - 为包内全部角色注册 character 类型 poptip（描述中可引用角色名查看资料卡）；
-//  - 为专有名词词条注册 poptip（get.poptip('bts_glossary_*') 悬浮/点击查看解释）。
+//  - 为专有名词词条注册 poptip（get.poptip('bts_glossary_*') / 'bts_diy_glossary_*' 悬浮/点击查看解释）。
 // content 阶段在角色包注册完成后调用（lib.bts.characterPacks 消费前）。
 // 词条正文拆分归位：通用机制词条在 rules/globalrules.js、角色专属在各角色文件 glossary，
-// 由 bts/index.js 聚合进包 translate；此处遍历各包 translate 的 /^bts_glossary_.+_faq$/
-// 键注册（对应 *_info 键自动排除）。
+// 由 <包>/index.js 聚合进包 translate；此处遍历各包 translate 的
+// /^bts_(?:[a-z]+_)?glossary_.+_faq$/ 键注册（对应 *_info 键自动排除）。
 import { lib } from '../../../../../noname.js';
 import { NATURES } from '../../rules/natures.js';
 import { NATURE_OFFICIAL_NAME, PATH_BY_NAME } from './title.js';
@@ -24,7 +24,7 @@ export function registerPoptips(characterPacks) {
         }
         const translate = pack?.translate || {};
         for (const id of Object.keys(translate)) {
-            if (!/^bts_glossary_.+_faq$/.test(id)) continue;
+            if (!/^bts_(?:[a-z]+_)?glossary_.+_faq$/.test(id)) continue;
             lib.poptip.add({
                 id,
                 name: translate[id],

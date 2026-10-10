@@ -42,6 +42,7 @@ export const skill = {
         subSkill: {
             // 回合结束收尾（源 st_tianliu TriggerSkill NotActive，L5286-5294）
             jieyin: {
+                audio: 'bts_sk_tianliu',
                 trigger: { player: ['phaseAfter', 'death'] },
                 forced: true,
                 filter(event, player) {

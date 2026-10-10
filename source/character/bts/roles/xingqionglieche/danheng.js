@@ -169,6 +169,7 @@ export const skill = {
         subSkill: {
             fossilize: {
                 // 源 L1821-1826 为疾雨效果自动追加（无询问）→ forced。
+                audio: 'bts_sk_jiyu',
                 trigger: { source: 'damageEnd' },
                 forced: true,
                 filter(event, player) {

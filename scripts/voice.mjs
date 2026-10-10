@@ -23,14 +23,15 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { menu, prompt, confirm, closeInteractive } from './lib/interactive.mjs';
-import { loadRoleMods } from './lib/roles.mjs';
+import { PACKS, loadAllRoleMods, relRolePath, rolesRootOf } from './lib/roles.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DOC = resolve(root, '..', '文档', '技能语音字幕填充清单.md');
 const audioSkill = join(root, 'audio', 'skill');
 const audioDie = join(root, 'audio', 'die');
 const audioBgm = join(root, 'audio', 'bgm');
-const rolesRoot = join(root, 'source', 'character', 'bts', 'roles');
+// 各角色包的角色目录（bts / diy…；新增角色包只需登记 lib/roles.mjs 的 PACKS）
+const ROLE_ROOTS = PACKS.map((pack) => rolesRootOf(pack.dir));
 
 const cmd = process.argv[2];
 // 是否写盘：命令行 --apply 置 true；交互菜单里选 write 时再用 y/N 二次确认（见 run()）
@@ -39,6 +40,12 @@ let applyWrite = process.argv.includes('--apply');
 async function walk(dir, ext) {
   const out = [];
   try { async function go(d) { for (const e of await readdir(d, { withFileTypes: true })) { const f = join(d, e.name); if (e.isDirectory()) await go(f); else if (e.isFile() && e.name.endsWith(ext)) out.push(f); } } await go(dir); } catch {}
+  return out;
+}
+/** 全部角色包的角色文件（bts + diy…）。 */
+async function allRoleFiles() {
+  const out = [];
+  for (const dir of ROLE_ROOTS) out.push(...(await walk(dir, '.js')));
   return out;
 }
 const esc = (s) => s.replace(/\|/g, '\\|');
@@ -50,13 +57,13 @@ const dieFiles = new Set((await walk(audioDie, '.mp3')).map((f) => basename(f, '
 const bgmFiles = new Set((await walk(audioBgm, '.mp3')).map((f) => basename(f, '.mp3')));
 // ── 角色数据：经 lib/roles.mjs 直接 import 角色对象 ──
 // mod.character（含 skills）、mod.transformCharacter（形态/_and_）、mod.skill 顶层键、mod.translate（$ / ~ 台词键）。
-const roleMods = await loadRoleMods();
+const roleMods = await loadAllRoleMods();
 // 角色结构：cInfo(全角色/形态 id)、skillOwner(技能→所属)、dieReuse(形态→主角色)、roleFile(id→文件)、comboIds(_and_ 组合)。
 const cInfo = {}, skillOwner = {}, nameById = {}, dieReuse = {}, roleFile = {};
 const comboIds = new Set();
 const cjk = (s) => /[一-鿿]/.test(s);
 for (const [full, mod] of roleMods) {
-  const rel = full.slice(rolesRoot.length + 1).replace(/\\/g, '/');
+  const rel = relRolePath(full);
   const fileStem = basename(rel, '.js');
   const faction = dirname(rel);
   const chars = Object.entries(mod.character ?? {}).map(([id, def]) => ({ id, skills: def?.skills ?? [] }));
@@ -285,10 +292,10 @@ function translateEnd(src) {
 
 async function writeBack() {
   const activeVal = {}, keptKeys = new Set();
-  for (const full of await walk(rolesRoot, '.js')) {
+  for (const full of await allRoleFiles()) {
     const src = await readFile(full, 'utf8');
     const mod = roleMods.get(full);
-    const fileStem = basename(full.slice(rolesRoot.length + 1).replace(/\\/g, '/'), '.js');
+    const fileStem = basename(relRolePath(full), '.js');
     const charKey = Object.keys(mod?.character ?? {})[0] || `bts_ch_${fileStem}`;
     // 活动台词键（非注释 $ / ~）：import 只见非注释键，直接读 translate 对象；
     // 注释掉的台词键（// '$…'/ '~…'）import 不可见，仍用文本扫（write 跳过、不误判为待插）
@@ -426,7 +433,7 @@ async function reorganize() {
 const VOICE_KEY_LINE = /^\s*(?:['"]?)((?:\$bts_[\w]+\d)|(?:~bts_[\w]+))['"]?\s*:/;
 async function clearVoiceKeys() {
   let removed = 0, files = 0;
-  for (const full of await walk(rolesRoot, '.js')) {
+  for (const full of await allRoleFiles()) {
     const src = await readFile(full, 'utf8');
     const lines = src.split('\n');
     const start = lines.findIndex((l) => /\bexport\s+const\s+translate\s*=\s*\{/.test(l));
@@ -464,7 +471,7 @@ async function clearVoiceKeys() {
 async function syncDie() {
   let copied = 0, files = 0;
   const missingMain = new Set();
-  for (const full of await walk(rolesRoot, '.js')) {
+  for (const full of await allRoleFiles()) {
     const mod = roleMods.get(full);
     const chars = Object.keys(mod?.character ?? {});
     const morphs = Object.keys(mod?.transformCharacter ?? {});

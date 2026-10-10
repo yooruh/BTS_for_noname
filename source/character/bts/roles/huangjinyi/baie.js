@@ -488,6 +488,7 @@ export const skill = {
             // ③ phaseEnd 兜底：活跃中且无待执行波次/弑魂回合、不在链推进中 → 链停滞，收尾。
             //（不用 phaseZhunbeiBegin——白厄自续阶段伪回合也以其开始，会误触。）
             huanyuan: {
+                audio: 'bts_sk_fanshi',
                 sub: true,
                 sourceSkill: 'bts_sk_fanshi',
                 trigger: { player: ['dying', 'phaseEnd', 'dieAfter'] },

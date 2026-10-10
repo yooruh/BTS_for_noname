@@ -15,6 +15,13 @@ export const character = {
     },
 };
 
+// 泛音 AI 口径（顶层 check 与 cost 内联 ai 共用）：只送友方——海妖祝福把「造成伤害」转为给受害方
+// 附加异常，交给敌方攻击者反而替受害目标上异常（源 AI st_fanyin=asFriend(self,data)=严格友方，
+// StarRail-ai.lua L1371）。check 成立即「弃【杀】者为友方」，赠1层祝福无任何代价 → 满足 ≥90% 门槛。
+export function fanyinWorth(player, target) {
+    return Boolean(target) && target !== player && get.attitude(player, target) > 0;
+}
+
 export const skill = {
     // ── 必杀技·海曲（源 st_haiqu = SkillCard + ZeroCardViewAsSkill，L8487-8508）──
     // 出牌阶段，失5怒气，附加3层绝海祝福（组合形态时改为5层）。
@@ -92,27 +99,41 @@ export const skill = {
                     `海妖：是否弃置一张手牌？`,
                 )
                 // AI 口径：出牌者视角——弃一摸一（净换牌），出分值最低的手牌；垫底也≥6分则放弃
-                //（最高分≤0→引擎取消，同风堇·虹光 ai1 范式）
-                .set('ai', (card) =>
-                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
-                )
+                //（最高分≤0→引擎取消，同风堇·虹光 ai1 范式）。另源 AI getTurnUseCard 仅在
+                //「存在友方（或非敌）海瑟音」时才发起（StarRail-ai.lua L1307-1322）——敌方
+                //海瑟音会拒绝摸牌（弃出的牌收不回），故无友方海瑟音时直接放弃。
+                .set('ai', (card) => {
+                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                    const friendlyHaiyao = game.hasPlayer(
+                        (p) =>
+                            p !== target &&
+                            p.isAlive() &&
+                            p.hasSkill('bts_sk_haiyao') &&
+                            get.attitude(target, p) >= 0,
+                    );
+                    if (!friendlyHaiyao) return -1;
+                    return 6 - get.value(card);
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
-            // 源 L8510-8512：先由在场海瑟音（player）同意，同意才弃当摸
+            // 源 L8510-8512：出牌者以「弃1张手牌」使用 give 技能卡——弃牌是使用的自带成本、
+            // 不受海瑟音同意门控；同意与否只决定出牌者是否摸1（源 on_use 中 drawCards(1)
+            // 位于 askForSkillInvoke 同意分支内）。对齐二轮审校#9「出牌者弃1张，海瑟音同意
+            // 后出牌者自己摸1」——弃牌先行，杜绝「已选牌却不弃」。
             const target = trigger.player;
-            if (!event.cards?.length) return; // cost 未弃牌则无效果
+            if (!event.cards?.length) return; // cost 未弃牌则无效果（选择取消＝未使用技能卡）
+            await target.discard(event.cards); // 弃牌（代价）：不受同意门控
+            target.setStorage('bts_mk_haiyao_used', true, true); // 已以此法弃牌：此后首次受伤将失效
             const consent = await player
                 .chooseBool(
-                    `海妖：是否同意${get.translation(target)}弃置一张手牌并摸一张牌？`,
+                    `海妖：是否同意${get.translation(target)}摸一张牌？`,
                 )
-                // AI 口径：弃一摸一全部归出牌者，海瑟音自身无收益——只在友方或中立时同意
+                // AI 口径：摸牌归出牌者，海瑟音自身无收益——只在友方或中立时同意
                 //（源 AI st_haiyao_give=asFriend(self,data,true)=isFriend 或非 isEnemy，StarRail-ai.lua L1367）
                 .set('ai', () => get.attitude(player, target) >= 0)
                 .forResult();
-            if (!consent.bool) return; // 海瑟音拒绝：不弃牌不摸
-            await target.discard(event.cards); // 结算：真正弃牌（cost 已选择，弃牌移 content）
-            target.setStorage('bts_mk_haiyao_used', true, true);
+            if (!consent.bool) return; // 海瑟音拒绝：仅失去摸牌（弃牌已发生）
             await target.draw(target, 1); // 源 L8512：出牌者 player 自己摸一张（弃一摸一）
         },
         group: ['bts_sk_haiyao_lock'],
@@ -141,6 +162,12 @@ export const skill = {
     // 其他角色于其出牌阶段弃置【杀】后，你可以令其获得1层海妖祝福。
     bts_sk_fanyin: {
         trigger: { global: 'loseAfter' },
+        // frequent:'check'：check 成立（弃【杀】者为友方）时引擎自动确认，免去每次手点；
+        // 不成立（敌方弃【杀】）时照常弹询问。check 与 cost 内联 ai 共用 fanyinWorth。
+        check(trigger, player) {
+            return fanyinWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             // 源 L8589：其他角色于其出牌阶段（Play）从手牌弃置【杀】
             const lost = event.getl?.(event.player);
@@ -153,15 +180,15 @@ export const skill = {
             );
         },
         async cost(event, trigger, player) {
-            // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             const target = trigger.player; // trigger=loseAfter 事件
-            event.result = await player
-                .chooseBool(
-                    `泛音：是否令${get.translation(target)}获得1层海妖祝福？`,
-                )
-                // AI 口径：只送友方（海妖祝福把「造成伤害」转为给受害方附加异常，交给敌方攻击者
-                // 反而替受害目标上异常）（源 AI st_fanyin=asFriend(self,data)=严格友方，StarRail-ai.lua L1371）
-                .set('ai', () => get.attitude(player, target) > 0)
+            const ask = player.chooseBool(
+                `泛音：是否令${get.translation(target)}获得1层海妖祝福？`,
+            );
+            // 本体·狂骨范式（bingshi/skill.js potkuanggu）：frequent 型触发技的自动确认须由 cost 自行
+            // 转发 frequentSkill（引擎只把它挂在 <技能>_cost 事件上）；此处仅在引擎判定命中时转发。
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
+                .set('ai', () => fanyinWorth(player, target))
                 .forResult();
         },
         async content(event, trigger, player) {

@@ -3144,12 +3144,12 @@
     "md5": "a79d225b796e8d6f67adc21e47685271"
   },
   "Directory.json": {
-    "size": 166274,
+    "size": 167201,
     "md5": null
   },
   "extension.js": {
     "size": 4727,
-    "md5": "04b685ca3b3aea6dc1349cfac4b1c7fe"
+    "md5": "f01c47c87b1e7a2efede3771fbb9aa9b"
   },
   "image/character/bts_ch_agelaiya.png": {
     "size": 166670,
@@ -3539,6 +3539,10 @@
     "size": 154636,
     "md5": "72a67b61a856d53a1c5a2cd98673d04a"
   },
+  "image/character/bts_ch_zhenzhu.png": {
+    "size": 219455,
+    "md5": "54483bf3d091d6b29e57ad86fedccc78"
+  },
   "image/character/bts_ch_zhigengniao.png": {
     "size": 154462,
     "md5": "4c7bb8fe001ed5cdff055f3f99a1666b"
@@ -3550,6 +3554,10 @@
   "image/character/bts_ch_zhigengniao_qingge_and_qingkongyueshou.png": {
     "size": 163229,
     "md5": "e40244eb4301977de9ab4acc10b5546f"
+  },
+  "image/character/bts_diy_ch_baie_yingxing.png": {
+    "size": 179664,
+    "md5": "a52b07f8b0130da267b5e89d99fc7fa1"
   },
   "image/kingdom/icon/erxiangleyuan.png": {
     "size": 5074,
@@ -5261,7 +5269,7 @@
   },
   "info.json": {
     "size": 215,
-    "md5": "d418a9e6e2e41fdbcb50e5ee8b0e8368"
+    "md5": "af4de77012542f403e548a8e1f98e9d9"
   },
   "LICENSE": {
     "size": 35147,
@@ -5272,8 +5280,8 @@
     "md5": "23bc1acba29aa730bafb31fd3514b999"
   },
   "source/card/bts_cd/index.js": {
-    "size": 4563,
-    "md5": "050c2a7748a2b77e8f47fe4d28ad858a"
+    "size": 4560,
+    "md5": "597d773a059b9e0ed4f32ce0abae0eba"
   },
   "source/character/bts/audio.js": {
     "size": 7015,
@@ -5284,8 +5292,8 @@
     "md5": "6654307dc8fc24604c3b5b15c039e831"
   },
   "source/character/bts/index.js": {
-    "size": 15086,
-    "md5": "522c4de394a86ec723b06d867fd850b5"
+    "size": 11238,
+    "md5": "4e01e63043412ea158a123a6592c919b"
   },
   "source/character/bts/roles/erxiangleyuan/aha.js": {
     "size": 17147,
@@ -5322,6 +5330,10 @@
   "source/character/bts/roles/erxiangleyuan/yuanbanlin.js": {
     "size": 19079,
     "md5": "bd5064cdcaf05f1dbab52b210a219ff9"
+  },
+  "source/character/bts/roles/erxiangleyuan/zhenzhu.js": {
+    "size": 23083,
+    "md5": "f93cfa6af9b8dcdd76a104baef65b6cf"
   },
   "source/character/bts/roles/erxiangleyuan/zhigengniao_qingge.js": {
     "size": 22584,
@@ -5372,8 +5384,8 @@
     "md5": "a02ab4c33fcc5d0742d5d348d11e47b7"
   },
   "source/character/bts/roles/huangjinyi/haiseyin.js": {
-    "size": 14659,
-    "md5": "2874c0b82b7abfd5366daf81a82415ab"
+    "size": 15789,
+    "md5": "74a18b8ede3796f448901af48daf839f"
   },
   "source/character/bts/roles/huangjinyi/kelvdela.js": {
     "size": 18405,
@@ -5635,25 +5647,41 @@
     "size": 709,
     "md5": "069eff213bfe2dbaf2828ffa515cd694"
   },
+  "source/character/diy/audio.js": {
+    "size": 192,
+    "md5": "6e9e1b8e567f068fa475f7f503bd509c"
+  },
+  "source/character/diy/index.js": {
+    "size": 8322,
+    "md5": "47d5e7d0f21c7e22f7995e310e6379a9"
+  },
+  "source/character/diy/roles/huangjinyi/baie_yingxing.js": {
+    "size": 15896,
+    "md5": "63ea9f0c14a6efef2137a035981b4052"
+  },
+  "source/character/diy/shared.js": {
+    "size": 690,
+    "md5": "d8aa75e70d3f8f7c34d0cf4005829cd7"
+  },
   "source/config.js": {
     "size": 6120,
     "md5": "b3537b3e6f609818fa16c791e970d253"
   },
   "source/content.js": {
-    "size": 7851,
-    "md5": "b7e9530842b3a3c9218716529a33ef29"
+    "size": 7825,
+    "md5": "bda35c6668d4c5acaa3e8e9ea7232a45"
   },
   "source/generated/buffRegistry.js": {
-    "size": 12035,
-    "md5": "480fa855b5443673a366579c9880c099"
+    "size": 12126,
+    "md5": "89b06787d77a9b857c410653553266b2"
   },
   "source/help.js": {
     "size": 14936,
     "md5": "79a904eccc963b7cbf3dfd21a1ac59d0"
   },
   "source/precontent.js": {
-    "size": 1974,
-    "md5": "6bbb3f1563607cea7b8c69f2f8e90bc4"
+    "size": 3749,
+    "md5": "39714fc4d284ec4424933c65ef6fcc04"
   },
   "source/rules/globalBuffs.js": {
     "size": 25791,
@@ -5708,8 +5736,8 @@
     "md5": "5e95c51e18603119b1776f0a5f1520e9"
   },
   "source/tool/pack/manifest.js": {
-    "size": 273,
-    "md5": "3a5f1d2365159c9acef7068f87188137"
+    "size": 306,
+    "md5": "960d7224264109b4daf211767c7ba241"
   },
   "source/tool/pack/registry.js": {
     "size": 8382,
@@ -5718,6 +5746,10 @@
   "source/tool/pack/rolePack.js": {
     "size": 3247,
     "md5": "cb99aefc534fcb5afb9965a25ea0830f"
+  },
+  "source/tool/pack/skillDerivations.js": {
+    "size": 4746,
+    "md5": "d60ac143f89064878790647b1c8ba6c5"
   },
   "source/tool/ui/cardsInfo.js": {
     "size": 7938,
@@ -5732,8 +5764,8 @@
     "md5": "ae5bbca1e74026731e74b6745e8b3d4c"
   },
   "source/tool/ui/poptips.js": {
-    "size": 2464,
-    "md5": "cc818a6b0c3c6fae5f7e9266387a35d4"
+    "size": 2513,
+    "md5": "0473ae8cbfb1c83e30918774c79fc801"
   },
   "source/tool/ui/themeManager.js": {
     "size": 3985,
@@ -5832,8 +5864,8 @@
     "md5": "8e80f9e5acb7822534740eae04e924fb"
   },
   "style/html/update.html": {
-    "size": 3816,
-    "md5": "59b03f65ee9324d221121d590a4b6ccd"
+    "size": 3786,
+    "md5": "9d8771d0ad8d59ef80db1f8b88216071"
   },
   "style/nncfg/android_wide11.0.nncfg": {
     "size": 2336,

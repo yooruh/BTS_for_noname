@@ -57,6 +57,7 @@ export const skill = {
         group: ['bts_sk_xiangyan_chase'],
         subSkill: {
             chase: {
+                audio: 'bts_sk_xiangyan',
                 trigger: { global: 'dieAfter' },
                 filter(event, player) {
                     // 源 L9511-9524：致死伤害 reason / 致死牌 skillName 含 max_xiangyan 且来源=不死途

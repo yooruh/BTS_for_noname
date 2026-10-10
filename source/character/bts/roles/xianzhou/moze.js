@@ -170,6 +170,7 @@ export const skill = {
         subSkill: {
             assault: {
                 // 源 L6542-6560：猎物受到其他角色【杀】伤害后，移除1层暗之祝福并追击【杀】
+                audio: 'bts_sk_lvexi',
                 trigger: { global: 'damageEnd' },
                 forced: true,
                 filter(event, player) {

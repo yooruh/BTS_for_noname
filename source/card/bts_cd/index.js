@@ -76,7 +76,7 @@ export const info = {
     },
     list: [],
     translate: {
-        bts_cd: '崩铁杀卡牌包',
+        bts_cd: '崩铁杀卡牌',
         bts_cd_huanju_wanxiang: '欢愉万相',
         bts_cd_huanju_wanxiang_info:
             '阿哈与其欢愉令使各摸一张牌，目标摸一张牌，所有角色各摸一张牌；拥有欢愉行动的角色进入欢愉升格状态（至其回合结束）：期间其造成的伤害不再被欢愉行动约束。',

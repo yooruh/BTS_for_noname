@@ -143,6 +143,7 @@ export const skill = {
         subSkill: {
             ritual: {
                 // 源 L2170 为断界结算（翻面后自动摸仪式层数牌，无询问）→ forced。
+                audio: 'bts_sk_duanjie',
                 trigger: { player: 'turnOverAfter' },
                 forced: true,
                 filter(event, player) {

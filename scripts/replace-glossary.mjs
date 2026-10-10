@@ -26,7 +26,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadRoleMods } from './lib/roles.mjs';
+import { loadAllRoleMods } from './lib/roles.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, '..');
@@ -147,7 +147,7 @@ for (const [id, words] of REPLACEMENTS) {
 }
 
 // ── 动态字典：技能名 / 角色名（从角色模块导入，保持与源码同步）──────────────
-const mods = await loadRoleMods();
+const mods = await loadAllRoleMods();
 const skillDict = new Map(); // word -> [{ id, owner }]
 const charDict = new Map(); // word -> [{ id, owner }]
 const selfNameByFile = new Map(); // 角色相对路径 -> 主角色显示名（该文件内保持纯文本）

@@ -18,7 +18,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { log, readText, writeText } from './lib/shared.mjs';
 import { menu, closeInteractive } from './lib/interactive.mjs';
 import { installBtsLoader } from './lib/bts-loader.mjs';
-import { loadRoleMods, relRolePath } from './lib/roles.mjs';
+import { loadAllRoleMods, relRolePath } from './lib/roles.mjs';
 import { scanRoles } from './rebuild.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -118,8 +118,9 @@ async function collect() {
     // 全局规则词条（rules/globalrules.js glossary：通用机制词条）
     const globalrulesMod = await importIfExists('rules/globalrules.js');
 
-    // 角色模块（lib/roles.mjs 已缓存 scanRoles 加载过的同一批模块，直接复用，不重复 import）
-    const roleMods = [...(await loadRoleMods())].map(([full, mod]) => ({
+    // 角色模块（lib/roles.mjs 已缓存 scanRoles 加载过的同一批模块，直接复用，不重复 import；
+    // 覆盖全部角色包：bts + diy）
+    const roleMods = [...(await loadAllRoleMods())].map(([full, mod]) => ({
         file: relRolePath(full),
         mod,
     }));

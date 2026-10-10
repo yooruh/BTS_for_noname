@@ -104,6 +104,7 @@ export const skill = {
         subSkill: {
             nature: {
                 // 源 st_chengxu MarkChanged 分支（Skill_Compulsory，无询问）→ forced。
+                audio: 'bts_sk_chengxu',
                 trigger: { global: 'bts_mark_add' },
                 forced: true,
                 filter(event, player) {

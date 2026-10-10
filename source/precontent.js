@@ -1,4 +1,4 @@
-// 阶段1（precontent）：建立 lib.bts 运行时、注册阵营/属性/资源，并准备角色与卡牌包。
+// 阶段1（precontent）：建立 lib.bts 运行时、注册阵营/属性/资源（含武将名字前缀样式），并准备角色与卡牌包。
 // 游戏规则数据注册统一在 rules/index.js 命名导出、此处 import 调用；设置项定义在 source/config.js。
 import { lib, game } from '../../../noname.js';
 import { bts } from './rules/utils.js';
@@ -39,12 +39,44 @@ export const lib_bts = {
     },
 };
 
+// 武将名字前缀样式（引擎 get.slimName→get.prefixSpan 读 lib.namePrefix；范式：叁岛 precontent 的
+// namePrefix.set / 本体内置表）。角色侧对应注册 `<角色id>_prefix` 翻译键（值须为其显示名的起始串，
+// 如「应星DIY白厄」的 bts_diy_ch_baie_yingxing_prefix: '应星DIY'）；未登记样式的前缀按引擎默认白字渲染。
+const NAME_PREFIXES = {
+    // 群友投稿 DIY · 应星：黄金裔主题金（与 style/html 的 accent 同族）。
+    // 自绘 getSpan（同叁岛「9」，带 getSpan 的前缀不再套引擎默认样式）：两行横排——
+    // 第一行「应星」、换行、第二行「DIY」。
+    '应星DIY': {
+        getSpan() {
+            const span = document.createElement('span');
+            span.style.color = '#d4b577';
+            span.dataset.nature = 'soilmm';
+            // 竖排上下文（.player > .name_seat 为 vertical-rl）内必须显式 horizontal-tb：
+            // 否则 br 换行方向随继承翻转、DIY 逐字竖排（2026-10-09 实机缺陷）
+            span.style.writingMode = span.style.webkitWritingMode = 'horizontal-tb';
+            span.style.display = 'inline-block';
+            span.style.textAlign = 'center';
+            span.style.lineHeight = '1';
+            span.appendChild(document.createTextNode('应星'));
+            span.appendChild(document.createElement('br'));
+            span.appendChild(document.createTextNode('DIY'));
+            return span.outerHTML;
+        },
+    },
+};
+
+function registerNamePrefixes() {
+    for (const [prefix, style] of Object.entries(NAME_PREFIXES))
+        lib.namePrefix.set(prefix, style);
+}
+
 export async function precontent(config, pack) {
     lib.bts = lib_bts;
-    // 资源样式 / 8 势力 / 7 属性统一注册（rules/index.js 直接导出）。
+    // 资源样式 / 8 势力 / 7 属性（rules/index.js）+ 武将名字前缀样式（NAME_PREFIXES）统一注册。
     registerAssets();
     registerKingdoms();
     registerNatures();
+    registerNamePrefixes();
 
     lib.bts.characterPacks = await loadPackRegistry(CHARACTER_PACK_FILES);
     await loadPackRegistry(CARD_PACK_FILES, 'card');

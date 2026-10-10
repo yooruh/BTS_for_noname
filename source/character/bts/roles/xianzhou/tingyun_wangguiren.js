@@ -174,6 +174,7 @@ export const skill = {
             take: {
                 // 定夺 E-04：按描述「其于本回合内受到伤害时」——不限定来源（源经 damage.from 匹配、
                 // 实际仅你）；夺牌后失 1 体力按描述补（源代码未实现）。
+                audio: 'bts_sk_liubu',
                 trigger: { global: 'damageEnd' },
                 forced: true,
                 filter(event, player) {

@@ -86,6 +86,7 @@ export const skill = {
                 },
             },
             choice: {
+                audio: 'bts_sk_zaohuang',
                 // 源 L7174-7203：每张凿荒【杀】使用时二选一结算
                 trigger: { player: 'useCard' },
                 forced: true,

@@ -4,6 +4,7 @@
 // 应急插入点：临时 buff/标记/翻译可在 markEntries/mergedTranslate 内联，再交 buildMarkSkill。
 import { lib, game, ui, get, ai, _status } from '../../../../../noname.js';
 import { createRolePack } from '../../tool/pack/rolePack.js';
+import { buildDerivationRules, attachGlossaryDerivations } from '../../tool/pack/skillDerivations.js';
 import { normalizeVoiceKeys } from '../../tool/utils/audioPaths.js';
 import { buildMarkSkill } from '../../rules/markRegistry.js';
 import { buffSkills as GLOBAL_BUFFS, translate as GLOBAL_BUFFS_TRANSLATE } from '../../rules/globalBuffs.js';
@@ -39,6 +40,7 @@ const ROLE_FILES = [
     'roles/erxiangleyuan/shajin_xilang',
     'roles/erxiangleyuan/yinlang_lv999',
     'roles/erxiangleyuan/yuanbanlin',
+    'roles/erxiangleyuan/zhenzhu',
     'roles/erxiangleyuan/zhigengniao_qingge',
     'roles/heitakongjianzhan/aisida',
     'roles/heitakongjianzhan/alan',
@@ -164,118 +166,6 @@ const GLOSSARY_TRANSLATE = Object.fromEntries(
     ]),
 );
 
-// ── 技能 → 词条 derivation 自动挂载规则 ─────────────────────────
-// test(id, src, info)：src 为技能 id + 各函数/字符串字段的源码文本；info 为技能对象。
-const DERIVATION_RULES = [
-    // 必杀技统一以 bts_bisha 标签判定（勿按 id 前缀；同 zaixian/军功等范式）。
-    { id: 'bts_glossary_bisha_faq', test: (id, src, info) => info?.bts_bisha === true },
-    {
-        id: 'bts_glossary_nuqi_faq',
-        test: (id, src) =>
-            /(?:getAngry|loseAngry|addAngry|'angry'|"angry"|'bts_mk_angry'|"bts_mk_angry")/.test(
-                src,
-            ),
-    },
-    {
-        id: 'bts_glossary_hudun_faq',
-        test: (id, src) =>
-            /hudun|'shield'|"shield"|'bts_shield'|"bts_shield"/.test(src),
-    },
-    {
-        id: 'bts_glossary_xingqi_faq',
-        test: (id, src) => /bts\.god\(|bless_god|'god'/.test(src),
-    },
-    {
-        id: 'bts_glossary_bless_faq',
-        test: (id, src) => /addBless|removeBless|getBless/.test(src),
-    },
-    { id: 'bts_glossary_canmeng_faq', test: (id, src) => /canmeng/.test(src) },
-    {
-        id: 'bts_glossary_feihuang_faq',
-        test: (id, src) => /feihuang/.test(src),
-    },
-    {
-        id: 'bts_glossary_zhongdu_faq',
-        test: (id, src) => /poison|zhongdu/.test(src),
-    },
-    { id: 'bts_glossary_mabi_faq', test: (id, src) => /numb|mabi/.test(src) },
-    {
-        id: 'bts_glossary_guantong_faq',
-        test: (id, src) => /'through'/.test(src),
-    },
-    {
-        id: 'bts_glossary_nature_dark_faq',
-        test: (id, src) => /nature\s*:\s*'dark'/.test(src),
-    },
-    {
-        id: 'bts_glossary_nature_light_faq',
-        test: (id, src) => /nature\s*:\s*'light'/.test(src),
-    },
-    {
-        id: 'bts_glossary_nature_flame_faq',
-        test: (id, src) => /nature\s*:\s*'flame'/.test(src),
-    },
-    {
-        id: 'bts_glossary_nature_wind_faq',
-        test: (id, src) => /nature\s*:\s*'wind'/.test(src),
-    },
-    {
-        id: 'bts_glossary_nature_frost_faq',
-        test: (id, src) => /nature\s*:\s*'frost'/.test(src),
-    },
-    {
-        id: 'bts_glossary_nature_elec_faq',
-        test: (id, src) => /nature\s*:\s*'elec'/.test(src),
-    },
-];
-
-// 具体祝福词条自动规则：技能源码含 '<blessKey>'（如 'zhiyu'、'dark'）→
-// 挂载对应祝福词条（bts_glossary_bless_<key>_faq），而非仅总「祝福」词条。
-for (const glossary of GLOSSARY) {
-    const m = /^bts_glossary_bless_([a-z]+)_faq$/.exec(glossary.id);
-    if (!m) continue;
-    const blessKey = m[1];
-    DERIVATION_RULES.push({
-        id: glossary.id,
-        test: (id, src) => src.includes(`'${blessKey}'`),
-    });
-}
-
-/** 收集技能对象的可检查源码文本（函数取 toString，字符串字段原样）。 */
-function collectSkillSource(id, info) {
-    const parts = [id];
-    for (const value of Object.values(info)) {
-        if (typeof value === 'function') parts.push(String(value));
-        else if (typeof value === 'string') parts.push(value);
-    }
-    return parts.join('\n');
-}
-
-/**
- * 为角色包技能自动挂载词条 derivation（追加，不覆盖已有 derivation）。
- * 在 skill 合并后调用（见下）。
- */
-function attachGlossaryDerivations(skillMap) {
-    for (const [id, info] of Object.entries(skillMap || {})) {
-        if (!info || typeof info !== 'object') continue;
-        if (id.startsWith('bts_glossary_')) continue; // 词条技能不挂载，避免自引用
-        const deps = new Set(
-            Array.isArray(info.derivation)
-                ? info.derivation
-                : info.derivation
-                    ? [info.derivation]
-                    : [],
-        );
-        const src = collectSkillSource(id, info);
-        for (const rule of DERIVATION_RULES) {
-            if (rule.test(id, src, info)) deps.add(rule.id);
-        }
-        if (deps.size) {
-            info.derivation = deps.size === 1 ? [...deps][0] : [...deps];
-        }
-    }
-}
-
 // ── 标记/buff 技能合并 ─────────────────────────────────────────────────
 // 全局 buff/标记（globalBuffs.js / globalMarks.js）与角色特有条目（角色文件
 // buffSkills/marks）并列合并为 markEntries，经 buildMarkSkill 按类型烘焙
@@ -311,7 +201,7 @@ export const skill = {
 
 // 专有名词词条 derivation：按技能特征自动挂载（如怒气技能 → 怒气词条），
 // 详情页显示关联词条；不覆盖技能已有的 derivation。
-attachGlossaryDerivations(skill);
+attachGlossaryDerivations(skill, buildDerivationRules(GLOSSARY));
 
 // ── 触发技参数约定（引擎标准，勿再引入「首参=触发事件」兼容层）────────────
 // content(event, trigger, player)：event=技能事件（含自选 .cards/.targets/.cost_data 与

@@ -111,6 +111,7 @@ export const skill = {
         subSkill: {
             transfer: {
                 // 源 L6682-6695：标记目标受到伤害时重定向到符玄（damage.to = p）
+                audio: 'bts_sk_qiongguan',
                 trigger: { global: 'damageBegin2' },
                 forced: true,
                 filter(event, player) {

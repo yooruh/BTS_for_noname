@@ -21,16 +21,27 @@ import {
     statSync,
     writeFileSync,
 } from 'node:fs';
-import { dirname, extname, join, relative, resolve } from 'node:path';
+import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { log } from './lib/shared.mjs';
 import { menu, confirm, closeInteractive } from './lib/interactive.mjs';
-import { loadRoleMods } from './lib/roles.mjs';
+import { PACKS, loadAllRoleMods, rolesRootOf } from './lib/roles.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, '..');
 const SELF_PATH = fileURLToPath(import.meta.url);
-const ROLES_DIR = resolve(ROOT, 'source', 'character', 'bts', 'roles');
+// 各角色包的角色目录（bts / diy…；新增角色包只需登记 lib/roles.mjs 的 PACKS）
+const ROLE_ROOTS = PACKS.map((pack) => rolesRootOf(pack.dir));
+
+/** 全部角色包的角色文件（逐包 walkRoleFiles 合并）。 */
+function allRoleFiles() {
+    return ROLE_ROOTS.flatMap((root) => walkRoleFiles(root, []));
+}
+
+/** 文件所属角色包的角色目录（消息里显示包内相对路径用）。 */
+function roleRootOfFile(file) {
+    return ROLE_ROOTS.find((root) => file.startsWith(root + sep)) ?? ROLE_ROOTS[0];
+}
 
 // ── invisible：BOM / 零宽 / 控制字符 ────────────────────────────────────────
 const INVIS_SKIP_DIRS = new Set([
@@ -103,16 +114,7 @@ function invisibleCheck({ fix }) {
 // ── globals：包级标识符被技能引用 ───────────────────────────────────────────
 function globalsCheck() {
     const GLOBALS = new Set(['lib', 'game', 'ui', 'get', 'ai', '_status', 'status']);
-    const walk = (dir, out) => {
-        for (const e of readdirSync(dir)) {
-            const full = join(dir, e);
-            if (statSync(full).isDirectory()) walk(full, out);
-            else if (e.endsWith('.js')) out.push(full);
-        }
-    };
-    const files = [];
-    walk(ROLES_DIR, files);
-    const rootBase = ROLES_DIR;
+    const files = allRoleFiles();
     let issues = 0;
     for (const f of files) {
         const code = readFileSync(f, 'utf8');
@@ -141,7 +143,7 @@ function globalsCheck() {
             }
             if (hit) {
                 issues++;
-                console.log(`[引用] ${relative(rootBase, f)}: ${name}`);
+                console.log(`[引用] ${relative(roleRootOfFile(f), f)}: ${name}`);
             }
         }
     }
@@ -249,7 +251,7 @@ const SUPPRESS_FLAG_RE =
     /\bsilent\s*:\s*true|\bdirect\s*:\s*true|\bpopup\s*:\s*false|\blog\s*:\s*false/;
 
 function logskillCheck() {
-    const files = walkRoleFiles(ROLES_DIR, []);
+    const files = allRoleFiles();
     const violations = [];
     for (const file of files) {
         const text = readFileSync(file, 'utf8');
@@ -325,7 +327,7 @@ const SKILL_EMBED_SKIP_RE = /audit-skill-embed\s*:\s*skip/;
 function skillEmbedCheck() {
     const violations = [];
     // 规则 A：角色技能文件占位滤器
-    const roleFiles = walkRoleFiles(ROLES_DIR, []);
+    const roleFiles = allRoleFiles();
     for (const file of roleFiles) {
         const text = readFileSync(file, 'utf8');
         const rel = relative(ROOT, file).replace(/\\/g, '/');
@@ -394,7 +396,7 @@ const TARGET_CHOOSE_RE = /\.(?:chooseTarget|chooseCardTarget)\s*\(/g;
 const SKIP_FLAG_RE = /audit-choosetarget\s*:\s*skip/;
 
 function choosetargetCheck() {
-    const files = walkRoleFiles(ROLES_DIR, []);
+    const files = allRoleFiles();
     const violations = [];
     for (const file of files) {
         const text = readFileSync(file, 'utf8');
@@ -443,7 +445,7 @@ async function skinsCheck() {
     const ids = new Set();
     // 直接 import 读 character/transformCharacter 的 id（lib/roles.mjs 缓存；
     // 注释掉的块 import 不可见，不会误计为角色）
-    for (const [, mod] of await loadRoleMods()) {
+    for (const [, mod] of await loadAllRoleMods()) {
         for (const id of Object.keys(mod.character ?? {})) ids.add(id);
         for (const id of Object.keys(mod.transformCharacter ?? {})) ids.add(id);
     }
@@ -515,7 +517,7 @@ async function marksCheck() {
             }
         }
     };
-    scan(resolve(ROOT, 'source', 'character', 'bts', 'roles'));
+    for (const root of ROLE_ROOTS) scan(root);
     scan(resolve(ROOT, 'source', 'rules'));
     const unknown = [...used.keys()]
         .filter((k) => !known.has(k) && !INTERNAL_MARKS.has(k))

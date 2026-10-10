@@ -155,6 +155,7 @@ export const skill = {
             // ── 同盟·远征代发（源 st_yuanzheng_friend，L9868-9908）：星穹列车势力角色可代姬子·启行发动远征；
             //    姬子未用过远征且同意时：盟友结束出牌阶段、记为姬子已用、对目标炎属性致命贯通伤害、盟友回1怒气。
             friend: {
+                audio: 'bts_sk_yuanzheng',
                 sub: true,
                 sourceSkill: 'bts_sk_yuanzheng',
                 enable: 'phaseUse',
