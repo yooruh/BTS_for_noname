@@ -63,6 +63,7 @@ export const BGM_LIST = new Set([
     'bts_ch_xingqiri',
     'bts_ch_xueyi',
     'bts_ch_yanqing',
+    'bts_ch_yaoguang',
     'bts_ch_yinlang',
     'bts_ch_yinzhi',
     'bts_ch_yuanbanlin',

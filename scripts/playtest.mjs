@@ -3,80 +3,28 @@
 /**
  * 崩铁杀 连续游玩控制台（调试服务器 + 页面注入 + 无人值守）
  *
- * AI / 自动化用法（全程「子命令 + 参数」直用，绝不进交互菜单）：
- *   node scripts/playtest.mjs auto [ms] [--no-auto] [--no-open] [--char <id>] [--test] [--set k=v]... [--query k=v]...
- *       后台启动（detached）。ms=崩溃/卡死自动跳过毫秒（0=关闭，缺省 15000）；--no-auto=后台但不自动游玩
- *       （手动观测）；--no-open=不自动打开浏览器；--char=打开页后直启/每局直刷指定角色（bts_ch_xxx）；
- *       --test=打开测试台页；--set k=v=注入游戏配置（可多次）；--query k=v=附加任意 URL 参数（可多次）。
- *       已在运行且参数不一致 → 自动停止并按新参数重启；参数一致 → 沿用实例并打开页面（除非 --no-open）。
- *       打开时遵循「一页纪律」：先关闭同源旧调试页（`--keep` 保留）——多页同开会让多个游戏实例竞争写
- *       同一 IndexedDB，造成备份互覆 / 设置漂移。
- *   node scripts/playtest.mjs open [url] [--test] [--char <id>] [--no-auto] [--keep] [--restore fill|force] [--set k=v]... [--query k=v]...
- *       在 VS Code 内置浏览器打开调试页（未运行时自动以默认模式拉起）；url 可省略（默认首页）或相对路径。
- *   node scripts/playtest.mjs set k=v [...]      写入游戏配置（经服务器待注入队列下发；未运行则手动模式拉起；
- *        页面自取写库并重载——免 URL 长参数，集成浏览器同样可靠）
- *        ls. 前缀=写 localStorage（无名杀启动键，server 每次页面内联、免依赖 IDB）：
- *        set ls.directstart=true 等价「每次启动直入对局」（关闭启动页）；配 show_splash=off 双保险；
- *        空值撤销（如 ls.directstart=）
- *   node scripts/playtest.mjs apply-nncfg [file] [--dry] [--test] [--char <id>] [--set k=v]... [--query k=v]...
- *       批量注入配置：解码 nncfg（缺省 zip/style/nncfg/win11.0.nncfg）→ 每项生成 __bts_set → 打开注入页
- *       （页面写库并自动重载，脚本读 persist-log 核验）。--dry=只解码打印（不打开页面）；--test/--char 可
- *       让注入页顺手直启一局（测试台）。适用「整包设置」（全崩铁武将池 characters / 开发者模式 dev /
- *       界面样式等）；单键微调用 set（两者可叠加：--set 后写覆盖）。
- *   node scripts/playtest.mjs events [--tail N] [--type t1,t2] [--json] [--full]
- *       读取事件流尾部——AI 观测入口（默认最近 20 条；--type 过滤类型，逗号分隔；--json 机器可读；
- *       --full 不截断长字段）。只读、可在服务器未运行时使用。
- *   node scripts/playtest.mjs status [--json]   运行状态与统计（--json：机器可读，含服务器 env 摘要）
- *   node scripts/playtest.mjs stop              停止服务器
- *   node scripts/playtest.mjs restore [--force] 恢复配置数据（缺失自动补缺；--force 强制覆盖）
- *   node scripts/playtest.mjs seed              制作配置种子快照（灾难回退基准）
- *   node scripts/playtest.mjs clean [--dry] [--all]
- *       一键删除测试数据（对局事件流 / persist 日志 / 待注入记录 / 标签报告 / 旧残留）→ 统计与审计从零开始。
- *       永不触碰配置备份（persist.json / persist.prev.json / persist.shrunk-*.json / seeds/——防丢数据铁律）；
- *       pending.json 仅清空 sets（保留 ls 启动项）。--dry=只预览；--all=连同 archive/ 历史归档与
- *       data/_tmp_* 临时输出一并清除。服务器运行中亦可执行（文件即时重建；内存计数需重启归零）。
- *   node scripts/playtest.mjs engine [key|seed] [--force] [--from <key>]
- *       查看/切换「服务器版本（引擎）」：noname（缺省；端口 8931 / 数据目录 data/）或 noname - 新版
- *       （key=new，别名 新版；端口 8932 / 数据目录 data-new/）。端口即浏览器同源隔离：两版本的
- *       IndexedDB/localStorage 与服务器测试数据（persist 备份/事件流/日志/队列/seeds/归档）全部
- *       相互分离、可同时运行；各命令只面向「当前配置版本」（切换只影响之后启动的服务器）。
- *       可选列表由 dev-config.local.json 的 installed 派生；所选版本存其 playtest.engine（本机配置）。
- *       engine seed（--force 覆盖已有；--from 指定来源）手动把其它版本的配置备份播种到当前版本；
- *       首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种（无播种时无备份
- *       可导、dev=false 卡 boot）。
- *   node scripts/playtest.mjs fg                前台启动（Ctrl+C 停止；关闭自动游玩、日志直出）
- *   node scripts/playtest.mjs                   交互菜单（仅人类；AI 勿无参调用，会等待输入）
- *
- * 页面 URL 参数（客户端消费；脚本经 --test/--char/--no-auto/--restore/--set/--query 自动拼装）：
- *   ?__bts_test=1        测试台：零自动干预（不自动开局/选将/托管/续局、不参与接管）；控制台
- *                        __BTS_PLAYTEST.test.state()/start(武将)/pick/setAuto/check 供 AI 直测。
- *   ?__bts_char=<id>     目标角色：test 模式=自动直启一局（等价 test.start）；auto 模式=每局自动点选
- *                        该角色（连续刷同一角色，配合无人值守可跨局循环）。
- *   ?__bts_noauto=1      页面级禁自动（即使服务器为无人值守）：本页面不启用 playtest 自动逻辑。
- *   ?__bts_restore=fill|force  配置恢复（补缺 / 覆盖）。
- *   ?__bts_set=k:v       写入游戏配置（可多个；值按 JSON 解析：true / 数字 / ["bts"] / "文本" 均合法，
- *                        非法 JSON 按原文字符串）→ 页面写库并自动重载。
- *
- * 「内置浏览器打开」原理：本仓库自带极小辅助扩展 _others/debug/helper-ext（注册 URI 处理器），
- * 脚本调起 vscode://bts-debug.playtest-helper/open?url=… → 扩展内执行 simpleBrowser.show。
- * （vscode://command 形式不存在，勿用；细节见 helper-ext/README.md 与《调试与自动化测试手册》§2.3。）
- *
- * 实现本体在 _others/debug/：server.mjs（静态服务 + 注入 + /__playtest/* 端点；服务器根与数据目录
- * 由本脚本按「服务器版本」传入）、playtest_client.js（页面侧状态机）、persist_client.js（页面侧备份/恢复/设置注入）。
- * 页面生命周期：open/auto 打开新页时，辅助扩展会先关闭「标题匹配调试页」的旧浏览器标签
- * （同名多开 = 多个游戏实例竞争写同一 IndexedDB；见《调试与自动化测试手册》§2.3）。AI 接管页面的推荐
- * 姿势：在浏览器工具中导航/打开目标 URL（复用一个已共享页面），而不是依赖脚本打开的未共享新页。
- * 本脚本只负责「拉起 / 停止 / 观察」；交互约定复用 scripts/lib/interactive.mjs（仅无参时的菜单）。
+ * 用法（AI/自动化一律「子命令 + 参数」直用；无参 = 人类交互菜单；help = 打印本速览）：
+ *   auto [ms] [--char <id|none>] [--test] [--no-open] [--no-auto] [--keep]  无人值守刷局（后台 + 开页）
+ *   open [url] [--test] [--char <id|none>] [--no-auto] [--keep]            打开调试页（未跑则先拉起）
+ *   status [--json] | stop | events [--tail N] [--type t] [--json]         状态 / 停止 / 看事件
+ *   set <k=v | ls.k=v | @id=v> ...                                         写配置（@id = 调试键，见 keys）
+ *   keys [id] [--json] | char [<id>|none]                                  调试键登记表 / 每局直刷角色
+ *   restore [--force] | seed | clean [--dry] [--all]                       配置恢复 / 种子 / 清测试数据
+ *   apply-nncfg [file] [--dry] | engine [key|seed] [--force] | fg           批量注入 / 版本切换 / 前台
+ *   help [组]                                                               速览 / 某组详情（server|config|keys|engine|data）
+ * 输出规范（2026-10-11）：每条命令 = 一行结论 + 必要细节；不逐条复述版本/端口/路径。
+ * 完整路径/根目录：status、任意命令加 --verbose、或 status --json。
+ * 机制细节：文档/调试与自动化测试手册.md（§2 启停 · §3.7 设置注入 · §3.8 调试键规范）；入口导航：文档/AgentSkill.md。
  */
 
 import { spawn, spawnSync } from 'node:child_process';
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './lib/shared.mjs';
-import { menu, confirm, closeInteractive } from './lib/interactive.mjs';
+import { menu, prompt, confirm, closeInteractive } from './lib/interactive.mjs';
 import { installed } from './lib/dev-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -211,6 +159,15 @@ const seedFile = join(seedDir, 'persist.seed.json');
 const PORT = currentEngine.port;
 const URL_BASE = `http://127.0.0.1:${PORT}/`;
 const DEFAULT_AUTOSKIP_MS = 15000;
+
+// ---- 输出规范（2026-10-11 精简）----
+// 每条命令 = ① 一行结论（重点）② 必要的短细节；不再逐条复述「版本 / 端口 / 数据目录」全文。
+// 需要完整路径/根目录时：status、任意命令加 --verbose、或 status --json。
+const VERBOSE = process.argv.includes('--verbose') || process.env.BTS_CLI_VERBOSE === '1';
+/** 短上下文：`noname@8931` */
+const where = () => `${currentEngine.label}@${PORT}`;
+/** 相对数据目录的短路径（日志展示用） */
+const dataRel = (p) => String(p).slice(dataDir.length).replace(/^[\\/]+/, '');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -466,7 +423,9 @@ function parseArgs(argv) {
                 (name === 'set' ? sets : queries).push(t.value);
                 continue;
             }
-            if (name === 'char' || name === 'restore' || name === 'file' || name === 'tail' || name === 'type' || name === 'from') {
+            if (
+                ['char', 'restore', 'file', 'tail', 'type', 'from', 'owner', 'life'].includes(name)
+            ) {
                 const t = take(name, inline);
                 if (t.error) return { error: t.error };
                 values[name] = t.value;
@@ -529,13 +488,13 @@ async function openBrowser(url, { waitMs = 15000, keep = false } = {}) {
         `vscode://${HELPER_ID}/open?url=${encodeURIComponent(url)}` +
         `&dump=${encodeURIComponent(dumpFile)}` +
         (keep ? '' : `&closeLabelRe=${encodeURIComponent('无名杀|崩铁杀')}`);
-    log.info('调起 VS Code：' + uri);
+    if (VERBOSE) log.info('调起 VS Code：' + uri);
     const t0 = Date.now();
     fireVsCodeUri(uri);
     while (Date.now() - t0 < waitMs) {
         await sleep(1000);
         if (countBoots() > bootsBefore) {
-            log.ok(`已在 VS Code 内置浏览器打开：${url}`);
+            log.ok(`已打开调试页：${url}`);
             reportHelperTabs(dumpFile, t0);
             return true;
         }
@@ -543,17 +502,14 @@ async function openBrowser(url, { waitMs = 15000, keep = false } = {}) {
             const stats = await getJson(URL_BASE + '__playtest/stats');
             const loads = stats && stats.data && stats.data.pageLoads;
             if (typeof loads === 'number' && loads > loads0) {
-                log.ok(`已在 VS Code 内置浏览器打开：${url}`);
+                log.ok(`已打开调试页：${url}`);
                 reportHelperTabs(dumpFile, t0);
                 return true;
             }
         }
     }
-    log.warn('未检测到新页面加载。可能原因：');
-    console.log('  1) 辅助扩展刚安装/升级 → 需重载一次 VS Code 窗口（Ctrl+R）后重试；');
-    console.log('  2) VS Code 未运行或 URI 被安全软件拦截；');
-    console.log('  3) 该页面此前已打开 → VS Code 可能聚焦旧标签而未重新加载（用 events / 浏览器工具查看即可）；');
-    console.log(`  4) 手动兜底：在内置浏览器（或任意浏览器）打开 ${url}`);
+    log.warn('未检测到新页面加载——辅助扩展刚装/升级（需重载一次 VS Code 窗口）· VS Code 未运行/URI 被拦 · 该页此前已开（可能只聚焦旧标签）。');
+    console.log(`  手动兜底：在内置浏览器打开 ${url}`);
     return false;
 }
 
@@ -575,7 +531,7 @@ async function restoreConfig({ force = false } = {}) {
         }
     }
     const st = statSync(persistFile);
-    log.info(`服务端备份：${(st.size / 1024).toFixed(1)} KB（${persistFile}）`);
+    log.info(`服务端备份：${(st.size / 1024).toFixed(1)} KB${VERBOSE ? `（${persistFile}）` : ''}`);
     const logBefore = existsSync(persistLogFile) ? readFileSync(persistLogFile, 'utf-8').length : 0;
     const url = URL_BASE + (force ? '?__bts_restore=force' : '?__bts_restore=fill');
     const opened = await openBrowser(url);
@@ -750,7 +706,7 @@ function stopServer(port = PORT) {
         windowsHide: true,
     });
     const out = (r.stdout || '').trim();
-    if (out) log.ok(`已停止（端口 ${port}）：` + out.split(/\r?\n/).join('；'));
+    if (out) log.ok(`已停止（${port}）${VERBOSE ? '：' + out.split(/\r?\n/).join('；') : ''}`);
     else log.info(`端口 ${port} 未在运行。`);
 }
 
@@ -767,6 +723,7 @@ function stopAllServers() {
  *     否则（CLI 直用）参数不一致 → 自动停止并按新参数重启；一致 → 沿用实例（并打开页面）。
  *   - openUrl：启动后打开的页面 URL；undefined=默认首页；''/false=不打开。
  *   - keep=true：打开页面时不关闭旧调试页（默认关闭，遵循「一页纪律」）。
+ *   - quiet=true：不打印启动横幅（由调用方自己给结论，避免同一动作重复刷屏）。
  */
 async function startDetached({
     autoskipMs = DEFAULT_AUTOSKIP_MS,
@@ -774,6 +731,7 @@ async function startDetached({
     allowRestart = false,
     openUrl,
     keep = false,
+    quiet = false,
 } = {}) {
     if (!ensureServerFile()) process.exit(1);
     if (!existsSync(join(engineRoot, 'index.html'))) {
@@ -784,7 +742,7 @@ async function startDetached({
     ensureEngineSeed(); // 首次启用新版本：先播种配置备份再拉起/打开（否则空目录无备份可导）
     let reuse = false; // 沿用现有实例（不重启）；沿用也继续走「打开页面」而非直接 return
     if (await isRunning()) {
-        log.warn(`服务器已在运行（${URL_BASE}）。`);
+        log.warn(`服务器已在运行（${where()}）。`);
         const info = await readServerInfo();
         const env = info ? info.env : null;
         let needRestart = false;
@@ -850,15 +808,12 @@ async function startDetached({
             log.error('启动后 8s 内未就绪；请用「前台启动」排查：npm run playtest -- fg');
             process.exit(1);
         }
-        log.ok(`已在后台启动（${off ? '手动模式：不自动游玩' : '无人值守'}）：`);
-        console.log(`  地址：${URL_BASE}`);
-        console.log(`  版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
-        console.log(
-            off
-                ? '  配置：playtest=关闭自动游玩（页面刷新后仅手动/直测）'
-                : `  配置：playtest=自动启用；崩溃/卡死自动跳过=${autoskipMs ? autoskipMs + 'ms' : '关闭（崩溃即停）'}`,
-        );
-        console.log('  停止：npm run playtest -- stop（或菜单选「停止服务器」）');
+        if (!quiet) {
+            log.ok(
+                `已启动（${off ? '手动模式：不自动游玩' : `无人值守，崩溃自动跳过 ${autoskipMs ? autoskipMs + 'ms' : '关闭'}`}）· ${where()}`,
+            );
+            console.log(`  页面：${URL_BASE} · 停止：npm run playtest -- stop`);
+        }
     }
     // 打开页面（沿用实例时同样执行——此前沿用时静默返回、不打开页面，auto --char 形同虚设）
     const finalOpenUrl = openUrl === undefined ? URL_BASE : openUrl;
@@ -897,7 +852,7 @@ async function startForeground({ allowRestart = false } = {}) {
     log.info(
         '前台启动（Ctrl+C 停止）：已注入「关闭自动游玩」（页面刷新后生效）；需要自动游玩请用「无人值守启动」。',
     );
-    console.log(`  版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
+    console.log(`  版本：${where()} · 数据：${basename(dataDir)}/`);
     const env = { ...process.env, BTS_PLAYTEST_OFF: '1' };
     delete env.BTS_PLAYTEST;
     delete env.BTS_AUTOSKIP_MS;
@@ -909,6 +864,7 @@ async function startForeground({ allowRestart = false } = {}) {
     child.on('exit', (code) => process.exit(code ?? 0));
 }
 
+/** 查看运行状态与统计；json=true 时输出机器可读 JSON（AI 解析用） */
 /** 查看运行状态与统计；json=true 时输出机器可读 JSON（AI 解析用） */
 async function showStatus({ json = false } = {}) {
     const running = await isRunning();
@@ -943,6 +899,7 @@ async function showStatus({ json = false } = {}) {
                             : null,
                     othersRunning: others.map((e) => ({ key: e.key, label: e.label, port: e.port })),
                     env: d ? (d.env ?? null) : null,
+                    debugKeys: (d && d.debugKeys) || null,
                     stats: d ?? null,
                     playtestLog: logInfo,
                     persistLog: pLogInfo,
@@ -954,47 +911,33 @@ async function showStatus({ json = false } = {}) {
         return;
     }
     if (!running) {
-        log.info(
-            `服务器未运行（${URL_BASE}）——用「无人值守启动」拉起（node scripts/playtest.mjs auto）。`,
-        );
-        console.log(`  配置服务器版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
-        if (others.length)
-            console.log(`  其他版本实例：${others.map((e) => `${e.label}（${e.port}，运行中）`).join('、')}`);
+        log.info(`未运行 · 配置版本 ${where()}——拉起：npm run playtest -- auto`);
+        if (others.length) console.log(`  其他实例：${others.map((e) => `${e.label}@${e.port}`).join('、')}（运行中）`);
         return;
     }
-    log.ok(`服务器运行中：${URL_BASE}`);
-    console.log(`  服务器版本：${currentEngine.label}（端口 ${PORT}；数据目录：${dataDir}）`);
-    if (others.length)
-        console.log(`  其他版本实例：${others.map((e) => `${e.label}（${e.port}，运行中）`).join('、')}`);
-    if (d && typeof d.root === 'string' && d.root) {
-        const same = samePath(d.root, engineRoot);
-        const from = findEngineByRoot(d.root);
-        console.log(
-            `  运行实例：${from ? from.label : d.root}${same ? '（与配置一致）' : '（与配置不一致——auto/fg/open/set 会自动切换，或先 stop）'}`,
-        );
+    const env = d ? d.env : null;
+    const mode = !env ? '（旧版实例，无法探测模式）' : env.off ? '手动模式（不自动游玩）' : `无人值守（自动跳过 ${env.autoskip || '关闭'}）`;
+    log.ok(`运行中 · ${where()} · ${mode}`);
+    console.log(`  页面：${URL_BASE}`);
+    if (d && d.debugKeys) {
+        const k = d.debugKeys;
+        console.log(`  调试键：每局直刷=${k.autoChar || '无'} · 测试台点名=${k.testChar || '无'} · 开关=${k.on === '1' ? '开' : k.off === '1' ? '关' : '?'}${k.autoskip ? ` · 自动跳过=${k.autoskip}` : ''}`);
     }
-    if (d && d.env) {
+    if (d && typeof d.root === 'string' && d.root && !samePath(d.root, engineRoot))
+        log.warn(`运行实例与配置版本不一致（实际跑的是 ${findEngineByRoot(d.root) || d.root}）——auto/fg/open 会自动切换，或先 stop。`);
+    if (d)
         console.log(
-            `  服务器模式：${d.env.off ? '手动（不自动游玩）' : '无人值守'}；自动跳过=${d.env.autoskip || '关闭'}`,
+            `  计数：页面加载 ${typeof d.pageLoads === 'number' ? d.pageLoads : '—'}；对局 ${d.gameStart} 开始 / ${d.gameEnd} 结束 / clean ${d.cleanEnd}；错误 ${d.errors} · 挂起 ${d.pauses}`,
         );
-    }
-    if (d) {
-        const loads = typeof d.pageLoads === 'number' ? d.pageLoads : '—';
+    else log.warn('未取到统计（页面尚未打开或服务器版本过旧）。');
+    if (logInfo)
         console.log(
-            `  计数（本服务器实例累计）：页面加载 ${loads}；对局开始 ${d.gameStart} / 结束 ${d.gameEnd} / clean ${d.cleanEnd}；错误 ${d.errors} / 挂起 ${d.pauses}（entries ${d.entries}）`,
+            `  事件流：${dataRel(logInfo.path)}（${(logInfo.bytes / 1024).toFixed(1)} KB，${new Date(logInfo.mtime).toLocaleString('zh-CN', { hour12: false })}）${pLogInfo ? ` · persist-log ${(pLogInfo.bytes / 1024).toFixed(1)} KB` : ''}`,
         );
-    } else {
-        log.warn('未取到 /__playtest/stats（页面尚未打开或服务器版本过旧）。');
-    }
-    if (logInfo) {
-        console.log(`  落盘日志：${logInfo.path}`);
-        console.log(
-            `  （${(logInfo.bytes / 1024).toFixed(1)} KB，更新于 ${logInfo.mtime}；完整汇总：node _others/debug/log-audit.mjs）`,
-        );
-    }
-    if (pLogInfo) {
-        const rel = pLogInfo.path.slice(debugDir.length).replace(/^[\\/]+/, '');
-        console.log(`  持久化日志：${rel}（${(pLogInfo.bytes / 1024).toFixed(1)} KB；页面侧备份/恢复 trace）`);
+    if (others.length) console.log(`  其他实例：${others.map((e) => `${e.label}@${e.port}`).join('、')}（运行中）`);
+    if (VERBOSE) {
+        console.log(`  根目录：${engineRoot}`);
+        console.log(`  数据目录：${dataDir}`);
     }
 }
 
@@ -1032,7 +975,7 @@ async function showEvents(opts) {
               .filter(Boolean)
         : null;
     if (!existsSync(playtestLog)) {
-        log.warn(`暂无事件流（${playtestLog} 不存在）——先启动调试服务器并打开页面。`);
+        log.warn('暂无事件流——先拉起调试服务器并打开页面（auto）。');
         return;
     }
     const full = opts.flags.has('full');
@@ -1093,7 +1036,7 @@ async function showEvents(opts) {
             .join('  ');
         console.log(`[${t}] ${e.type}  ${brief}`);
     }
-    console.log(`（共 ${picked.length} 条；完整事件流：${playtestLog}）`);
+    console.log(`（共 ${picked.length} 条 · 完整流：${dataRel(playtestLog)}）`);
 }
 
 /**
@@ -1246,117 +1189,332 @@ async function cmdClean({ dry = false, all = false } = {}) {
     if (failed) process.exitCode = 1;
 }
 
-function printUsage() {
-    console.log(`用法（AI/自动化一律带子命令与参数直用；无参=人类交互菜单）:
-  node scripts/playtest.mjs auto [ms] [--no-auto] [--no-open] [--keep] [--char <id>] [--test] [--set k=v]... [--query k=v]...
-  node scripts/playtest.mjs open [url] [--test] [--char <id>] [--no-auto] [--keep] [--restore fill|force] [--set k=v]... [--query k=v]...
-  node scripts/playtest.mjs events [--tail N] [--type t1,t2] [--json] [--full]
-  node scripts/playtest.mjs set <key>=<value> [...]
-  node scripts/playtest.mjs apply-nncfg [file] [--dry] [--test] [--char <id>] [--keep] [--set k=v]... [--query k=v]...
-  node scripts/playtest.mjs status [--json]
-  node scripts/playtest.mjs stop
-  node scripts/playtest.mjs restore [--force]
-  node scripts/playtest.mjs seed
-  node scripts/playtest.mjs clean [--dry] [--all]
-  node scripts/playtest.mjs engine [key|seed] [--force] [--from <key>]
-  node scripts/playtest.mjs fg
+/** 命令分组（唯一来源：help 速览 / help <组> 详情 / 交互菜单二级项都取自这里）。
+ *  每条 = [用法, 说明, 菜单标签]。新增命令只改这里，别处不再重复罗列。 */
+const CLI_GROUPS = [
+    {
+        key: 'server',
+        label: '服务器',
+        desc: '启动 / 打开调试页 / 状态 / 停止',
+        items: [
+            ['auto [ms] [--char <id|none>] [--test] [--no-open] [--no-auto] [--keep]', '无人值守刷局（后台 + 自动开页；ms=崩溃自动跳过毫秒，缺省 15000）', '无人值守启动（后台 + 开页）'],
+            ['open [url] [--test] [--char <id|none>] [--no-auto] [--keep]', '打开调试页（未运行则先以无人值守拉起）', '打开调试页'],
+            ['status [--json]', '运行状态 / 统计（含调试键现值）；--json 机器可读', '查看状态 / 统计'],
+            ['stop', '停止服务器（释放各版本端口）', '停止服务器'],
+            ['fg', '前台启动（关闭自动游玩、日志直出；Ctrl+C 停止）', '前台启动（调试用）'],
+        ],
+    },
+    {
+        key: 'config',
+        label: '配置与注入',
+        desc: '写配置 / nncfg / 恢复 / 种子',
+        items: [
+            ['set <k=v | ls.k=v | @id=v> …', '写配置：k=游戏配置(IDB) · ls.k=启动键(localStorage) · @id=调试键(direct 通道，id 见 keys)', '写配置（set）'],
+            ['config [关键字] [--json]', '列出游戏配置项与现值（来自配置备份 persist.json；改值用 set）', '查看游戏配置项（config）'],
+            ['apply-nncfg [file] [--dry]', '批量注入 nncfg（全崩铁武将池 / 开发者模式 / 界面样式）', '应用 nncfg 配置'],
+            ['restore [--force]', '恢复配置（缺省补缺；--force 覆盖）', '恢复配置'],
+            ['seed', '制作配置种子快照（灾难回退基准）', '制作配置种子'],
+        ],
+    },
+    {
+        key: 'keys',
+        label: '键与角色',
+        desc: '每局直刷角色 / 调试键登记表',
+        items: [
+            ['char [<id>|none]', '查看 / 设置 / 清除「每局直刷」角色（粘性键 __bts_auto_char）', '每局直刷角色（char）'],
+            ['keys [id] [--json] [--owner <x>] [--life <y>]', '调试键登记表：键名 / 生命周期 / 在哪设置 / 怎么清', '调试键登记表（keys）'],
+            ['chars [关键字] [--json]', '列出可选角色（id + 中文名）——不用记 id，直接查/直接选', '查看角色清单（chars）'],
+        ],
+    },
+    {
+        key: 'engine',
+        label: '版本',
+        desc: '切换服务器版本 / 播种配置',
+        items: [
+            ['engine [key]', '查看 / 切换服务器版本（noname=8931 / 新版=8932，端口与数据隔离）', '切换服务器版本'],
+            ['engine seed [--force] [--from <k>]', '把其它版本的配置备份播种到当前版本（首次启用某版本时 auto/open 会自动播种）', '播种配置（engine seed）'],
+        ],
+    },
+    {
+        key: 'data',
+        label: '数据与观测',
+        desc: '事件流 / 清理测试数据',
+        items: [
+            ['events [--tail N] [--type t] [--json|--full]', '读事件流尾部（AI 观测入口；缺省最近 20 条）', '查看事件流'],
+            ['clean [--dry] [--all]', '清理测试数据（保留配置备份 persist*/seeds）', '清理测试数据'],
+        ],
+    },
+];
 
-说明:
-  auto  后台启动（ms=崩溃自动跳过毫秒，0=关闭，缺省 ${DEFAULT_AUTOSKIP_MS}；--no-auto=手动模式不自动游玩；
-        --no-open 不打开页面；--char 直启/每局直刷指定角色；--test 打开测试台页；已在运行且参数不一致会自动重启，
-        参数一致也会打开页面（除非 --no-open）。打开时默认先关闭同源旧调试页（--keep 保留），保持「一页纪律」）
-  open  在 VS Code 内置浏览器打开调试页（未运行时自动以默认模式拉起；url 可省略或相对路径；同样默认关旧页，--keep 保留）
-  events  读事件流尾部（默认最近 20 条；--type 过滤；--json 机器可读；--full 不截断长字段）
-  set   写入游戏配置（如 set show_splash=off；ls. 前缀写 localStorage，如 set ls.directstart=true；
-        未运行则手动模式拉起；页面写库后自动重载）
-  apply-nncfg  批量注入 nncfg 配置（缺省 zip/style/nncfg/win11.0.nncfg：全崩铁武将池/开发者模式/界面
-        样式等整包设置；--dry 只解码打印；单键调整仍用 set）
-  clean  一键删除测试数据（对局事件流 / persist 日志 / 待注入记录 / 标签报告 / 旧残留），统计从零开始；
-        永不触碰配置备份（persist*/seeds——防丢数据铁律）；--dry 只预览；--all 连同 archive/ 归档与
-        _tmp_* 临时输出一并清除（作用于当前配置的服务器版本）
-  engine  查看/切换服务器版本：noname（缺省；端口 8931/数据目录 data）或 noname - 新版（key=new，
-        别名 新版；端口 8932/数据目录 data-new）。端口即同源隔离——浏览器存储与测试数据全部按版本
-        分离、两版本可同时运行；stop 释放全部版本端口。配置存 scripts/lib/dev-config.local.json 的
-        playtest.engine（本机配置）
-  engine seed  把其它版本的配置备份播种到当前版本（--force 覆盖已有；--from <key> 指定来源）；
-        首次启用某版本（数据目录无 persist.json）时 auto/open/restore 会自动播种——空容器页面即可
-        自动导入配置（否则无备份可导、dev=false 卡 boot）
-  status --json  机器可读（含服务器 env、引擎与页面计数，供 AI 解析）
-（npm 传参写法：npm run playtest -- auto 30000）`);
+/** 终端列宽对齐：CJK 记 2 宽 */
+const padCJK = (s, w) => {
+    const t = String(s);
+    const width = [...t].reduce((n, ch) => n + (/[\u2E80-\uFFFF]/.test(ch) ? 2 : 1), 0);
+    return t + ' '.repeat(Math.max(0, w - width));
+};
+
+/** 组名解析：key / 中文标签 / 标签前缀（如 help 键） */
+function resolveGroup(arg) {
+    const a = String(arg || "").trim();
+    if (!a) return null;
+    return CLI_GROUPS.find((g) => g.key === a || g.label === a || g.label.indexOf(a) === 0) || null;
 }
 
+/** 用法：无参=分组速览；带组名=该组逐条详情（二级）。 */
+function printUsage(groupArg) {
+    const group = resolveGroup(groupArg);
+    if (group) {
+        console.log(`${group.label}　${group.desc}`);
+        for (const [usage, desc] of group.items) {
+            console.log(`  ${usage}`);
+            console.log(`      ${desc}`);
+        }
+        console.log("  速览：npm run playtest -- help");
+        return;
+    }
+    if (groupArg) log.warn(`未知分组「${groupArg}」——用 help 看分组列表。`);
+    console.log("崩铁杀调试台（npm run playtest -- <命令>；无参 = 交互菜单；--verbose 看完整路径）");
+    for (const g of CLI_GROUPS) {
+        const cmds = [...new Set(g.items.map((it) => it[0].split(/[ <[]/)[0]))].join(" | ");
+        console.log(`  ${padCJK(g.label, 12)}${cmds}`);
+        console.log(`  ${" ".repeat(12)}${g.desc} · 详情：playtest help ${g.label}`);
+    }
+    console.log("  提示：--char none 清除「每局直刷」（等价 char none）；@id 未登记会报错并指向 keys。");
+    console.log("        集成浏览器会截断长 URL —— 依赖 URL 的玩法走服务器通道（set / apply-nncfg / char）。");
+    console.log("        文档：文档/调试与自动化测试手册.md（§2 启停 · §3.7 设置注入 · §3.8 调试键规范）。");
+}
+/** 交互菜单：一级=分组（只 5 条），二级=具体动作；菜单项与 CLI_GROUPS 同源。 */
 async function runInteractive() {
     try {
-        const choice = await menu(
-            '崩铁杀连续游玩 —— 请选择操作：',
-            [
-                { label: '无人值守启动（后台，崩溃自动跳过 15 秒，随后自动打开内置浏览器）', value: 'auto' },
-                { label: '前台启动（调试用：关闭自动游玩、日志输出到终端）', value: 'fg' },
-                { label: '打开 VS Code 内置浏览器（调试页面）', value: 'open' },
-                {
-                    label: '应用 nncfg 配置（win11.0：全崩铁武将池 / 开发者模式 / 界面样式）',
-                    value: 'nncfg',
-                },
-                { label: `切换服务器版本（当前：${currentEngine.label}@${currentEngine.port}；端口/数据按版本独立）`, value: 'engine' },
-                { label: '恢复配置数据（缺失自动补缺；可选强制覆盖）', value: 'restore' },
-                { label: '制作配置种子快照（把当前健康备份固定为回退基准）', value: 'seed' },
-                { label: '清理测试数据（删除事件流/日志/队列记录；保留配置备份）', value: 'clean' },
-                { label: `停止服务器（释放 ${engines.map((e) => e.port).join('/')} 端口）`, value: 'stop' },
-                { label: '查看运行状态 / 统计', value: 'status' },
-            ],
-            { cancelLabel: '退出' },
-        );
-        if (!choice) {
-            log.info('已退出。');
-            return;
-        }
-        const value = typeof choice === 'string' ? choice : choice.value;
-        if (value === 'auto') {
-            await startDetached({ allowRestart: true });
-        } else if (value === 'fg') {
-            await startForeground({ allowRestart: true });
-        } else if (value === 'open') {
-            await openBrowser(URL_BASE);
-        } else if (value === 'nncfg') {
-            await applyNncfg({ flags: new Set(), values: {}, sets: [], queries: [], positional: [] });
-        } else if (value === 'engine') {
-            const picked = await menu(
-                '选择要启动的服务器版本（测试数据按版本分离）：',
-                engines.map((e) => ({
-                    label: `${e.label}（${e.key}）${samePath(e.root, currentEngine.root) ? ' ← 当前' : ''}`,
-                    value: e.key,
-                })),
-                { cancelLabel: '不切换' },
+        for (;;) {
+            const live = await isRunning();
+            const group = await menu(
+                `崩铁杀调试台（${where()}${live ? " · 运行中" : " · 未运行"}）`,
+                CLI_GROUPS.map((g) => ({ label: `${padCJK(g.label, 12)}${g.desc}`, value: g.key })),
+                { cancelLabel: "退出" },
             );
-            if (!picked) {
-                log.info('已取消。');
+            if (!group) {
+                log.info("已退出。");
                 return;
             }
-            await cmdEngine(typeof picked === 'string' ? picked : picked.value);
-        } else if (value === 'restore') {
-            const force = await confirm('是否强制覆盖恢复（--force）？默认普通补缺（仅补缺失键）', {
-                defaultYes: false,
-            });
-            await restoreConfig({ force });
-        } else if (value === 'seed') {
-            snapshotSeed();
-        } else if (value === 'clean') {
-            if (!(await confirm('删除测试数据（保留配置备份 persist*/seeds）？', { defaultYes: false }))) {
-                log.info('已取消。');
-                return;
-            }
-            const all = await confirm('是否连同 archive/ 历史归档与 _tmp_* 临时输出一并清除？', { defaultYes: false });
-            await cmdClean({ all });
-        } else if (value === 'stop') {
-            stopAllServers();
-        } else if (value === 'status') {
-            await showStatus();
+            await runMenuGroup(typeof group === "string" ? group : group.value);
         }
     } finally {
         closeInteractive();
     }
 }
 
+/** 二级菜单：某组的具体动作（只读查看类做完留在本组，其余回一级菜单）。 */
+async function runMenuGroup(key) {
+    const group = CLI_GROUPS.find((g) => g.key === key);
+    if (!group) return;
+    for (;;) {
+        const picked = await menu(
+            `${group.label}　${group.desc}`,
+            group.items.map(([usage, desc, menuLabel]) => ({
+                label: `${menuLabel}　〔${usage.split(" ")[0]}〕` ,
+                usage,
+                hint: desc,
+            })),
+            { cancelLabel: "← 返回" },
+        );
+        if (!picked) return;
+        const usage = typeof picked === "string" ? picked : picked.usage;
+        const stay = await runMenuAction(String(usage));
+        if (!stay) return;
+    }
+}
+
+/** 执行二级菜单动作；返回 true = 留在本组（只读汇报类），false = 回一级菜单。 */
+async function runMenuAction(usage) {
+    const cmd = usage.split(" ")[0];
+    if (usage.startsWith("engine seed")) {
+        const force = await confirm("覆盖已有备份（--force）？", { defaultYes: false });
+        await seedForCurrentEngine({ flags: force ? new Set(["force"]) : new Set(), values: {}, positional: [] });
+        return false;
+    }
+    if (cmd === "auto") {
+        await startDetached({ allowRestart: true });
+        return false;
+    }
+    if (cmd === "fg") {
+        await startForeground({ allowRestart: true });
+        return false;
+    }
+    if (cmd === "open") {
+        await openBrowser(URL_BASE);
+        return false;
+    }
+    if (cmd === "status") {
+        await showStatus();
+        return true;
+    }
+    if (cmd === "stop") {
+        stopAllServers();
+        return false;
+    }
+    if (cmd === "chars") {
+        await cmdChars({ flags: new Set(), values: {}, positional: [] });
+        return true;
+    }
+    if (cmd === "config") {
+        await cmdConfig({ flags: new Set(), values: {}, positional: [] });
+        return true;
+    }
+    if (cmd === "char") {
+        const k = await readDebugKeys();
+        const cur = k && k.autoChar ? `${charName(k.autoChar) || "?"}（${k.autoChar}）` : "无";
+        const picked = await menu(
+            `每局直刷角色　当前：${cur}`,
+            [
+                { label: "从角色列表选择（先按关键字过滤，支持中文名）", value: "pick" },
+                { label: "清除（none）", value: "none" },
+                { label: "手动输入 id / 中文名", value: "manual" },
+            ],
+            { cancelLabel: "← 返回" },
+        );
+        if (!picked) return true;
+        let val = typeof picked === "string" ? picked : picked.value;
+        if (val === "pick") {
+            val = await pickFromList("选择角色（每局直刷）", listCharacters(), (c) => `${c.name}　${c.id}`, (c) => c.id);
+            if (!val) return true;
+        } else if (val === "manual") {
+            val = (await prompt("角色 id 或中文名: ")).trim();
+            if (isCancel(val)) {
+                log.info("已取消。");
+                return true;
+            }
+        }
+        await cmdChar(val);
+        return true;
+    }
+    if (cmd === "set") {
+        const which = await menu(
+            "写配置（先选通道，再选具体项）",
+            [
+                { label: `调试键（${Object.keys(loadBtsKeys().tokens || {}).length} 项，带说明与现值；含粘性键清除）`, value: "debug" },
+                { label: `游戏配置（配置备份里 ${listConfigPairs().length} 项，列键 + 现值）`, value: "idb" },
+                { label: "启动键（localStorage：directstart / show_splash_off …）", value: "ls" },
+                { label: "手动输入（k=v / ls.k=v / @id=v）", value: "raw" },
+            ],
+            { cancelLabel: "← 返回" },
+        );
+        if (!which) return true;
+        const ch = typeof which === "string" ? which : which.value;
+        const snap = (await readDebugKeys()) || {};
+        if (ch === "debug") {
+            const tokens = Object.entries(loadBtsKeys().tokens || {}).map(([token, meta]) => ({ token, ...(meta || {}) }));
+            const id = await pickFromList(
+                "选择调试键",
+                tokens,
+                (r) => `${r.id}　${r.token}　〔${r.life}〕　${String(r.note || "").split(/[；（(]|——/)[0].trim().slice(0, 22)}`,
+                (r) => r.id,
+            );
+            if (!id) return true;
+            const cur = snap[id] === undefined ? "?" : snap[id] === null ? "无" : String(snap[id]);
+            const val = (await prompt(`新值（现值 ${cur}；空/none=删除该键${id === "autoChar" ? "，也可填角色 id/中文名" : ""}）: `)).trim();
+            if (isCancel(val) && val !== "" && val !== "none") {
+                log.info("已取消。");
+                return true;
+            }
+            if (id === "autoChar") {
+                await cmdChar(val === "" || val === "none" ? "none" : val);
+                return true;
+            }
+            await cmdSet([`@${id}=${val === "none" ? "" : val}`]);
+            return true;
+        }
+        if (ch === "idb") {
+            const pairs = listConfigPairs();
+            if (!pairs.length) {
+                log.warn("读不到配置备份（先让页面跑一会儿完成首次备份）。");
+                return true;
+            }
+            const key = await pickFromList("选择游戏配置项", pairs, ([k, v]) => `${k}　= ${showValue(v)}`, ([k]) => k);
+            if (!key) return true;
+            const cur = (pairs.find(([k]) => k === key) || [])[1];
+            if (typeof cur === "boolean") {
+                const b = await menu(
+                    `「${key}」现值 ${cur} → 选新值`,
+                    [
+                        { label: "true（开）", value: "true" },
+                        { label: "false（关）", value: "false" },
+                    ],
+                    { cancelLabel: "← 取消" },
+                );
+                if (!b) return true;
+                await cmdSet([`${key}=${typeof b === "string" ? b : b.value}`]);
+                return true;
+            }
+            const val = (await prompt(`新值（现值 ${showValue(cur)}；数组/字符串请带引号或写 JSON）: `)).trim();
+            if (!val) {
+                log.info("已取消。");
+                return true;
+            }
+            await cmdSet([`${key}=${val}`]);
+            return true;
+        }
+        if (ch === "ls") {
+            const known = ["directstart", "show_splash_off"];
+            let key = await pickFromList("选择启动键（localStorage）", known, (k) => k, (k) => k);
+            if (!key) {
+                key = (await prompt("启动键名（如 directstart）: ")).trim();
+                if (isCancel(key)) {
+                    log.info("已取消。");
+                    return true;
+                }
+            }
+            const val = (await prompt("值（如 true / off；空=删除该键）: ")).trim();
+            await cmdSet([`ls.${key}=${val}`]);
+            return true;
+        }
+        const line = (await prompt("输入写入项（如 show_splash=off / ls.directstart=true / @autoChar=bts_ch_x；空格分隔多项）: ")).trim();
+        if (isCancel(line)) {
+            log.info("已取消。");
+            return true;
+        }
+        await cmdSet(line.split(/\s+/).filter(Boolean));
+        return true;
+    }
+
+    if (cmd === "keys") {
+        await cmdKeys({ flags: new Set(), values: {}, positional: [] });
+        const id = await prompt("输入 id 看详情（回车跳过）: ");
+        if (id) await cmdKeys({ flags: new Set(), values: {}, positional: [id] });
+        return true;
+    }
+    if (cmd === "engine") {
+        const picked = await menu(
+            "选择要启动的服务器版本（测试数据按版本分离）:",
+            engines.map((e) => ({
+                label: `${e.label}（${e.key}）${samePath(e.root, currentEngine.root) ? " ← 当前" : ""}` ,
+                value: e.key,
+            })),
+            { cancelLabel: "不切换" },
+        );
+        if (!picked) {
+            log.info("已取消。");
+            return true;
+        }
+        await cmdEngine(typeof picked === "string" ? picked : picked.value);
+        return false;
+    }
+    if (cmd === "events") {
+        await showEvents({ flags: new Set(), values: {}, sets: [], queries: [], positional: [] });
+        return true;
+    }
+    if (cmd === "clean") {
+        if (!(await confirm("删除测试数据（保留配置备份 persist*/seeds）？", { defaultYes: false }))) {
+            log.info("已取消。");
+            return true;
+        }
+        const all = await confirm("是否连同 archive/ 历史归档与 _tmp_* 临时输出一并清除？", { defaultYes: false });
+        await cmdClean({ all });
+        return false;
+    }
+    log.warn(`菜单未实现的动作：${usage}`);
+    return true;
+}
 /**
  * engine 子命令：查看 / 切换「服务器版本（引擎）」——noname（缺省）或 noname - 新版（key=new）。
  * 配置持久化在 scripts/lib/dev-config.local.json 的 playtest.engine（本机配置，不入库）；
@@ -1378,9 +1536,11 @@ async function cmdEngine(arg, opts = { flags: new Set(), values: {} }) {
             const marks = [];
             if (samePath(e.root, currentEngine.root)) marks.push('当前');
             if (!existsSync(join(e.root, 'index.html'))) marks.push('⚠ 缺 index.html，不可用');
-            console.log(`  · ${e.key}｜${e.label}${marks.length ? `（${marks.join('；')}）` : ''}`);
-            console.log(`      端口：${e.port}；根目录：${e.root}`);
-            console.log(`      数据目录：${dataDirFor(e)}`);
+            console.log(`  · ${e.key}｜${e.label}@${e.port}${marks.length ? `（${marks.join('；')}）` : ''} → ${basename(dataDirFor(e))}/`);
+            if (VERBOSE) {
+                console.log(`      根目录：${e.root}`);
+                console.log(`      数据目录：${dataDirFor(e)}`);
+            }
         }
         console.log('  切换：npm run playtest -- engine <noname|new|新版>');
         return;
@@ -1401,9 +1561,11 @@ async function cmdEngine(arg, opts = { flags: new Set(), values: {} }) {
         return;
     }
     saveEngineSelection(target.key);
-    log.ok(`服务器版本已切换：${currentEngine.label}（${currentEngine.port}） → ${target.label}（${target.port}）`);
-    console.log(`  根目录：${target.root}`);
-    console.log(`  数据目录：${dataDirFor(target)}（端口与数据均按版本独立）`);
+    log.ok(`服务器版本已切换：${currentEngine.label}@${currentEngine.port} → ${target.label}@${target.port}（端口与数据按版本独立）`);
+    if (VERBOSE) {
+        console.log(`  根目录：${target.root}`);
+        console.log(`  数据目录：${dataDirFor(target)}`);
+    }
     if (!existsSync(join(dataDirFor(target), 'persist.json')))
         log.info(
             '该版本尚无配置备份（首次使用）——打开页面时自动从其它版本播种（首次导入配置）；也可手动：engine seed',
@@ -1427,14 +1589,14 @@ async function cmdEngine(arg, opts = { flags: new Set(), values: {} }) {
 /** open 子命令：确保服务器在跑 → 组装含各参数的页面 URL → 打开并核验 */
 async function cmdOpen(opts) {
     if (!(await isRunning())) {
-        log.info('服务器未运行 → 先以默认模式（无人值守）后台拉起…');
-        await startDetached({ autoskipMs: DEFAULT_AUTOSKIP_MS, off: false, openUrl: '' });
+        log.info('服务器未运行 → 先以「无人值守」后台拉起。');
+        await startDetached({ autoskipMs: DEFAULT_AUTOSKIP_MS, off: false, openUrl: '', quiet: true });
     }
     ensureEngineSeed(); // 沿用运行中实例时也要保证「有备份可导」（服务器按请求读盘，补上即对下次加载生效）
     const url = buildPageUrl({
         urlArg: opts.positional[0] || '',
         test: opts.flags.has('test'),
-        char: opts.values.char || '',
+        char: await resolveCharArg(opts.values.char || ''),
         noAuto: opts.flags.has('no-auto'),
         restore: opts.values.restore || '',
         sets: opts.sets,
@@ -1453,10 +1615,17 @@ function parseSetValueJsonFirst(s) {
     }
 }
 
-/** POST 设置到服务器待注入队列（sets=IDB config 项；ls=localStorage 项，可空/含 null 表示移除）。成功返回 {ok:true,count}；不可用返回 null */
-function postPending(setsObj, note, lsObj) {
+/** POST 到服务器待注入队列：sets=IDB config 项；ls=localStorage 项（server 加 noname_0.9_ 前缀）；
+ *  direct=调试键原地写（键名原样、不加前缀；null=删除；一次性消费，页面下一次加载即生效）。
+ *  成功返回 {ok:true,count}；服务器不可用返回 null。 */
+function postPending(setsObj, note, lsObj, directObj) {
     return new Promise((done) => {
-        const body = JSON.stringify({ sets: setsObj, note: note || '', ls: lsObj || undefined });
+        const body = JSON.stringify({
+            sets: setsObj || {},
+            note: note || '',
+            ls: lsObj || undefined,
+            direct: directObj || undefined,
+        });
         const req = http.request(
             URL_BASE + '__bts/pending',
             {
@@ -1485,6 +1654,147 @@ function postPending(setsObj, note, lsObj) {
         req.write(body);
         req.end();
     });
+}
+
+// ---- 可选项数据源（菜单/命令共用；只读 + 进程内缓存）----
+/** 角色清单（id + 中文名）：扫 zip/source/character 下的翻译映射（`bts_ch_xxx: '名'`）。 */
+let _charsCache = null;
+function listCharacters() {
+    if (_charsCache) return _charsCache;
+    const map = new Map();
+    const RE = /^\s*(bts_(?:diy_)?ch_[a-z0-9_]+):\s*'([^']+)'/gm;
+    const walk = (dir) => {
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+            const p = join(dir, e.name);
+            if (e.isDirectory()) walk(p);
+            else if (e.name.endsWith('.js'))
+                for (const m of readFileSync(p, 'utf-8').matchAll(RE)) if (!map.has(m[1])) map.set(m[1], m[2]);
+        }
+    };
+    try {
+        walk(join(__dirname, '..', 'source', 'character'));
+    } catch {
+        /* 源码树缺失：给空表（命令会提示） */
+    }
+    _charsCache = [...map.entries()]
+        .filter(([id]) => !id.endsWith('_prefix')) // `*_prefix` 是前缀/组合实体，不是可选角色
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+    return _charsCache;
+}
+
+/** 角色 id → 中文名（未知名返回 null）。 */
+function charName(id) {
+    const hit = listCharacters().find((c) => c.id === id);
+    return hit ? hit.name : null;
+}
+
+/** 游戏配置项（[键, 现值]）：读最近的配置备份 data/persist.json（页面每 30s 备份一次）。 */
+function listConfigPairs() {
+    try {
+        const pj = JSON.parse(readFileSync(persistFile, 'utf-8'));
+        const cfg = pj && pj.dbs && pj.dbs['noname_0.9_data'] && pj.dbs['noname_0.9_data'].stores
+            ? pj.dbs['noname_0.9_data'].stores.config
+            : null;
+        if (Array.isArray(cfg))
+            return cfg
+                .filter((r) => Array.isArray(r) && r.length === 2)
+                .map(([k, v]) => [String(k), v])
+                .sort((a, b) => a[0].localeCompare(b[0]));
+    } catch {
+        /* 无备份 / 结构不同：给空表 */
+    }
+    return [];
+}
+
+/** 关键字匹配（大小写不敏感；空关键字=全部）。 */
+function matchKw(kw, ...fields) {
+    const k = String(kw || '').trim().toLowerCase();
+    if (!k) return true;
+    return fields.some((f) => String(f === undefined || f === null ? '' : f).toLowerCase().includes(k));
+}
+
+/** 值显示（长值折叠）。 */
+function showValue(v) {
+    const s = typeof v === 'string' ? v : JSON.stringify(v);
+    const t = s === undefined ? String(v) : s;
+    return t.length > 40 ? t.slice(0, 40) + '…' : t;
+}
+
+/** 交互：关键字过滤 + 编号选择（返回选中项的 value；取消返回 null）。 */
+async function pickFromList(title, items, toLabel, toValue, { limit = 20 } = {}) {
+    const kw = await prompt('关键字过滤（回车=全部）: ');
+    const hits = items.filter((it) => matchKw(kw, toValue(it), toLabel(it)));
+    if (!hits.length) {
+        log.warn(`没有匹配「${kw}」的项（共 ${items.length} 项）。`);
+        return null;
+    }
+    if (hits.length > limit) log.info(`匹配 ${hits.length} 项，列前 ${limit} 项（可再输更精确的关键字）。`);
+    const picked = await menu(
+        title,
+        hits.slice(0, limit).map((it) => ({ label: toLabel(it), value: toValue(it) })),
+        { cancelLabel: '← 取消' },
+    );
+    return picked ? (typeof picked === 'string' ? picked : picked.value) : null;
+}
+
+/** 输入里的「取消」写法（空 / 0 / q / 取消 / 返回）。 */
+const isCancel = (s) => /^(0|q|quit|cancel|取消|返回|←)$/i.test(String(s || '').trim());
+
+/** 读页面最近上报的调试键快照（服务器未跑或页面未上报 → null）。 */
+async function readDebugKeys() {
+    if (!(await isRunning())) return null;
+    const stats = await getJson(URL_BASE + '__playtest/stats');
+    return (stats && stats.data && stats.data.debugKeys) || null;
+}
+
+/** 调试键登记表（唯一事实源 _others/debug/bts-keys.json；server 与两个客户端同表）。 */
+let _btsKeysTable = null;
+function loadBtsKeys() {
+    if (_btsKeysTable) return _btsKeysTable;
+    const f = join(debugDir, 'bts-keys.json');
+    try {
+        _btsKeysTable = JSON.parse(readFileSync(f, 'utf-8'));
+    } catch (e) {
+        log.error(`调试键登记表读取失败：${f}（${(e && e.message) || e}）`);
+        process.exit(1);
+    }
+    return _btsKeysTable;
+}
+/** id → 键名（未登记返回 null，由调用方决定是报错还是列候选）。 */
+function btsKeyOrNull(id) {
+    const tokens = loadBtsKeys().tokens || {};
+    for (const [token, meta] of Object.entries(tokens)) if (meta && meta.id === id) return token;
+    return null;
+}
+/** id → 键名（未登记即 fail-fast，供内部固定用法）。 */
+function btsKey(id) {
+    const token = btsKeyOrNull(id);
+    if (!token) {
+        log.error(`未登记的调试键 id：${id}（用 keys 查登记表）`);
+        process.exit(1);
+    }
+    return token;
+}
+
+/** --char 的「清除」语义值（大小写不敏感）：清掉每局直刷角色（__bts_auto_char，粘性键）与测试台点名。 */
+const CHAR_CLEAR_VALUES = new Set(['none', 'off', 'clear', '0', 'false']);
+
+/**
+ * --char 归一：清除值改走「服务器 direct 一次性通道」（免 URL——集成浏览器会截断长 query），
+ * 成功时返回空串（不再下发 __bts_char）；服务器不可用（未运行/旧版）则原样返回，由页面按 URL
+ * 语义清除（playtest_client 的 URL_CHAR_CLEAR）。非清除值原样返回。
+ */
+async function resolveCharArg(char) {
+    const v = String(char || '');
+    if (!CHAR_CLEAR_VALUES.has(v.toLowerCase())) return v;
+    const pushed = await postPending({}, `playtest --char ${v}：清除每局直刷/点名角色`, null, {
+        [btsKey('autoChar')]: null,
+        [btsKey('testChar')]: null,
+    });
+    if (!pushed || !pushed.ok) return v; // 回退：URL 语义（页面侧同样清除）
+    log.ok(`已请求清除「每局直刷」角色（${v}）——下次页面加载生效（服务器 direct 通道）`);
+    return '';
 }
 
 /** 轮询 persist-log 增量，等「设置注入」类 trace（返回 'ok：…' / 'fail：…' / 'none'） */
@@ -1532,53 +1842,80 @@ function reportSetVerdict(verdict) {
  * 优先走「服务器待注入队列」下发（POST /__bts/pending → 打开注入页 → 页面自取写库）：
  * URL 只带 __bts_noauto，彻底规避集成浏览器对 URL 长参数的截断；旧版服务器自动回退 URL __bts_set。
  */
+/**
+ * set 子命令：写配置 / 调试键（一次 POST 可混用三通道）。
+ *   k=v        → IDB config（游戏配置，页面写库并回执）
+ *   ls.k=v     → localStorage（无名杀启动键；server 加非ame.9_ 前缀；空值=删除）
+ *   @id=v      → 调试键（登记表 id；走 direct 一次性通道、键名原样；空值=删除；id 见 keys）
+ * 例：set show_splash=off／set @autoChar=bts_ch_zhenzhu／set @autoChar=（清除）／set ls.directstart=true
+ */
 async function cmdSet(pairs) {
     if (!pairs.length) {
-        log.error('用法：node scripts/playtest.mjs set <key>=<value> [...]（如 set show_splash=off）');
+        log.error('用法：set <k=v | ls.k=v | @id=v> […]');
+        console.log('  例：set show_splash=off · set ls.directstart=true · set @autoChar=bts_ch_zhenzhu · set @autoChar=（清除）');
         process.exitCode = 1;
         return;
     }
-    if (!(await isRunning())) {
-        log.info('服务器未运行 → 以后台「手动模式」拉起（不干扰配置写入）…');
-        await startDetached({ off: true, openUrl: '' });
-    }
     const sets = {};
     const ls = {};
+    const direct = {};
     for (const p of pairs) {
         const i = p.indexOf('=');
         const k = i === -1 ? p : p.slice(0, i);
         const v = i === -1 ? '' : p.slice(i + 1);
         if (!k) continue;
-        // `ls.` 前缀 = 写 localStorage（无名杀启动键，如 directstart；先于游戏启动同步生效）；空值=移除
-        if (k.indexOf('ls.') === 0) ls[k.slice(3)] = v === '' ? null : parseSetValueJsonFirst(v);
-        else sets[k] = parseSetValueJsonFirst(v);
+        if (k.startsWith('@')) {
+            // 调试键：id 必须在登记表内（拼错即失败并给出候选，见 keys）
+            const token = btsKeyOrNull(k.slice(1));
+            if (!token) {
+                log.error(`未登记的调试键 id：「${k.slice(1)}」——用 keys 查登记表（或 keys --json）。`);
+                process.exitCode = 1;
+                return;
+            }
+            direct[token] = v === '' ? null : parseSetValueJsonFirst(v);
+        } else if (k.startsWith('ls.')) {
+            ls[k.slice(3)] = v === '' ? null : parseSetValueJsonFirst(v);
+        } else {
+            sets[k] = parseSetValueJsonFirst(v);
+        }
     }
-    if (!Object.keys(sets).length && !Object.keys(ls).length) {
+    const desc = [];
+    if (Object.keys(sets).length) desc.push(`${Object.keys(sets).length} 项 IDB`);
+    if (Object.keys(ls).length) desc.push(`${Object.keys(ls).length} 项 localStorage`);
+    if (Object.keys(direct).length) desc.push(`${Object.keys(direct).length} 项调试键`);
+    if (!desc.length) {
         log.error('没有可写入的键。');
         process.exitCode = 1;
         return;
     }
-    const r = await postPending(sets, 'playtest set', Object.keys(ls).length ? ls : null);
+    if (!(await isRunning())) {
+        log.info('服务器未运行 → 先以「手动模式」后台拉起（只注入，不自动游玩）。');
+        await startDetached({ off: true, openUrl: '', quiet: true });
+    }
+    const r = await postPending(sets, 'playtest set', Object.keys(ls).length ? ls : null, Object.keys(direct).length ? direct : null);
     if (!r || !r.ok) {
-        log.warn('服务器无待注入端点（旧版？）→ 回退 URL 注入（注意：集成浏览器可能截断长参数）。');
+        log.warn('服务器无待注入端点（旧版？）→ 回退 URL 注入（集成浏览器可能截断长参数；@id 不受支持）。');
         const url = buildPageUrl({ sets: pairs, noAuto: true });
         console.log(`  注入页：${url}`);
         const opened = await openBrowser(url);
         if (opened) log.ok('设置注入页已打开（URL 通道）：页面将写入游戏配置并自动重载。');
         return;
     }
-    const desc = [];
-    if (Object.keys(sets).length) desc.push(`${Object.keys(sets).length} 项 IDB：` + Object.keys(sets).join('、'));
-    if (Object.keys(ls).length)
-        desc.push(`${Object.keys(ls).length} 项 localStorage：` + Object.keys(ls).join('、'));
-    log.ok('已加入服务器待注入队列（' + desc.join('；') + '）');
+    log.ok(`已下发 ${desc.join(' · ')} → 页面下一次加载生效`);
     const logBefore = existsSync(persistLogFile) ? readFileSync(persistLogFile, 'utf-8').length : 0;
-    const opened = await openBrowser(buildPageUrl({ noAuto: true }));
+    // IDB 项需要页面写库（用 noauto，免得开局打断写入）；纯启动键/调试键由 server 内联，
+    // 直接开默认页（保持无人值守），避免把正在跑的自动页换成手动页。
+    const opened = await openBrowser(Object.keys(sets).length ? buildPageUrl({ noAuto: true }) : URL_BASE);
     if (!opened) {
         process.exitCode = 1;
         return;
     }
-    reportSetVerdict(await waitPersistVerdict(logBefore));
+    // IDB 项需页面写库回执；ls / 调试键由 server 内联（本页加载即已生效），无需等回执
+    if (Object.keys(sets).length) reportSetVerdict(await waitPersistVerdict(logBefore));
+    else
+        log.info(
+            '启动键由 server 内联（每次加载重放）、调试键由 playtest 页面拉取落地——本次打开的页面已生效（非 playtest 页不拉取）。',
+        );
 }
 
 /**
@@ -1641,6 +1978,7 @@ async function applyNncfg(opts) {
         await startDetached({ off: true, openUrl: '' });
     }
     const test = opts.flags.has('test');
+    const charArg = await resolveCharArg(opts.values.char || ''); // --char none：清除直刷角色
     // 优先走「服务器待注入队列」（免 URL 长参数；集成浏览器同样可靠）；旧版服务器回退 URL __bts_set。
     const setsToPush = { ...cfg };
     for (const p of opts.sets) {
@@ -1654,7 +1992,7 @@ async function applyNncfg(opts) {
     if (pushed && pushed.ok) {
         url = buildPageUrl({
             test,
-            char: opts.values.char || '',
+            char: charArg,
             noAuto: !test,
             queries: opts.queries,
         });
@@ -1665,7 +2003,7 @@ async function applyNncfg(opts) {
         log.warn('服务器无待注入端点（旧版？）→ 回退 URL 注入（注意：集成浏览器可能截断长参数）。');
         url = buildPageUrl({
             test,
-            char: opts.values.char || '',
+            char: charArg,
             noAuto: !test,
             sets: [...pairs, ...opts.sets],
             queries: opts.queries,
@@ -1681,6 +2019,171 @@ async function applyNncfg(opts) {
     reportSetVerdict(await waitPersistVerdict(logBefore));
 }
 
+/**
+ * keys 子命令：调试键登记表（回答「这个键在哪设置/什么生命周期/怎么清」）。
+ *   keys                    一览：id / 键名 / 生命周期 / 备注（sticky 必写清除路径）
+ *   keys <id>               单项详情（含 owner / writers / 备注）
+ *   keys --owner playtest --life sticky --json
+ */
+async function cmdKeys(opts = { flags: new Set(), values: {}, positional: [] }) {
+    const table = loadBtsKeys();
+    const tokens = table.tokens || {};
+    const owner = opts.values.owner;
+    const life = opts.values.life;
+    const wantId = opts.positional[0];
+    const rows = Object.entries(tokens)
+        .map(([token, meta]) => ({ token, ...(meta || {}) }))
+        .filter((r) => (!owner || r.owner === owner) && (!life || r.life === life))
+        .filter((r) => !wantId || r.id === wantId);
+    if (opts.flags.has("json")) {
+        console.log(JSON.stringify(wantId ? rows[0] || null : rows, null, 2));
+        if (wantId && !rows.length) process.exitCode = 1;
+        return;
+    }
+    if (wantId) {
+        if (!rows.length) {
+            log.error(`登记表里没有 id = ${wantId}（用 keys 看全部）。`);
+            process.exitCode = 1;
+            return;
+        }
+        const r = rows[0];
+        console.log(`${r.id}  →  ${r.token}`);
+        console.log(`  生命周期：${r.life} · 归属：${r.owner} · 类型：${r.kind}`);
+        if (Array.isArray(r.writers) && r.writers.length) console.log(`  写入方：${r.writers.join(' / ')}`);
+        console.log(`  备注：${r.note || '—'}`);
+        return;
+    }
+    if (!rows.length) {
+        log.warn('登记表为空（或过滤条件过严）。');
+        return;
+    }
+    const wId = Math.max(3, ...rows.map((r) => String(r.id || "").length));
+    const wTok = Math.max(8, ...rows.map((r) => r.token.length));
+    const wLife = Math.max(4, ...rows.map((r) => String(r.life || "").length));
+    console.log(`${"id".padEnd(wId)}  ${"键名".padEnd(wTok)}  ${"生命周期".padEnd(wLife)}  备注`);
+    for (const r of rows) {
+        // 备注只留第一分句（到 ；/——/（ 为止），表格不被长句撑爆
+        const note = String(r.note || "").split(/[；（(]|——/)[0].trim().slice(0, 42);
+        console.log(`${String(r.id).padEnd(wId)}  ${r.token.padEnd(wTok)}  ${String(r.life).padEnd(wLife)}  ${note}`);
+    }
+    console.log(`（共 ${rows.length} 条 · 详情 keys <id> · 全字段：--json · 文件：_others/debug/bts-keys.json）`);
+}
+
+/**
+ * chars 子命令：列出可选角色（id + 中文名）——不用记 id，直接查 / 直接选。
+ *   chars [关键字] [--json]      关键字可匹配 id 或中文名（如 chars 真）
+ */
+async function cmdChars(opts = { flags: new Set(), values: {}, positional: [] }) {
+    const all = listCharacters();
+    if (!all.length) {
+        log.warn('扫不到角色清单（zip/source/character 缺失？）。');
+        process.exitCode = 1;
+        return;
+    }
+    const kw = opts.positional[0];
+    const hits = all.filter((c) => matchKw(kw, c.id, c.name));
+    if (opts.flags.has('json')) {
+        console.log(JSON.stringify(hits, null, 2));
+        return;
+    }
+    if (!hits.length) {
+        log.warn(`没有匹配「${kw}」的角色（共 ${all.length} 个）。`);
+        return;
+    }
+    for (const c of hits) console.log(`  ${c.id.padEnd(30)}${c.name}`);
+    console.log(`（共 ${hits.length}/${all.length} 个 · 设直刷：char <id|中文名> · 来源 zip/source/character）`);
+}
+
+/**
+ * config 子命令：列出游戏配置项与现值（来自最近一次配置备份 persist.json，页面每 30s 备份）。
+ *   config [关键字] [--json]     改值：set <键>=<值>（或菜单「配置与注入 → 写配置」）
+ */
+async function cmdConfig(opts = { flags: new Set(), values: {}, positional: [] }) {
+    const pairs = listConfigPairs();
+    if (!pairs.length) {
+        log.warn('读不到配置备份（data/persist.json 不存在或为空）——先让页面跑一会儿完成首次备份。');
+        process.exitCode = 1;
+        return;
+    }
+    const kw = opts.positional[0];
+    const hits = pairs.filter(([k, v]) => matchKw(kw, k, showValue(v)));
+    if (opts.flags.has('json')) {
+        console.log(JSON.stringify(Object.fromEntries(hits), null, 2));
+        return;
+    }
+    if (!hits.length) {
+        log.warn(`没有匹配「${kw}」的配置项（共 ${pairs.length} 项）。`);
+        return;
+    }
+    for (const [k, v] of hits) console.log(`  ${k.padEnd(42)}${showValue(v)}`);
+    console.log(`（共 ${hits.length}/${pairs.length} 项 · 现值取自 ${dataRel(persistFile)}（≤30s 前） · 改：set <键>=<值>）`);
+}
+
+/**
+ * char 子命令：查看 / 设置 / 清除「每局直刷」角色（粘性键 __bts_auto_char）。
+ *   char                 看现值（页面心跳上报，含当前页模式）
+ *   char <id|中文名>     设为该角色：校验 → 下发 direct → **立即刷新调试页** → 等页面确认生效
+ *   char none            清除（同时清掉测试台点名键）
+ *   --no-wait            跳过「等页面确认」（只下发 + 刷新）
+ * 为什么要刷新页面：键值只存在浏览器里，direct 由 server 在 HTML 里内联——必须有一次页面加载才落地
+ * （2026-10-11 用户实测「输入 none 后没生效」＝页面是测试台/未重载，故本命令改为立即刷新并确认）。
+ */
+async function cmdChar(arg = '', opts = { flags: new Set(), values: {} }) {
+    const token = btsKeyOrNull('autoChar');
+    let v = String(arg || '').trim();
+    if (!v) {
+        const k = await readDebugKeys();
+        if (!k) {
+            log.info('取不到现值（服务器未运行或页面未上报）——拉起：npm run playtest -- auto');
+            return;
+        }
+        if (Date.now() - (k.at || 0) > 90000) log.warn('该值来自 >90 秒前的心跳，页面可能已关闭。');
+        log.ok(`每局直刷角色：${k.autoChar ? `${charName(k.autoChar) || '?'}（${k.autoChar}）` : '无（未设置）'}`);
+        if (k.testChar) console.log(`  测试台点名：${charName(k.testChar) || k.testChar}`);
+        console.log(`  设：char <id|中文名> · 清：char none · 查角色：chars [关键字] · 当前页模式：${k.mode || '?'}`);
+        return;
+    }
+    const clear = /^(none|off|clear|清|清除|0|false)$/i.test(v);
+    if (!clear) {
+        const hit = listCharacters().find((c) => c.id === v || c.name === v);
+        if (!hit) {
+            log.error(`未知角色「${v}」——用 chars [关键字] 查（共 ${listCharacters().length} 个，支持中文名）。`);
+            process.exitCode = 1;
+            return;
+        }
+        v = hit.id;
+    }
+    if (!(await isRunning())) {
+        log.info('服务器未运行 → 先以「无人值守」后台拉起（键值需要页面落地）。');
+        await startDetached({ autoskipMs: DEFAULT_AUTOSKIP_MS, off: false, openUrl: '', quiet: true });
+    }
+    const direct = clear ? { [token]: null, [btsKeyOrNull('testChar')]: null } : { [token]: v };
+    const r = await postPending({}, `playtest char ${clear ? 'clear' : v}`, null, direct);
+    if (!r || !r.ok) {
+        log.warn('下发失败（服务器无待注入端点？）——确认服务器为当前版本：npm run playtest -- status');
+        process.exitCode = 1;
+        return;
+    }
+    log.ok(clear ? '已清除「每局直刷」角色（含测试台点名）。' : `每局直刷角色 → ${charName(v) || v}（${v}）`);
+    const opened = await openBrowser(URL_BASE);
+    if (!opened) {
+        log.warn('未能自动打开/刷新调试页——请手动刷新页面后生效。');
+        return;
+    }
+    if (opts.flags.has('no-wait')) return;
+    const want = clear ? null : v;
+    // 客户端落地后会立刻上报一次 debug-keys 快照 → 通常 1~3 秒即可确认
+    for (let i = 0; i < 10; i++) {
+        await sleep(2000);
+        const k = await readDebugKeys();
+        if (k && (k.autoChar || null) === want) {
+            log.ok(`已生效（页面确认：每局直刷=${k.autoChar ? `${charName(k.autoChar) || '?'}（${k.autoChar}）` : '无'}，模式 ${k.mode || '?'}）`);
+            return;
+        }
+    }
+    log.warn('20 秒内未收到页面确认（页面未加载 playtest 客户端？）——请刷新调试页；只有 playtest 页面会拉取该队列。');
+}
+
 async function main() {
     const args = process.argv.slice(2);
     const cmd = args[0];
@@ -1692,17 +2195,25 @@ async function main() {
             process.exitCode = 1;
             return;
         }
+        if (cmd === 'help' || cmd === '-h' || cmd === '--help') {
+            printUsage(opts.positional[0]);
+            return;
+        }
         if (!cmd) {
             await runInteractive();
             return;
         }
         if (cmd === 'auto') {
             const ms = opts.values.ms === undefined ? DEFAULT_AUTOSKIP_MS : Number(opts.values.ms);
+            // --char none 等清除值：服务器在跑 → 走 direct 一次性通道（可靠）；未跑 → 保留 URL 语义。
+            const char = (await isRunning())
+                ? await resolveCharArg(opts.values.char || '')
+                : opts.values.char || '';
             const openUrl = opts.flags.has('no-open')
                 ? ''
                 : buildPageUrl({
                       test: opts.flags.has('test'),
-                      char: opts.values.char || '',
+                      char,
                       sets: opts.sets,
                       queries: opts.queries,
                   });
@@ -1714,6 +2225,14 @@ async function main() {
             if (!opened) process.exitCode = 1;
         } else if (cmd === 'set') {
             await cmdSet(opts.sets.length ? opts.sets : opts.positional);
+        } else if (cmd === 'keys') {
+            await cmdKeys(opts);
+        } else if (cmd === 'chars') {
+            await cmdChars(opts);
+        } else if (cmd === 'config') {
+            await cmdConfig(opts);
+        } else if (cmd === 'char') {
+            await cmdChar(opts.positional[0] || '');
         } else if (cmd === 'apply-nncfg' || cmd === 'nncfg') {
             await applyNncfg(opts);
         } else if (cmd === 'restore') {

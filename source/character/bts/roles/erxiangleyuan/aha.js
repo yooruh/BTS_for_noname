@@ -1,8 +1,9 @@
 // 阿哈（原创角色，非太阳神移植——源 animal.lua 无阿哈）—— 愿力、愉使与欢愉万相。
 // 技能：阿哈！（必杀技·弃8愿力连发【欢愉万相】）、愉使（弃杀钦定唯一欢愉令使，不限次；被指定者可用1张
 // 虚拟【杀】）、公演（使用/弃置【杀】或执行欢愉行动攒愿力）。规则：①【无中生有】在阿哈手上变为【欢愉万相】；②阿哈时刻——欢愉时刻
-// （源 FunnyTime，本移植原本无触发点）改由阿哈的准备阶段开始时触发；③「欢愉升格」豁免源版
-// 「欢愉角色伤害被取消」约束（还原见 rules/globalrules.js bts_gamerule_damage）。
+// （源 FunnyTime）除洗牌触发（rules/globalrules.js bts_gamerule_funny）外，由【阿哈！】技能持有者的准备阶段
+// 额外降临（技能跟随：持有者不限定为阿哈本人）；③欢愉角色的伤害取消由共享技能【欢愉约束】
+// bts_sk_funny_lock 承载（阿哈本人也持带；「欢愉升格」豁免）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'erxiangleyuan';
 export const title = '虚数·欢愉·欢愉星神'; // 称号
@@ -15,7 +16,7 @@ export const character = {
         sex: 'female',
         group: 'erxiangleyuan',
         hp: 4,
-        skills: ['bts_sk_aha', 'bts_sk_yushizhe', 'bts_sk_gongyan'],
+        skills: ['bts_sk_aha', 'bts_sk_yushizhe', 'bts_sk_gongyan', 'bts_sk_funny_lock'],
     },
 };
 
@@ -25,6 +26,7 @@ export const skill = {
     bts_sk_aha: {
         // 终结技（原创必杀，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
         bts_bisha: true,
+        bts_funny_skill: true, // 欢愉技标签：funnyPlayer 按此判定（含【阿哈！】持有者）
         bts_bisha_angry: false, // 资源型必杀（愿力发动、不消耗怒气）→ 拥有者不获得怒气（utils.hasAngryBisha 门控）
         enable: 'phaseUse',
         filter(event, player) {
@@ -59,8 +61,9 @@ export const skill = {
                 forced: true,
                 popup: false,
                 async content(event, trigger, player) {
-                    // 阿哈时刻：欢愉时刻（源 FunnyTime L11356-11368，原本由洗牌触发；本设计改为阿哈的
-                    // 准备阶段开始时）→ 全场各执行一次欢愉行动（funnyAct 按各技能的 bts_funny
+                    // 阿哈时刻：欢愉时刻（源 FunnyTime）——洗牌触发已由规则层 bts_gamerule_funny
+                    // 承担；本子技跟随【阿哈！】技能持有者（非绑定角色），在持有者的准备阶段
+                    // 开始时额外降临一次 → 全场各执行一次欢愉行动（funnyAct 按各技能的 bts_funny
                     // 注册表泛化派发，含阿哈自己的「视为使用【欢愉万相】」行动）。
                     // initiator=event.name（本规则子技无自动日志）→ 行动执行时由 funnyAct 补记各技能日志。
                     await lib.bts.api.funnyTime(null, null, null, event.name);
@@ -283,23 +286,23 @@ export const glossary = [
     {
         id: 'bts_glossary_aha_moment_faq',
         name: '阿哈时刻',
-        info: '阿哈的准备阶段开始时降临的欢愉时刻：全场角色各执行一次欢愉行动。',
+        info: `【阿哈！】技能持有者的准备阶段开始时额外降临的${get.poptip('bts_glossary_funny_time_faq')}：全场角色各执行一次${get.poptip('bts_glossary_funny_act_faq')}。`,
     },
     {
         id: 'bts_glossary_huanju_wanxiang_faq',
         name: '欢愉万相',
-        info: `阿哈与其欢愉令使各摸一张牌，目标摸一张牌，所有角色各摸一张牌；拥有欢愉行动的角色进入欢愉${get.poptip('bts_glossary_bless_shengge_faq')}状态。`,
+        info: `阿哈与其欢愉令使各摸一张牌，目标摸一张牌，所有角色各摸一张牌；拥有欢愉行动的角色进入${get.poptip('bts_glossary_huanju_shengge_faq')}状态。`,
     },
 ];
 
 export const translate = {
     bts_ch_aha: '阿哈',
     bts_sk_aha: '阿哈！',
-    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃8枚${get.poptip('bts_glossary_yuanli_faq')}，此刻以及之后的两个出牌阶段开始时，你视为使用【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
+    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}，${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段，你可以弃8枚${get.poptip('bts_glossary_yuanli_faq')}，此刻以及之后的两个出牌阶段开始时，你视为使用【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
     bts_sk_yushizhe: '愉使',
-    bts_sk_yushizhe_info: `出牌阶段（每回合无限制），你可以弃置一张【杀】并选择一名其他角色，其视为${get.poptip('bts_glossary_huanju_lingshi_faq')}；被指定的角色可使用1张虚拟【杀】（不计入次数，此刻不用则作废）：其回合开始时，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。`,
+    bts_sk_yushizhe_info: `出牌阶段（不限次），你可以弃置一张【杀】并选择一名其他角色，其视为${get.poptip('bts_glossary_huanju_lingshi_faq')}；被指定的角色可使用1张虚拟【杀】（不计入次数，此刻不用则作废）：其回合开始时，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。`,
     bts_sk_gongyan: '公演',
-    bts_sk_gongyan_info: `锁定技，当你使用或弃置【杀】，或执行欢愉行动后，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。欢愉行动：使用或视为使用【无中生有】或【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
+    bts_sk_gongyan_info: `锁定技，当你使用或弃置【杀】，或执行${get.poptip('bts_glossary_funny_act_faq')}后，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。欢愉行动：使用或视为使用【无中生有】或【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
     bts_mk_yuanli: '愿力',
     bts_mk_huanju_lingshi: '欢愉令使',
     'bts_mk_huanju_shengge-clear': '欢愉升格',
@@ -309,9 +312,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}；弃8${get.poptip('bts_glossary_yuanli_faq')}，此刻与之后2个出牌阶段开始时视为使用【欢愉万相】`,
+    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}，${get.poptip('bts_glossary_funny_skill_faq')}；弃8${get.poptip('bts_glossary_yuanli_faq')}，此刻与之后2个出牌阶段开始时视为使用【欢愉万相】`,
     bts_sk_yushizhe_info: `不限次；弃1【杀】选一名其他角色为${get.poptip('bts_glossary_huanju_lingshi_faq')}（唯一）；被指定者可用1张虚拟杀（不计次）；其回合开始你+1愿力`,
-    bts_sk_gongyan_info: `锁；使用/弃置【杀】或执行欢愉行动后+1${get.poptip('bts_glossary_yuanli_faq')}`,
+    bts_sk_gongyan_info: `锁；使用/弃置【杀】或执行${get.poptip('bts_glossary_funny_act_faq')}后+1${get.poptip('bts_glossary_yuanli_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

@@ -6,7 +6,8 @@ import { lib, game, ui, get, _status, B } from '../../shared.js';
 export const sort = 'erxiangleyuan';
 export const title = '冰·欢愉·二相乐园首席执行官'; // 属性·命途·昵称
 export const intro =
-    `${B('真珠')}为欢愉的同伴推开舞台：以${get.poptip('bts_sk_jianying')}铺开额外阶段，借${get.poptip('bts_sk_buzhui_funny')}应援伤者、以${get.poptip('bts_sk_tunna')}消解伤害；当${get.poptip('bts_glossary_huanju_shengge_faq')}加身，${get.poptip('bts_sk_yilei')}、${get.poptip('bts_sk_rongcha')}与${get.poptip('bts_sk_dongcha')}随之运转。`;
+    `${B('真珠')}为欢愉的同伴推开舞台：以${get.poptip('bts_sk_jianying')}铺开额外阶段，借${get.poptip('bts_sk_buzhui_funny')}应援伤者、以${get.poptip('bts_sk_tunna')}消解伤害；当${get.poptip('bts_glossary_huanju_shengge_faq')}加身，${get.poptip('bts_sk_yilei')}、${get.poptip('bts_sk_rongcha')}与${get.poptip('bts_sk_dongcha')}随之运转。` +
+    `<li>${B('真珠')}是欢愉角色：其造成的伤害会被欢愉规则取消，唯有处于${get.poptip('bts_glossary_huanju_shengge_faq')}时例外（阿哈·【欢愉万相】赋予，至其回合结束）——其定位为铺场、治疗与减伤，本身几乎不依赖伤害输出。`;
 
 export const character = {
     bts_ch_zhenzhu: {
@@ -20,6 +21,7 @@ export const character = {
             'bts_sk_yilei',
             'bts_sk_rongcha',
             'bts_sk_dongcha',
+            'bts_sk_funny_lock',
         ],
     },
 };
@@ -134,7 +136,10 @@ export const skill = {
     // 当其他角色受到伤害后，你可以弃置一张【杀】，附加1层欢愉祝福，其（受伤者）回复1点体力；
     // 同时本技能是「欢愉行动」注册项（源 FunnyAct 分支）：任何欢愉行动派发时回复1点体力。
     bts_sk_buzhui_funny: {
+        // 欢愉技标签 + 回复追补子技（见下方 subSkill）
+        bts_funny_skill: true,
         trigger: { global: 'damageEnd' },
+        group: ['bts_sk_buzhui_funny_recover'],
         logTarget: 'player',
         filter(event, player) {
             // 源 L12246：受伤者非本人（~= p）且可弃【杀】（弃置在 cost 完成）。
@@ -211,6 +216,22 @@ export const skill = {
             result: {
                 player: 0.5,
                 target: (player, target) => (target.isDamaged() ? 1 : 0.3),
+            },
+        },
+        subSkill: {
+            // 回复追补（源 gamerule_ex·HpRecover L1378-1380）：补缀持有者（真珠）回复体力后 →
+            // 执行欢愉行动后置（+1 笑点；花手弃牌堆底 5 张）。源为 gamerule 无条件静默触发
+            // → silent，不播技能音、不记技能发动。
+            recover: {
+                trigger: { player: 'recoverEnd' },
+                silent: true,
+                popup: false,
+                filter(event, player) {
+                    return event.num > 0;
+                },
+                content(event, trigger, player) {
+                    lib.bts.api.afterFunnyAct(player);
+                },
             },
         },
     },
@@ -334,7 +355,7 @@ export const translate = {
     bts_sk_jianying: '鉴映',
     bts_sk_jianying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，你附加2层${get.poptip('bts_glossary_bless_funny_faq')}，若拥有欢愉行动的角色数不小于4/3/2/1，其执行一个额外的准备/摸牌/出牌/弃牌阶段（若不小于4，其先获得60枚${get.poptip('bts_glossary_funnypoint_faq')}并附加3层${get.poptip('bts_glossary_bless_funny_faq')}再执行这些阶段且阶段执行完毕后均移除）。若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法获得的${get.poptip('bts_glossary_funnypoint_faq')}和${get.poptip('bts_glossary_bless_funny_faq')}翻倍，此技能能额外选任意名其他拥有欢愉行动的角色为目标。`,
     bts_sk_buzhui_funny: '补缀',
-    bts_sk_buzhui_funny_info: `当其他角色受到伤害后，你可以弃置一张【杀】，附加1层${get.poptip('bts_glossary_bless_funny_faq')}，其执行你的欢愉行动。欢愉行动：回复1点体力。`,
+    bts_sk_buzhui_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，当其他角色受到伤害后，你可以弃置一张【杀】，附加1层${get.poptip('bts_glossary_bless_funny_faq')}，其执行你的${get.poptip('bts_glossary_funny_act_faq')}；你回复体力后，获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。欢愉行动：回复1点体力。`,
     bts_sk_tunna: '吞纳',
     bts_sk_tunna_info: `当一名角色受到伤害时，你可以移除1层${get.poptip('bts_glossary_bless_funny_faq')}，伤害值-1。`,
     bts_sk_yilei: '艺垒',
@@ -361,7 +382,7 @@ export const translate = {
 
 export const simpleTranslate = {
     bts_sk_jianying_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}：自身+2层${get.poptip('bts_glossary_bless_funny_faq')}，欢愉角色数≥4/3/2/1时令目标执行额外准备/摸牌/出牌/弃牌阶段，≥4另赠60${get.poptip('bts_glossary_funnypoint_faq')}与3层祝福（阶段完毕回收）；${get.poptip('bts_glossary_xingqi_faq')}翻倍且可追加欢愉角色`,
-    bts_sk_buzhui_funny_info: `其他角色受伤后，你可弃1杀并+1层${get.poptip('bts_glossary_bless_funny_faq')}，其回复1点体力`,
+    bts_sk_buzhui_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；其他角色受伤后，你可弃1杀并+1层${get.poptip('bts_glossary_bless_funny_faq')}，其回复1点体力；你回复体力后+1枚${get.poptip('bts_glossary_funnypoint_faq')}`,
     bts_sk_tunna_info: `任意角色受伤时可移除1层${get.poptip('bts_glossary_bless_funny_faq')}，令伤害-1`,
     bts_sk_yilei_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若拥有${get.poptip('bts_glossary_huanju_shengge_faq')}，回复2点${get.poptip('bts_glossary_nuqi_faq')}`,
     bts_sk_rongcha_info: `锁；≥5层${get.poptip('bts_glossary_bless_funny_faq')}且拥有${get.poptip('bts_glossary_huanju_shengge_faq')}时，其他角色回复的体力值+1`,

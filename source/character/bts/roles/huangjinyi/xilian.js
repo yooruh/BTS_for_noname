@@ -448,7 +448,7 @@ export const translate = {
     bts_sk_letu_info: `你可以将手牌【杀】当【决斗】使用；任意角色造成伤害后，若你拥有${get.poptip('bts_sk_aishi')}，你将牌堆顶一张牌称为"${get.poptip('bts_sk_letu')}"（能当手牌使用或打出）置于武将牌上并获得1枚${get.poptip('bts_glossary_jiyi_faq')}，此${get.poptip('bts_sk_letu')}牌于你的下个出牌阶段开始时置入弃牌堆。`,
     bts_sk_letu_use: '乐土',
     bts_sk_aishi: '爱诗',
-    bts_sk_aishi_info: `昔涟授予黄金裔的标记。拥有${get.poptip('bts_sk_aishi')}时，各黄金裔技能获得额外的"诗歌"效果（见技能详情）。（源为空技能纯标记，效果由各技能经 hasSkill 检测后自行结算）`,
+    bts_sk_aishi_info: `昔涟授予黄金裔的标记。拥有${get.poptip('bts_sk_aishi')}时，各黄金裔技能获得额外的"诗歌"效果（见各技能详情）。`,
     bts_mk_jiyi: '记忆',
     bts_mk_letu_active: '乐土状态',
 
@@ -496,7 +496,7 @@ export const glossary = [
     {
         id: 'bts_glossary_extra_st_faq',
         name: '|怒气豁免|',
-        info: `消耗${get.poptip('bts_glossary_nuqi_faq')}时豁免等量${get.poptip('bts_glossary_nuqi_faq')}（${get.poptip('bts_glossary_nuqi_faq')}消耗减免）：由${get.poptip('bts_sk_shiyue')}赋予（昔涟可选择任意角色获得）。`,
+        info: `消耗${get.poptip('bts_glossary_nuqi_faq')}时豁免等量${get.poptip('bts_glossary_nuqi_faq')}：由${get.poptip('bts_sk_shiyue')}赋予（昔涟可选择任意角色获得）。`,
     },
     {
         id: 'bts_glossary_jiyi_faq',

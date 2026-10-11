@@ -488,6 +488,7 @@ const INTERNAL_MARKS = new Set([
     'bts_sk_huoying',
     'bts_sk_jingxi',
     'bts_sk_luxin',
+    'bts_sk_qianguang_funny',
     'bts_sk_quxu',
     'bts_sk_shuoya',
     'bts_sk_xiaolv',

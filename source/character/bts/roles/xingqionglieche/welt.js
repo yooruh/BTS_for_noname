@@ -4,8 +4,8 @@ import { lib, game, ui, get, ai, _status, styleText, B, O } from '../../shared.j
 export const sort = 'xingqionglieche';
 export const title = '虚数·虚无·名的传承'; // 属性·命途
 export const intro =
-    `${B('瓦尔特')}是控制型：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_nidong'))}令一名角色跳过下个回合，你回复${get.poptip('bts_glossary_nuqi_faq')}，${B(get.poptip('bts_sk_niuqu'))}在造成伤害后强制对方弃牌，${B(get.poptip('bts_sk_duanjie'))}拼点翻面并叠仪式摸牌。` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_nidong')}附加「仪式瞬发」，令下次${get.poptip('bts_sk_duanjie')}直接摸牌`;
+    `${B('瓦尔特')}是控制型：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_nidong'))}令一名角色跳过下个回合，你回复${get.poptip('bts_glossary_nuqi_faq')}，${B(get.poptip('bts_sk_niuqu'))}在造成伤害后强制对方弃牌，${B(get.poptip('bts_sk_duanjie'))}拼点翻面并叠${get.poptip('bts_glossary_yishi_faq')}摸牌。` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_nidong')}附加「${get.poptip('bts_glossary_yishi_shunfa_faq')}」，令下次${get.poptip('bts_sk_duanjie')}直接摸牌`;
 
 export const character = {
     bts_ch_welt: {
@@ -193,7 +193,7 @@ export const skill = {
         intro: {
             name: '断界',
             content: (storage) =>
-                `当前有${storage}层仪式；当你翻面后，摸仪式层数张牌。`,
+                `当前有${storage}层${get.poptip('bts_glossary_yishi_faq')}；当你翻面后，摸等量牌。`,
         },
         markimage: `${extensionPath}/image/mark/bts_sk_duanjie.png`,
     },
@@ -211,14 +211,14 @@ export const translate = {
     'bts_ch_welt_skin8': '皮肤8',
     bts_ch_welt: '瓦尔特',
     bts_sk_nidong: '拟洞',
-    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，其跳过下个回合，你回复1点${get.poptip('bts_glossary_nuqi_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，你下次仪式瞬发。`,
+    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，其跳过下个回合，你回复1点${get.poptip('bts_glossary_nuqi_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，你下次${get.poptip('bts_glossary_yishi_shunfa_faq')}。`,
 
     bts_sk_niuqu: '扭曲',
     bts_sk_niuqu_info: `锁定技，当你对其他角色造成伤害后，若你与其武将牌朝向不同或你于此阶段内发动过${get.poptip('bts_glossary_bisha_faq')}，其弃置一张手牌。`,
 
     bts_sk_duanjie: '断界',
     bts_sk_duanjie_info:
-        '出牌阶段，你可以弃置一张【杀】并与一名角色拼点，没赢的角色翻面。仪式：当你翻面后，摸仪式层数张牌。',
+        `出牌阶段，你可以弃置一张【杀】并与一名角色拼点，没赢的角色翻面。${get.poptip('bts_glossary_yishi_faq')}：当你翻面后，摸${get.poptip('bts_glossary_yishi_faq')}层数张牌。`,
 
     '$bts_sk_nidong1': "这份力量的沉重，你一无所知",
     '$bts_sk_nidong2': "见识一下星辰粉碎的样子吧…生存还是毁灭，你别无选择",
@@ -229,13 +229,14 @@ export const translate = {
     '~bts_ch_welt': "交给…你们了……",
     bts_mk_skip_turn: '跳过回合',
     bts_mk_skill_moment: '仪式瞬发',
+    bts_mk_skill_moment_info: `来源：${get.poptip('bts_sk_nidong')}（${get.poptip('bts_glossary_xingqi_faq')}时）赋予；使下次${get.poptip('bts_sk_duanjie')}发动时直接摸一张牌`,
 };
 
 export const simpleTranslate = {
-    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色跳过下个回合，回复1点${get.poptip('bts_glossary_nuqi_faq')}；若${get.poptip('bts_glossary_xingqi_faq')}则下次仪式瞬发`,
+    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色跳过下个回合，回复1点${get.poptip('bts_glossary_nuqi_faq')}；若${get.poptip('bts_glossary_xingqi_faq')}则下次${get.poptip('bts_glossary_yishi_shunfa_faq')}`,
     bts_sk_niuqu_info: `锁；你造成伤害后，若与目标朝向不同或本阶段用过${get.poptip('bts_glossary_bisha_faq')}，其弃1张手牌`,
     bts_sk_duanjie_info:
-        '出牌阶段，弃1张【杀】与1名角色拼点，没赢者翻面；翻面后摸仪式层数张牌',
+        `出牌阶段，弃1张【杀】与1名角色拼点，没赢者翻面；翻面后摸${get.poptip('bts_glossary_yishi_faq')}层数张牌`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -244,6 +245,7 @@ export const marks = {
     bts_mk_skill_moment: {
         // 仪式瞬发：拟洞（星启）赋予的瞬时计数，下次断界直接摸牌并移除；图标已就位（image/mark/bts_mk_skill_moment.png）
         markKind: 'mark',
+        glossaryId: 'bts_glossary_yishi_shunfa_faq',
     },
 };
 

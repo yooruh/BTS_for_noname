@@ -4,14 +4,15 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '量子·欢愉·戏浪'; // 属性·命途
 export const intro =
-    `${B('砂金·戏浪')}给目标贴上量子元素，${get.poptip('bts_glossary_bless_reyi_faq')}攒满后把手牌补回五张。`;
+    `${B('砂金·戏浪')}给目标贴上量子${get.poptip('bts_glossary_yuansu_faq')}，${get.poptip('bts_glossary_bless_reyi_faq')}攒满后把手牌补回五张。` +
+    `<li>${B('砂金·戏浪')}是欢愉角色：其造成的伤害会被欢愉规则取消，唯有处于${get.poptip('bts_glossary_huanju_shengge_faq')}时例外（阿哈·【欢愉万相】赋予，至其回合结束）——因此其杀伤依赖「失去体力」类效果（如${B(get.poptip('bts_sk_shengju'))}）。`;
 
 export const character = {
     bts_ch_shajin_xilang: {
         sex: 'male',
         group: 'erxiangleyuan',
         hp: 4,
-        skills: ['bts_sk_shengju', 'bts_sk_resha', 'bts_sk_paozhu_funny'],
+        skills: ['bts_sk_shengju', 'bts_sk_resha', 'bts_sk_paozhu_funny', 'bts_sk_funny_lock'],
     },
 };
 
@@ -169,6 +170,8 @@ export const skill = {
     // ── 锁定技·抛注（源 st_paozhu_funny = TriggerSkill Compulsory MarkChanged，L10289-10304）──
     // 热意达到10层时（每局限一次），将手牌补至五张。
     bts_sk_paozhu_funny: {
+        // 欢愉技标签：funnyPlayer 以此判定「拥有欢愉行动」（utils.funnyPlayer）
+        bts_funny_skill: true,
         trigger: { player: 'bts_mark_add' },
         forced: true,
         filter(event, player) {
@@ -215,7 +218,7 @@ export const translate = {
     bts_sk_resha: '热砂',
     bts_sk_resha_info: `受到伤害时，你可以弃置一张【杀】，伤害来源和所有${get.poptip('bts_glossary_nature_dark_faq')}或${get.poptip('bts_glossary_abnormal_sleep_faq')}角色各附加${get.poptip('bts_glossary_nature_dark_faq')}，你附加4层${get.poptip('bts_glossary_bless_reyi_faq')}。`,
     bts_sk_paozhu_funny: '抛注',
-    bts_sk_paozhu_funny_info: `锁定技，限定技，当你拥有至少10层${get.poptip('bts_glossary_bless_reyi_faq')}后，执行欢愉行动。仪式：欢愉时刻开始时，你拥有的${get.poptip('bts_glossary_bless_reyi_faq')}全部替换为${get.poptip('bts_glossary_bless_funny_faq')}，令此技能视为未发动过。`,
+    bts_sk_paozhu_funny_info: `锁定技，限定技，${get.poptip('bts_glossary_funny_skill_faq')}，当你拥有至少10层${get.poptip('bts_glossary_bless_reyi_faq')}后，执行${get.poptip('bts_glossary_funny_act_faq')}。欢愉行动：将手牌补至5张。${get.poptip('bts_glossary_yishi_faq')}：${get.poptip('bts_glossary_funny_time_faq')}开始时，你拥有的${get.poptip('bts_glossary_bless_reyi_faq')}全部替换为${get.poptip('bts_glossary_bless_funny_faq')}，令此技能视为未发动过。`,
     bts_bless_reyi: '热意祝福',
 
 
@@ -236,7 +239,7 @@ export const translate = {
 export const simpleTranslate = {
     bts_sk_shengju_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标+暗、自身+${get.poptip('bts_glossary_bless_reyi_faq')}和${get.poptip('bts_glossary_bless_yingzi_faq')}，目标各15.6%失1体力可连击`,
     bts_sk_resha_info: `受伤可弃杀令伤害来源和暗/${get.poptip('bts_glossary_abnormal_sleep_faq')}角色各+暗并+${get.poptip('bts_glossary_bless_reyi_faq')}`,
-    bts_sk_paozhu_funny_info: `锁；${get.poptip('bts_glossary_bless_reyi_faq')}≥10执行欢愉行动，仪式换${get.poptip('bts_glossary_bless_funny_faq')}`,
+    bts_sk_paozhu_funny_info: `锁，${get.poptip('bts_glossary_funny_skill_faq')}；${get.poptip('bts_glossary_bless_reyi_faq')}≥10执行${get.poptip('bts_glossary_funny_act_faq')}：手牌补至5张；${get.poptip('bts_glossary_yishi_faq')}换${get.poptip('bts_glossary_bless_funny_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

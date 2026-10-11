@@ -20,7 +20,8 @@ let _eof = false;
 
 function _flushWaiters(value) {
     for (const w of _inputWaiters.splice(0)) w(value);
-    _inputQueue.length = 0;
+    // 注意：不在这里清空 _inputQueue —— 管道一次性写入时所有行可能在消费前就已到达，
+    // 清空会让后续 prompt 直接返回「取消」（2026-10-11 实机踩中：菜单里输 none 无效）。
 }
 
 function _ensureRl() {
@@ -45,16 +46,15 @@ function _ensureRl() {
  * @returns {Promise<string>} 输入流 EOF 时返回 ''（表示取消）
  */
 export async function prompt(promptText, { required = false } = {}) {
-    if (_eof) return ''; // 流已结束：不再读取，直接视为取消
-    _ensureRl();
+    if (!_eof) _ensureRl();
     for (;;) {
         process.stdout.write(promptText);
-        const value = await new Promise((done) => {
-            const pending = _inputQueue.shift();
-            if (pending !== undefined) done(pending);
-            else _inputWaiters.push(done);
-        });
-        // required 但空（含 EOF）→ 不重问，返回 ''（交上层取消/报错处理）
+        // 先消费已到达的行；队列空且已 EOF 才算取消
+        const pending = _inputQueue.shift();
+        let value;
+        if (pending !== undefined) value = pending;
+        else if (_eof) return '';
+        else value = await new Promise((done) => _inputWaiters.push(done));
         if (!required || value) return value;
         if (_eof) return '';
     }
@@ -116,5 +116,6 @@ export function closeInteractive() {
         _rl = null;
     }
     _flushWaiters('');
+    _inputQueue.length = 0; // 交互结束：丢弃剩余输入（_flushWaiters 不再代劳）
     _eof = false;
 }

@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '雷·毁灭·以身作引'; // 属性·命途
 export const intro =
-    `${B('阿兰')}是续航反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_kuangcai'))}花${get.poptip('bts_glossary_nuqi_faq')}拿走多人手牌，${B(get.poptip('bts_sk_zhitong'))}免疫异常伤害但会触发仪式，${B(get.poptip('bts_sk_jiejin'))}受伤后叠${get.poptip('bts_glossary_bless_busi_faq')}并反伤。` +
-    `<li>${get.poptip('bts_sk_zhitong')}触发仪式后失去技能，注意时机`;
+    `${B('阿兰')}是续航反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_kuangcai'))}花${get.poptip('bts_glossary_nuqi_faq')}拿走多人手牌，${B(get.poptip('bts_sk_zhitong'))}免疫异常伤害但会触发${get.poptip('bts_glossary_yishi_faq')}，${B(get.poptip('bts_sk_jiejin'))}受伤后叠${get.poptip('bts_glossary_bless_busi_faq')}并反伤。` +
+    `<li>${get.poptip('bts_sk_zhitong')}触发${get.poptip('bts_glossary_yishi_faq')}后失去技能，注意时机`;
 
 export const character = {
     bts_ch_alan: {
@@ -150,7 +150,7 @@ export const translate = {
     bts_sk_kuangcai: '狂裁',
     bts_sk_kuangcai_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择X名有手牌的其他角色（X为你已损失的体力值且至少为1，若你为${get.poptip('bts_glossary_xingqi_faq')}则无限制），获得这些角色各一张牌（手牌或装备牌）。`,
     bts_sk_zhitong: '至痛',
-    bts_sk_zhitong_info:'锁定技，当你受到由异常造成的伤害时，防止此伤害。仪式：当你受到伤害后，失去此技能。',
+    bts_sk_zhitong_info:`锁定技，当你受到由异常造成的伤害时，防止此伤害。${get.poptip('bts_glossary_yishi_faq')}：当你受到伤害后，失去此技能。`,
     bts_sk_jiejin: '解禁',
     bts_sk_jiejin_info: `当你受到伤害后，若你的体力值不小于1，你可以附加1层${get.poptip('bts_glossary_bless_busi_faq')}，对来源造成1点伤害。`,
 

@@ -291,7 +291,7 @@ export const translate = {
     bts_sk_shengbian: '升变',
     bts_sk_shengbian_info: `结束阶段开始时，你可以弃置一张【杀】获得1枚${get.poptip('bts_glossary_shengbian_faq')}；若没有角色拥有${get.poptip('bts_sk_jungong')}，你选择一名角色获得${get.poptip('bts_sk_jungong')}。`,
     bts_sk_jungong: '军功',
-    bts_sk_jungong_info: `锁定技，使用【杀】或【决斗】、弃置【杀】后获得${get.poptip('bts_glossary_shengbian_faq')}；出牌阶段结束时，${get.poptip('bts_glossary_shengbian_faq')}不少于6枚则弃6枚，对本阶段受到过你伤害的角色造成分摊伤害；防止你${get.poptip('bts_glossary_bisha_faq')}造成的伤害。（源描述与代码一致）`,
+    bts_sk_jungong_info: `锁定技，使用【杀】或【决斗】、弃置【杀】后获得${get.poptip('bts_glossary_shengbian_faq')}；出牌阶段结束时，${get.poptip('bts_glossary_shengbian_faq')}不少于6枚则弃6枚，对本阶段受到过你伤害的角色造成分摊伤害；防止你${get.poptip('bts_glossary_bisha_faq')}造成的伤害。`,
     bts_mk_shengbian: '升变',
 
     '$bts_sk_shiqi1': "败者成灰，胜者为王……",

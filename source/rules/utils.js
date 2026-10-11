@@ -860,17 +860,15 @@ export const bts = {
     // 欢愉行动（FunnyAct）：按技能 bts_funny 注册表泛化派发；欢愉时刻令全场各执行一次；
     // 笑点（bts_mk_funnypoint）与欢愉祝福（bts_bless_funny）决定层数/概率。
 
-    /** 是否拥有欢愉技能（源 FunnyPlayer L11072-11074） */
+    /** 是否拥有欢愉行动（源 FunnyPlayer L11072-11074）——技能自注册口径：凡带 bts_funny_skill
+     * 标签的技能持有者即为「欢愉角色」。现役：抛注（砂金·熙郎）/连线（火花）/补缀（真珠）/
+     * 爆射·狼尊（银狼LV999）/【阿哈！】；千光（bts_sk_qianguang_funny）尚未移植——移植时给
+     * 技能打上该标签即自动纳入，勿再回改本函数。 */
     funnyPlayer(player) {
-        // 技能命名 bts_sk_*_funny（花火/砂金·熙郎/银狼999）；阿哈（原创）亦视为拥有欢愉行动
-        //（使用/视为使用【无中生有】或【欢愉万相】），计入源术语「拥有欢愉行动的角色」判定。
-        return (
-            player &&
-            (player.hasSkill('bts_sk_aha') ||
-                ['paozhu', 'lianxian', 'qianguang', 'buzhui', 'baoshe', 'langzun'].some(
-                    (name) => player.hasSkill(`bts_sk_${name}_funny`),
-                ))
-        );
+        if (!player) return false;
+        const skills = player.getSkills(null, false).slice();
+        game.expandSkills(skills);
+        return skills.some((skill) => lib.skill[skill]?.bts_funny_skill);
     },
 
     /** 欢愉概率判定（源 FunnyNumber L11199-11205）：随机 1..100 ≤ num + 欢愉祝福层数×10 */
@@ -914,15 +912,34 @@ export const bts = {
      * @param {*} num 'max_changyao' 时附带 0.0116 概率连发 9 次
      * @param {string} [initiator] 发起技能 id（透传给 funnyAct 做日志去重） */
     async funnyTime(room, funny, num, initiator) {
+        // 重入守卫（洗牌触发引入）：funnyTime 内的摸牌若又触发洗牌，会再次进入本函数形成
+        // 递归——此处改记 pending，由外层循环补跑（上限 3 防死循环；行为等价于源版逐次触发）。
+        if (_status.bts_funny_time_busy) {
+            _status.bts_funny_time_pending = true;
+            return;
+        }
         if (funny == null) funny = -1;
         else funny = funny / 10;
-        for (const p of this.seatOrder(game.filterPlayer((p) => p.isAlive()))) {
-            p.storage.bts_funny_time = true;
-            await this.funnyAct(p, funny, null, initiator);
-            if (num === 'max_changyao' && this.funnyNumber(p, 0.0116))
-                for (let i = 0; i < 9; i++)
+        _status.bts_funny_time_busy = true;
+        try {
+            let guard = 0;
+            do {
+                _status.bts_funny_time_pending = false;
+                for (const p of this.seatOrder(game.filterPlayer((p) => p.isAlive()))) {
+                    p.storage.bts_funny_time = true;
                     await this.funnyAct(p, funny, null, initiator);
-            delete p.storage.bts_funny_time;
+                    if (num === 'max_changyao' && this.funnyNumber(p, 0.0116))
+                        for (let i = 0; i < 9; i++)
+                            await this.funnyAct(p, funny, null, initiator);
+                    delete p.storage.bts_funny_time;
+                }
+            } while (_status.bts_funny_time_pending && ++guard < 3);
+            if (_status.bts_funny_time_pending) {
+                _status.bts_funny_time_pending = false;
+                console.warn('[崩铁杀] 欢愉时刻嵌套补发超限，丢弃一次触发');
+            }
+        } finally {
+            _status.bts_funny_time_busy = false;
         }
     },
 

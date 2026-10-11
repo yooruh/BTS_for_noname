@@ -38,6 +38,7 @@ const ROLE_FILES = [
     'roles/erxiangleyuan/jizi_qixing',
     'roles/erxiangleyuan/ren_qianye',
     'roles/erxiangleyuan/shajin_xilang',
+    'roles/erxiangleyuan/yaoguang',
     'roles/erxiangleyuan/yinlang_lv999',
     'roles/erxiangleyuan/yuanbanlin',
     'roles/erxiangleyuan/zhenzhu',

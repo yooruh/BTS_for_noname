@@ -225,6 +225,6 @@ export const glossary = [
     {
         id: 'bts_glossary_abnormal_dingzhen_faq',
         name: '|鼎阵|',
-        info: `异常状态：由${get.poptip('bts_sk_dingzhen')}赋予（椒丘${get.poptip('bts_glossary_bisha_faq')}，同时令目标${get.poptip('bts_glossary_abnormal_burn_faq')}层数拉齐）。准备阶段开始时，若你处于${get.poptip('bts_glossary_abnormal_burn_faq')}，附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
+        info: `异常状态：由${get.poptip('bts_sk_dingzhen')}赋予。准备阶段开始时，若你处于${get.poptip('bts_glossary_abnormal_burn_faq')}，附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
     },
 ];

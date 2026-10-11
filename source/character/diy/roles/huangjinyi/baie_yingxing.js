@@ -37,6 +37,38 @@ export function setLichang(target, out) {
     else target.removeSkill('bts_diy_sk_zhuhuo_lichang', true);
 }
 
+/**
+ * 逐火·离场 AI 口径（供 chooseTarget 的 ai 回调；模块级导出便于回归脚本直测）。
+ * 离场＝跳过其回合 + 免疫伤害/失去体力 + 不可被指定：对「对方的行动」是停摆，对「我方的输出」却是保护。
+ * 失去【逐火】后的窗口里我方伤害不分敌我——【支柱】在每个你的回合开始对全场其他角色各随机
+ * 0~2 点、【负世】蓄力归零时对所有非离场角色各 1 点（合计期望 ≈ 蓄力值 + 1，足以打死 4 体力友军）。
+ * 故：友方＝离场保护（正分，越脆越急）；敌方＝把敌人保护起来（支柱/负世/支柱的雷【杀】全部落空，
+ * 整段窗口的输出打不到他），取负分一律不选。
+ */
+export function lichangWorth(player, target) {
+    if (!target || target === player || !target.isAlive()) return -1;
+    // 友方判据：只保护「确认视白厄为友」的角色——取对方视角的态度（AI 座次按身份/行为给出
+    // 队友正、敌方负），并排除白厄自己视为敌方的目标。单看白厄视角不行：座次是玩家时
+    // get.attitude(player, t) 在身份未明时恒为 0，会把内奸/未表态的敌人当友方保护起来
+    //（2026-10-11 实机：内奸「真理医生」读 0 被误保护，与设计意图相反）。
+    if (get.attitude(player, target) < 0 || get.attitude(target, player) <= 0) return -1;
+    const incoming = player.countCharge() + 1; // 我方友伤：支柱每轮 0~2（期望 1）+ 负世收尾 1 点
+    let value = 2;
+    if (lib.bts.aiHelpers.wouldKill(target, incoming)) value += 2; // 会被我方友伤打死：最该救
+    return value + Math.min(3, target.maxHp - target.hp); // 越残血越优先（再挨一次就死的先救）
+}
+
+/**
+ * 支柱·雷【杀】AI 口径（供 chooseTarget 的 ai 回调；模块级导出便于回归脚本直测）。
+ * 只打敌方；命中估值直接取引擎对虚拟雷【杀】的评估（态度加权、目标体力/装备/手牌等因素引擎已计入，
+ * 勿重复实现——《AI设计规范》§0.8；范式见 pinuokangni/archer.js 的 xinyanWorth）。
+ */
+export function zhizhuShaWorth(player, target) {
+    if (!target || target === player || !target.isAlive()) return -1;
+    if (get.attitude(player, target) >= 0) return -1; // 不为友方出杀
+    return get.effect(target, { name: 'sha', nature: 'thunder', isCard: true }, player, player);
+}
+
 export const skill = {
     // ── 锁定技·逐火（DIY 设计 §逐火）──
     // 成为牌的目标 +1 火种、使用【杀】+2 火种（至多15枚）；你的回合结束时若火种≥12，
@@ -104,9 +136,9 @@ export const skill = {
                     '逐火：令至多三名其他角色离场',
                     [0, Math.min(3, others.length)],
                     (card, source, target) => target !== source && !target.isOut(),
-                    // AI 口径：离场 = 其停摆（无回合、不可被指定、不吃伤害），优先移走敌方；
-                    // 友方负分不选（chooseTarget 的 ai 实参签名 (target, targets)）
-                    (target) => -get.attitude(player, target),
+                    // AI 口径见 lichangWorth（chooseTarget 的 ai 实参签名 (target, targets)）：
+                    // 只拿离场保护友方，敌方全留给支柱/负世打
+                    (target) => lichangWorth(player, target),
                 )
                 .forResult();
             for (const target of result.targets || []) setLichang(target, true);
@@ -193,11 +225,9 @@ export const skill = {
                     '支柱：视为使用一张无距离限制的雷【杀】，选择目标',
                     [1, 1],
                     (card, source, target) => target !== source && !target.isOut(),
-                    // AI 口径：只打敌方，残血优先；无敌方则不给分（最高分≤0 → 不选，放弃本次）
-                    (target) => {
-                        if (get.attitude(player, target) >= 0) return -1;
-                        return target.hp <= 1 ? 2 : 1;
-                    },
+                    // AI 口径见 zhizhuShaWorth：只打敌方；无敌方则不给分
+                    //（最高分≤0 → 不选，放弃本次；本分支 filter 已保证场上有可指定的其他角色）
+                    (target) => zhizhuShaWorth(player, target),
                 )
                 .forResult();
             if (!result.bool) return;

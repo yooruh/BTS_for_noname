@@ -4,14 +4,15 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'erxiangleyuan';
 export const title = '虚数·欢愉·狂欢企划'; // 称号
 export const intro =
-    `${B('银狼LV999')}靠${get.poptip('bts_sk_baoshe_funny')}攒${get.poptip('bts_glossary_funnypoint_faq')}，${get.poptip('bts_sk_shunfeng')}把笑点获得转为分数，${get.poptip('bts_sk_wuqi')}烧60分抢额外回合，狂到${get.poptip('bts_sk_langzun_funny')}附体。`;
+    `${B('银狼LV999')}靠${get.poptip('bts_sk_baoshe_funny')}攒${get.poptip('bts_glossary_funnypoint_faq')}，${get.poptip('bts_sk_shunfeng')}把笑点获得转为${get.poptip('bts_glossary_fenshu_faq')}，${get.poptip('bts_sk_wuqi')}烧60分抢额外回合，狂到${get.poptip('bts_sk_langzun_funny')}附体。` +
+    `<li>${B('银狼LV999')}是欢愉角色：其造成的伤害会被欢愉规则取消，唯有处于${get.poptip('bts_glossary_huanju_shengge_faq')}时例外（阿哈·【欢愉万相】赋予，至其回合结束）——因此其杀伤依赖「失去体力」类效果（如${B(get.poptip('bts_sk_langzun_funny'))}·忙盒）。`;
 
 export const character = {
     bts_ch_yinlang_lv999: {
         sex: 'female',
         group: 'erxiangleyuan',
         hp: 4,
-        skills: ['bts_sk_wuqi', 'bts_sk_baoshe_funny', 'bts_sk_shunfeng'],
+        skills: ['bts_sk_wuqi', 'bts_sk_baoshe_funny', 'bts_sk_shunfeng', 'bts_sk_funny_lock'],
     },
 };
 
@@ -80,6 +81,8 @@ export const skill = {
     // ── 触发技·爆射（源 st_baoshe_funny = TriggerSkill EventPhaseStart，L11345-11355）──
     // 出牌阶段开始时，你可以弃置一张【杀】，获得5枚笑点。
     bts_sk_baoshe_funny: {
+        // 欢愉技标签：funnyPlayer 以此判定「拥有欢愉行动」（utils.funnyPlayer）
+        bts_funny_skill: true,
         trigger: { player: 'phaseUseBegin' },
         filter(event, player) {
             return player.getCards('he').some((card) => get.name(card) === 'sha');
@@ -122,6 +125,8 @@ export const skill = {
     // 跳摸牌/出牌/弃牌阶段，各执行一次忙盒并+1电驰；电驰>8时恢复爆射、失去狼尊、清分数与电驰。
     // 由无启 99.9% 概率授予（不在角色基础技能内）。
     bts_sk_langzun_funny: {
+        // 欢愉技标签：funnyPlayer 以此判定「拥有欢愉行动」（utils.funnyPlayer）
+        bts_funny_skill: true,
         trigger: {
             player: ['phaseDrawBegin', 'phaseUseBegin', 'phaseDiscardBegin', 'loseAfter'],
         },
@@ -183,10 +188,12 @@ export const marks = {
     bts_mk_fenshu: {
         markKind: 'mark',
         markType: 'text',
+        glossaryId: 'bts_glossary_fenshu_faq',
     },
     bts_mk_dianchi: {
         markKind: 'mark',
         markType: 'text',
+        glossaryId: 'bts_glossary_dianchi_faq',
     },
 };
 
@@ -194,16 +201,17 @@ export const translate = {
     bts_mk_wuqi_pending: '武器待结算',
     bts_ch_yinlang_lv999: '银狼LV999',
     bts_sk_wuqi: '无启',
-    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以消耗60分数，结束出牌阶段并执行一个额外回合；同时有 99.9%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率将${get.poptip('bts_sk_baoshe_funny')}改为${get.poptip('bts_sk_langzun_funny')}。`,
+    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以消耗60${get.poptip('bts_glossary_fenshu_faq')}，结束出牌阶段并执行一个额外回合；同时有 99.9%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率将${get.poptip('bts_sk_baoshe_funny')}改为${get.poptip('bts_sk_langzun_funny')}。`,
     bts_sk_baoshe_funny: '爆射',
-    bts_sk_baoshe_funny_info: '出牌阶段开始时，你可以弃置一张【杀】，获得5枚笑点。',
+    bts_sk_baoshe_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段开始时，你可以弃置一张【杀】，获得5枚${get.poptip('bts_glossary_funnypoint_faq')}。欢愉行动：获得15枚${get.poptip('bts_glossary_fenshu_faq')}。`,
     bts_sk_langzun_funny: '狼尊',
-    bts_sk_langzun_funny_info: `锁定技，你跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并获得1枚电驰；电驰超过8时，恢复${get.poptip('bts_sk_baoshe_funny')}、失去${get.poptip('bts_sk_langzun_funny')}、清空分数与电驰。忙盒：随机摸两张牌、获得3枚笑点、或令伤过你的角色各失去1点体力。`,
+    bts_sk_langzun_funny_info: `锁定技，${get.poptip('bts_glossary_funny_skill_faq')}，你跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并获得1枚${get.poptip('bts_glossary_dianchi_faq')}；${get.poptip('bts_glossary_dianchi_faq')}超过8时，恢复${get.poptip('bts_sk_baoshe_funny')}、失去${get.poptip('bts_sk_langzun_funny')}、清空${get.poptip('bts_glossary_fenshu_faq')}与${get.poptip('bts_glossary_dianchi_faq')}。忙盒：随机摸两张牌、获得3枚${get.poptip('bts_glossary_funnypoint_faq')}、或令伤过你的角色各失去1点体力。`,
     bts_sk_shunfeng: '顺风',
-    bts_sk_shunfeng_info: '锁定技，当一名角色获得笑点后，你获得等量的分数。',
+    bts_sk_shunfeng_info: `锁定技，当一名角色获得${get.poptip('bts_glossary_funnypoint_faq')}后，你获得等量的${get.poptip('bts_glossary_fenshu_faq')}。`,
     bts_mk_fenshu: '分数',
-    bts_mk_fenshu_info: `来源：${get.poptip('bts_sk_shunfeng')}赋予；${get.poptip('bts_sk_wuqi')}消耗60发动`,
+    bts_mk_fenshu_info: `来源：${get.poptip('bts_sk_shunfeng')}转化（有角色获得${get.poptip('bts_glossary_funnypoint_faq')}时）；${get.poptip('bts_sk_wuqi')}消耗60枚发动`,
     bts_mk_dianchi: '电驰',
+    bts_mk_dianchi_info: `来源：${get.poptip('bts_sk_langzun_funny')}赋予（每跳过1个阶段+1）；超过8枚时恢复${get.poptip('bts_sk_baoshe_funny')}、失去${get.poptip('bts_sk_langzun_funny')}`,
     '~bts_ch_yinlang_lv999': '哼，不演了……',
 
     '$bts_sk_wuqi1': "哼，不装了",
@@ -215,13 +223,27 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；耗60分数结束出牌并额外回合，99.9%${get.poptip('bts_sk_baoshe_funny')}→${get.poptip('bts_sk_langzun_funny')}`,
-    bts_sk_baoshe_funny_info: '出牌开始可弃杀+5笑点',
-    bts_sk_langzun_funny_info: `锁；跳摸/出/弃阶段各忙盒+1电驰，电驰>8恢复${get.poptip('bts_sk_baoshe_funny')}`,
-    bts_sk_shunfeng_info: '锁；笑点获得时+等量分数',
+    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；耗60${get.poptip('bts_glossary_fenshu_faq')}结束出牌并额外回合，99.9%${get.poptip('bts_sk_baoshe_funny')}→${get.poptip('bts_sk_langzun_funny')}`,
+    bts_sk_baoshe_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；出牌开始可弃杀+5${get.poptip('bts_glossary_funnypoint_faq')}；欢愉行动+15${get.poptip('bts_glossary_fenshu_faq')}`,
+    bts_sk_langzun_funny_info: `锁，${get.poptip('bts_glossary_funny_skill_faq')}；跳摸/出/弃阶段各忙盒+1${get.poptip('bts_glossary_dianchi_faq')}，${get.poptip('bts_glossary_dianchi_faq')}>8恢复${get.poptip('bts_sk_baoshe_funny')}`,
+    bts_sk_shunfeng_info: `锁；笑点获得时+等量${get.poptip('bts_glossary_fenshu_faq')}`,
 };
 
 // 默认读音把「LV999」逐字符拆开：按叁岛式写「中文名 → 拼音数组」整段覆盖。
 export const pinyins = {
     '银狼LV999': ['yín', 'láng', 'LV999'],
 };
+
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
+export const glossary = [
+    {
+        id: 'bts_glossary_fenshu_faq',
+        name: '|分数|',
+        info: `银狼LV999专属资源。来源：${get.poptip('bts_sk_shunfeng')}——有角色获得${get.poptip('bts_glossary_funnypoint_faq')}后，你等量获得；${get.poptip('bts_sk_wuqi')}消耗60枚发动。`,
+    },
+    {
+        id: 'bts_glossary_dianchi_faq',
+        name: '|电驰|',
+        info: `来源：${get.poptip('bts_sk_langzun_funny')}——每跳过1个阶段获得1枚；超过8枚时，恢复${get.poptip('bts_sk_baoshe_funny')}、失去${get.poptip('bts_sk_langzun_funny')}并清空分数与电驰。`,
+    },
+];

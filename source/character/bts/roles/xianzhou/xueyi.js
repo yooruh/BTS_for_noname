@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '量子·毁灭·十王司判官'; // 属性·命途
 export const intro =
-    `${B('雪衣')}专打带元素的目标，${get.poptip('bts_glossary_ebao_faq')}攒到9枚就追一刀${get.poptip('bts_glossary_nature_dark_faq')}暗杀。`;
+    `${B('雪衣')}专打带${get.poptip('bts_glossary_yuansu_faq')}的目标，${get.poptip('bts_glossary_ebao_faq')}攒到9枚就追一刀${get.poptip('bts_glossary_nature_dark_faq')}暗杀。`;
 
 export const character = {
     bts_ch_xueyi: {
@@ -181,9 +181,9 @@ export const translate = {
     'bts_ch_xueyi_skin1': '皮肤1',
     bts_ch_xueyi: '雪衣',
     bts_sk_tianfa: '天罚',
-    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对攻击范围内一名其他角色造成1点伤害；若其拥有元素，改为造成3点伤害并移除其元素。`,
+    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对攻击范围内一名其他角色造成1点伤害；若其拥有${get.poptip('bts_glossary_yuansu_faq')}，改为造成3点伤害并移除其${get.poptip('bts_glossary_yuansu_faq')}。`,
     bts_sk_yebao: '业报',
-    bts_sk_yebao_info: `锁定技，其他角色弃置手牌或获得元素后，你获得1枚${get.poptip('bts_glossary_ebao_faq')}；达到10枚且你曾伤害该角色时，弃10枚并视为对其使用暗【杀】。`,
+    bts_sk_yebao_info: `锁定技，其他角色弃置手牌或获得${get.poptip('bts_glossary_yuansu_faq')}后，你获得1枚${get.poptip('bts_glossary_ebao_faq')}；达到10枚且你曾伤害该角色时，弃10枚并视为对其使用暗【杀】。`,
     bts_sk_zhue: '诸恶',
     bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受到伤害后，你可以弃置一张【杀】，对其造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害。`,
 
@@ -199,8 +199,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对范围内角色造成伤害，有元素则造成3伤并移除元素`,
-    bts_sk_yebao_info: `锁；他人弃手牌或得元素后+1${get.poptip('bts_glossary_ebao_faq')}，10枚时暗杀伤害关联目标`,
+    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对范围内角色造成伤害，有${get.poptip('bts_glossary_yuansu_faq')}则造成3伤并移除${get.poptip('bts_glossary_yuansu_faq')}`,
+    bts_sk_yebao_info: `锁；他人弃手牌或得${get.poptip('bts_glossary_yuansu_faq')}后+1${get.poptip('bts_glossary_ebao_faq')}，10枚时暗杀伤害关联目标`,
     bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受伤后可弃杀对其造成暗伤`,
 };
 

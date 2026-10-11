@@ -13,17 +13,22 @@ import {
     bts_gamerule_recover,
     bts_gamerule_phase,
     bts_gamerule_decay,
+    bts_gamerule_funny,
+    bts_sk_funny_lock,
     glossary as RULE_GLOSSARY,
 } from './globalrules.js';
 import { BGM_LIST } from '../bgm-list.js';
 import { aiGuard, aiGuardReset } from '../tool/ai/aiGuard.js';
 
-// 全局规则技能（globalrules.js，bts_gamerule_ 前缀 → 挂全局）。
+// 全局规则技能（globalrules.js，bts_gamerule_ 前缀 → 挂全局）＋共享特殊技能（bts_sk_funny_lock
+// 为角色随身技能，仅注册 lib.skill，由欢愉角色显式持带）。
 const RULE_SKILLS = {
     bts_gamerule_damage,
     bts_gamerule_recover,
     bts_gamerule_phase,
     bts_gamerule_decay,
+    bts_gamerule_funny,
+    bts_sk_funny_lock,
 };
 
 // installBuffSkillLifecycle 的幂等守卫（模块级标志）。
@@ -145,6 +150,8 @@ export function registerRules() {
         if (id.startsWith('bts_gamerule_') && !lib.skill.global.includes(id))
             game.addGlobalSkill(id);
     }
+    // 【欢愉约束】译名（direct 隐藏技能：仅技能详情/悬浮使用；勿删，见 check.mjs 缺译名审计）。
+    lib.translate['bts_sk_funny_lock'] ??= '欢愉约束';
     // 全局 API 挂载（技能代码统一经 lib.bts.* 访问，规避重编译丢包级绑定）。
     lib.bts.api = bts;
     lib.bts.rules = ruleService;
@@ -638,6 +645,9 @@ const CUSTOM_EVENTS = [
 
 export function installCustomEventHooks() {
     for (const name of CUSTOM_EVENTS) lib.hookmap[name] = true;
+    // 引擎原生触发点：洗牌（content.js:2684-2685 由 cardsGotoPile 派发，欢愉时刻监听方
+    // bts_gamerule_funny）。引擎会为已注册技能自动登记 hookmap，此处幂等置位作时序兜底。
+    lib.hookmap['washCard'] = true;
 }
 
 // ── AI 防重试守卫挂载（tool/ai/aiGuard.js，注册全局技能 bts_aiGuardReset）──

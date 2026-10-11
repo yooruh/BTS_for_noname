@@ -37,16 +37,9 @@ export const bts_gamerule_damage = {
         // 正确语义：开始分支仅源方执行、结束分支仅 damageEnd 执行，各服一次。
         if (event.triggername === 'damageBegin1') {
             if (trigger.source !== player || trigger.num <= 0) return;
-            // 欢愉约束（源 gamerule_ex·DamageCaused L1235-1238）：欢愉角色（含阿哈）造成的
-            // 伤害被取消，除非其处于「欢愉升格」（阿哈·欢愉万相，持续至其回合结束）。
-            // 源 `return true` 在 room.cpp 即 break 整个伤害流程＝取消，且无日志。
-            if (
-                lib.bts.api.funnyPlayer(player) &&
-                player.countMark('bts_mk_huanju_shengge-clear') <= 0
-            ) {
-                trigger.cancel();
-                return;
-            }
+            // 伤害已在上游技能被取消（【欢愉约束】bts_sk_funny_lock 的 cancel，或其它防止类技能）：
+            // 不再结算后续加成/相克（对齐迁移前「取消后 return」语义，防被取消的伤害仍触发元素相克）。
+            if (trigger._cancelled) return;
             // 暴击（_critical）由各技能 markDamage 自标（刃·万死/万敌·血仇/Archer·螺旋等），
             // 本处不做归一化（源 IsSpecial/AddNew L266 以 reason 含 "_critical" 识别；定夺 G-06）。
             // 星启必杀+1（源 ConfirmDamage L1100：God(player) 且 reason 含 "max_"，
@@ -199,6 +192,44 @@ export const bts_gamerule_decay = {
     },
 };
 
+// 欢愉时刻·洗牌触发（源 gamerule_ex·CardsMoveOneTime 的 SwapPile 计数检查 L1724-1727：比较
+// room tag「FunnySwap」与「SwapPile」——每次洗牌（SwapPile 增长）令全场各执行一次欢愉行动）。
+// 无名杀洗牌入口 = game.washCard()（game/index.js:598，内部经 cardsGotoPile 的 "washCard" arg
+// 派发 `washCard` 触发点，content.js:2684-2685）；本技能监听该触发点。全局技能对每名玩家各
+// 触发一次 → 锚点去重后只执行一次（同 installMarkSourceTrack 范式）。
+export const bts_gamerule_funny = {
+    global: true,
+    charlotte: true,
+    silent: true,
+    popup: false,
+    trigger: { global: 'washCard' },
+    async content(event, trigger, player) {
+        const anchor = game.me ?? game.players[0];
+        if (player !== anchor) return;
+        await lib.bts.api.funnyTime(null, null, null, event.name);
+    },
+};
+
+// 【欢愉约束】（欢愉角色无法造成伤害；效果自注册——随技能授予/剥夺，勿在规则 API 里按
+// hasSkill 代执行）：源 gamerule_ex·DamageCaused L1235-1238 `if FunnyPlayer(player) then
+// return true`——欢愉角色造成的伤害无条件取消（room.cpp 即 break 整个伤害流程＝取消，无日志）。
+// 迁移版以本技能承载，由欢愉角色显式持带（角色 skills 列表），并保留「欢愉升格」豁免
+//（阿哈·【欢愉万相】赋予，持续至其回合结束；-clear 后缀由 bts_gamerule_phase 于其回合结束时清理）。
+export const bts_sk_funny_lock = {
+    unique: true,
+    charlotte: true,
+    direct: true,
+    silent: true,
+    popup: false,
+    trigger: { source: 'damageBegin1' },
+    filter(event, player) {
+        return player.countMark('bts_mk_huanju_shengge-clear') <= 0;
+    },
+    content(event, trigger, player) {
+        trigger.cancel();
+    },
+};
+
 // ── 通用机制词条（通用/多角色共用 → 本文件）；角色专属词条随角色文件 glossary 导出，
 // 经 bts/index.js 聚合进 fullTranslate + poptip 前缀扫描。
 export const glossary = [
@@ -286,6 +317,46 @@ export const glossary = [
         id: 'bts_glossary_funnypoint_faq',
         name: '笑点',
         info: '欢愉行动结算后获得1枚；欢愉时刻开始时消耗全部笑点换算欢愉层数。',
+    },
+    {
+        id: 'bts_glossary_funny_skill_faq',
+        name: '欢愉技',
+        info: `拥有各自${get.poptip('bts_glossary_funny_act_faq')}的技能：${get.poptip('bts_glossary_funny_time_faq')}等派发欢愉行动时，依次结算全场相关技能的注册行动（内容见各技能描述「欢愉行动：…」段）。`,
+    },
+    {
+        id: 'bts_glossary_funny_act_faq',
+        name: '欢愉行动',
+        info: `欢愉技注册的专属行动（=各技能描述中「欢愉行动：…」段）：由${get.poptip('bts_glossary_funny_time_faq')}自动派发，或由其技能主动执行；结算后获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。`,
+    },
+    {
+        id: 'bts_glossary_funny_time_faq',
+        name: '欢愉时刻',
+        info: `每次洗牌（牌堆重洗）时降临：全场角色各执行一次各自的${get.poptip('bts_glossary_funny_act_faq')}，并消耗全部${get.poptip('bts_glossary_funnypoint_faq')}换算${get.poptip('bts_glossary_bless_funny_faq')}（每10枚1层）。此外，【阿哈！】技能持有者的准备阶段开始时也会降临（阿哈时刻）。`,
+    },
+    {
+        id: 'bts_glossary_yishi_faq',
+        name: '仪式',
+        info: `技能描述中的结构标记（相当于「若如此做，下次」）：达成「仪式：」段之前的效果后，解锁一次「仪式：」段的效果，且可叠加。`,
+    },
+    {
+        id: 'bts_glossary_yishi_shunfa_faq',
+        name: '仪式瞬发',
+        info: `立即结算对应技能的「仪式：」段效果、不等待其触发时机。如${get.poptip('bts_sk_nidong')}（${get.poptip('bts_glossary_xingqi_faq')}时）赋予：下次${get.poptip('bts_sk_duanjie')}发动时直接摸一张牌。`,
+    },
+    {
+        id: 'bts_glossary_tongmeng_faq',
+        name: '同盟',
+        info: '技能的子条款：满足条件的其他角色视为拥有此技能，其发动需经过你与其的同意。',
+    },
+    {
+        id: 'bts_glossary_jichu_abnormal_faq',
+        name: '基础异常',
+        info: '烧伤、麻痹、中毒、冻结、石化、睡眠六种异常状态的统称；回复体力时会全部清除。',
+    },
+    {
+        id: 'bts_glossary_yuansu_faq',
+        name: '元素',
+        info: '属性体系（共7种，与崩铁官方命名一致）：作为伤害属性时修饰伤害；附加于角色身上时显示为「××附加」。详见帮助「伤害与元素」。',
     },
     {
         id: 'bts_glossary_zhongdu_faq',

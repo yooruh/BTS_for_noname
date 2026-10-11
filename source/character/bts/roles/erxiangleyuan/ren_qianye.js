@@ -310,7 +310,7 @@ export const translate = {
     bts_sk_fennu: '忿怒',
     bts_sk_fennu_info: `锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}伤害；进入濒死时回复至3点，失去本形态技能并重获${get.poptip('bts_sk_xinrou')}。`,
     bts_sk_jinchang: '尽偿',
-    bts_sk_jinchang_info: `锁定技，当你对其他角色造成伤害后，令其附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。同盟：未对你造成过伤害的其他角色造成伤害后，可经你与其的同意，令其伤害目标附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
+    bts_sk_jinchang_info: `锁定技，当你对其他角色造成伤害后，令其附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。${get.poptip('bts_glossary_tongmeng_faq')}：未对你造成过伤害的其他角色造成伤害后，可经你与其的同意，令其伤害目标附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
     bts_sk_renzang: '刃葬',
     bts_sk_renzang_info: `出牌阶段，你可以在${get.poptip('bts_glossary_abnormal_shahuo_faq')}总数达到9时吸收${get.poptip('bts_glossary_abnormal_shahuo_faq')}视为使用【杀】，或体力大于1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}并视为使用【决斗】。`,
     bts_abnormal_shahuo: '煞火',
@@ -334,7 +334,7 @@ export const simpleTranslate = {
     bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}和1体力变身，并令所有其他角色各+2${get.poptip('bts_glossary_abnormal_shahuo_faq')}`,
     bts_sk_qianye_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}群体通常伤害`,
     bts_sk_fennu_info: `锁；伤害${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}，濒死回复并还原`,
-    bts_sk_jinchang_info: `锁；造成伤害后目标+${get.poptip('bts_glossary_abnormal_shahuo_faq')}；同盟：未伤过你的其他角色伤害后经双方同意代发`,
+    bts_sk_jinchang_info: `锁；造成伤害后目标+${get.poptip('bts_glossary_abnormal_shahuo_faq')}；${get.poptip('bts_glossary_tongmeng_faq')}：未伤过你的其他角色伤害后经双方同意代发`,
     bts_sk_renzang_info: `${get.poptip('bts_glossary_abnormal_shahuo_faq')}≥9时吸收后群杀，或体力>1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}群决斗`,
 };
 
