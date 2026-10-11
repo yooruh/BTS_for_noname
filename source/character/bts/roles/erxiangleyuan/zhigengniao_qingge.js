@@ -396,6 +396,13 @@ export const translate = {
     '~bts_ch_qingkongyueshou': "还没…唱完……",
     '~bts_ch_zhigengniao_qingge': "还没…唱完……",
     '~bts_ch_zhigengniao_qingge_and_qingkongyueshou': "还没…唱完……",
+
+    '$bts_sk_kuangxiang1': "心声，彼此交汇——",
+    '$bts_sk_kuangxiang2': "此刻，晴空因你而闪耀",
+    '$bts_sk_xunyou1': "愿歌声化作微风，吹走烦恼",
+    '$bts_sk_xunyou2': "每个人的声音，都值得被倾听",
+    '$bts_sk_yueshou1': "把双手借给我，好吗？",
+    '$bts_sk_yueshou2': "羽翼相依，我们就无惧风暴",
 };
 
 export const simpleTranslate = {

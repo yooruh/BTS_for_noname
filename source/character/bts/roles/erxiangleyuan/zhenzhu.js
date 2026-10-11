@@ -365,19 +365,15 @@ export const translate = {
     bts_sk_dongcha: '洞察',
     bts_sk_dongcha_info: `锁定技，欢愉角色准备阶段开始时，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你附加1层${get.poptip('bts_glossary_bless_funny_faq')}。`,
 
-    // ── 语音台词来源优先级：无名杀既有 > 太阳神（见 文档/文案与语音规范.md §2.1）──
-    // 本角色太阳神源侧无任何音频（下列键仅有文本；`~` 阵亡文本为多角色共用、疑占位）——
-    // 声明键而无 mp3 会使 rebuild --audio --check 报错，故全部暂注释保留原文，待日后取得源音频再启用
-    //（《太阳神音频差异对照》§1.4/§四 备查）。
-    // '$bts_sk_jianying1': "世人总道天意难违……",
-    // '$bts_sk_jianying2': "本座偏要，执此一签，观照诸天。",
-    // '$bts_sk_buzhui_funny1': "景星，高照。",
-    // '$bts_sk_buzhui_funny2': "劫云，散尽。",
-    // '$bts_sk_tunna1': "手到擒来。",
-    // '$bts_sk_tunna2': "光映十方，百无禁忌。",
-    // '$bts_sk_tunna3': "祝你大运正当头，开门红！",
-    // '$bts_sk_tunna4': "赠你一支下下签，请笑纳。",
-    // '~bts_ch_zhenzhu': "我不信…命定如此…",
+    // ── 语音台词（2026-10-11 导入，按素材文件名定稿；见《文案与语音规范》§2.2）──
+
+    '$bts_sk_jianying1': "我欲入深海，打捞遗珠——",
+    '$bts_sk_jianying2': "解析，描摹，复原…重塑完美",
+    '$bts_sk_buzhui_funny1': "信笔由疆，点染星月",
+    '$bts_sk_buzhui_funny2': "着墨繁星，徜徉漫步",
+    '$bts_sk_tunna1': "投资的艺术，在于洞察本质",
+    '$bts_sk_tunna2': "灵感，正如浪花般跃动",
+    '~bts_ch_zhenzhu': "「作品」…尚未完成……",
 };
 
 export const simpleTranslate = {

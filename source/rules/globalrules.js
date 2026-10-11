@@ -228,6 +228,20 @@ export const bts_sk_funny_lock = {
     content(event, trigger, player) {
         trigger.cancel();
     },
+    ai: {
+        // AI 口径：无「欢愉升格」时持有者无法造成伤害——伤害类牌的目标侧收益（result2）乘 0
+        //（[1,0,0,0]：result1 不动、result2 清零；数组语义见 get/index.js effect 玩家侧读取点），
+        // 令 AI 不再把伤害牌视为有效输出；施动侧与其它技能补正不否决——「用牌另有收益/敌方
+        // 另有负收益」（公演攒愿力等）时仍可选用；有升格按常评估。仿本体「牌无效」写法
+        //（仁王盾 renwang_skill / 藤甲 tengjia1 → "zeroplayertarget"；本体 card/standard.js、card/extra.js）。
+        effect: {
+            player(card, player, target, current) {
+                if (!card || player.countMark('bts_mk_huanju_shengge-clear') > 0) return; // 有升格：可以造成伤害
+                if (!get.tag(card, 'damage')) return; // 非伤害牌：不受约束
+                return [1, 0, 0, 0]; // 无升格：伤害无效——只清「目标侧」伤害收益
+            },
+        },
+    },
 };
 
 // ── 通用机制词条（通用/多角色共用 → 本文件）；角色专属词条随角色文件 glossary 导出，

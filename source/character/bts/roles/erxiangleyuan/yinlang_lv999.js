@@ -220,6 +220,10 @@ export const translate = {
     '$bts_sk_baoshe_funny2': "无限火力",
     '$bts_sk_shunfeng1': "一波带走",
     '$bts_sk_shunfeng2': "爽就完了",
+
+    '$bts_sk_langzun_funny1': "Crazy!",
+    '$bts_sk_langzun_funny2': "Bravo!",
+    '$bts_sk_langzun_funny3': "Amazing!",
 };
 
 export const simpleTranslate = {

@@ -274,6 +274,8 @@ export const translate = {
     bts_bless_zhianzhimi_info: `来源：${get.poptip('bts_sk_wumian')}赋予；扣血获${get.poptip('bts_glossary_yizhi_faq')}×7；回合结束自然减少1层`,
 
     '~bts_ch_changyeyue_and_changye': "没能…保护好……",
+
+    '$bts_sk_qihei1': "也算一段不错的回忆",
 };
 
 export const simpleTranslate = {

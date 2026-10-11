@@ -238,6 +238,20 @@ export const skill = {
         async content(event, trigger, player) {
             player.addMark('bts_mk_yuanli', 1);
         },
+        ai: {
+            // AI 口径：使用【杀】/【欢愉万相】+1 愿力（与本技能 filter 的 useCard 判据同源）——计入
+            // 施动侧约半枚牌值（[1,0.5]：result1 不动、temp01+0.5；仅作「对敌可选用」的激励，不改变
+            // 出牌排序）；目标偏好：仅对敌（attitude<0）计入——防 AI 对友方/中立白甩【杀】。与
+            // 【欢愉约束】叠用后：无升格对敌=0.5（可选用）、有升格=伤害收益+0.5（更优）。
+            effect: {
+                player(card, player, target, current) {
+                    if (!card) return;
+                    if (card.name !== 'sha' && card.name !== 'bts_cd_huanju_wanxiang') return;
+                    if (target && get.attitude(player, target) >= 0) return; // 对友/中立：不计
+                    return [1, 0.5];
+                },
+            },
+        },
     },
 };
 

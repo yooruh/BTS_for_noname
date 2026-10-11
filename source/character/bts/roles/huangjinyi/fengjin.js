@@ -350,6 +350,8 @@ export const translate = {
     bts_bless_yuguotianqing_info: `来源：${get.poptip('bts_sk_chenhun')}赋予；${get.poptip('bts_glossary_bless_maxhp_faq')}翻倍；回合结束自然减少1层`,
 
     '~bts_ch_fengjin_and_xiaoyika': "先祖，我还没……",
+
+    '$bts_sk_zhanluo1': "荧荧微光，也将汇成璀璨星河",
 };
 export const simpleTranslate = {
     bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}，${get.poptip('bts_glossary_xingqi_faq')}时加${get.poptip('bts_glossary_bless_maxhp_faq')}，治疗自己和目标`,
