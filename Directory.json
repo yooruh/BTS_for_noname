@@ -3293,7 +3293,7 @@
   },
   "extension.js": {
     "size": 4736,
-    "md5": "532cd5f4a98a7072d996ceeb1972cd8b"
+    "md5": "67b697f8db7a79c70dd69a1842bcac0d"
   },
   "image/character/bts_ch_agelaiya.png": {
     "size": 166670,
@@ -5441,7 +5441,7 @@
   },
   "info.json": {
     "size": 153,
-    "md5": "a45bb36df97fee3d01206fe02b4fc41b"
+    "md5": "406cbc7b1b1929cb8ffd09f8382613ec"
   },
   "LICENSE": {
     "size": 35147,
@@ -5848,8 +5848,8 @@
     "md5": "b3537b3e6f609818fa16c791e970d253"
   },
   "source/content.js": {
-    "size": 8128,
-    "md5": "4cdb00a9f7acd2d6ab43393db99efc81"
+    "size": 8087,
+    "md5": "0e623331d51d722f482c73eeeeb731ae"
   },
   "source/generated/buffRegistry.js": {
     "size": 12389,
@@ -6052,8 +6052,8 @@
     "md5": "6204d7dcbe371fcff8700f5d7e50692f"
   },
   "style/html/update.html": {
-    "size": 3786,
-    "md5": "9d8771d0ad8d59ef80db1f8b88216071"
+    "size": 3673,
+    "md5": "7850a3b8fb776517c4a8bae06e0abd90"
   },
   "style/nncfg/android_wide11.0.nncfg": {
     "size": 2336,

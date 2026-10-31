@@ -146,12 +146,12 @@ export async function content(config, pack) {
 // 更新内容数据（扩展更新弹窗 + 帮助「更新内容」分区）：
 // 由 `npm run build`（scripts/build.mjs）依据 release/releases.json 自动生成，勿手改。
 export const updateContent = [
+    { type: "players", data: ["bts_ch_feiying"] },
     {
         type: "text", addText: true, data: `<div style="text-align: left;font-size: 16px;">
 ① 公开测试版本，非正式移植版，欢迎上报问题（部分与太阳神不一致的地方是故意为之）<br>
-② 建立可复现构建与发布工具链，可集成化打包，此版本兼容无名杀v1.11.2，对标v1.11.6<br>
-③ 新增真珠。新增群友投稿角色包，默认关闭，需手动开启<br>
-④ 修复了一些技能的结算bug<br>
+② 新增了绯英，给现有的角色进行了重新势力分包<br>
+③ 优化了在线更新模块，以后应该能在游戏内更新崩铁杀<br>
 <hr>
 <li>本版本仍在开发中，未完成的角色、资源与机制将持续补充。</li>
 </div>`
