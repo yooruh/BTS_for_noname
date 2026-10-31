@@ -1,0 +1,101 @@
+/** 崩铁杀构建脚本共享工具：仅用 Node.js 内置模块，无运行时依赖。 */
+
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const root = resolve(here, '..', '..');
+
+export const PATHS = {
+    root,
+    packageJson: resolve(root, 'package.json'),
+    extensionJs: resolve(root, 'extension.js'),
+    infoJson: resolve(root, 'info.json'),
+    versionJson: resolve(root, 'version.json'),
+    directoryJson: resolve(root, 'Directory.json'),
+    releaseManifest: resolve(root, 'release', 'releases.json'),
+    contentJs: resolve(root, 'source', 'content.js'),
+    updateHtml: resolve(root, 'style', 'html', 'update.html'),
+};
+
+export function readText(filePath) {
+    return readFileSync(filePath, 'utf8');
+}
+
+export function writeText(filePath, content) {
+    writeFileSync(filePath, content, 'utf8');
+}
+
+/** 读取 UTF-8 文本文件（与叁岛 shared.mjs 对齐的别名，供发布脚本等使用） */
+export function readFile(filePath) {
+    return readFileSync(filePath, 'utf-8');
+}
+
+/** 写入 UTF-8 文本文件（与叁岛 shared.mjs 对齐的别名） */
+export function writeFile(filePath, data) {
+    writeFileSync(filePath, data, 'utf-8');
+}
+
+/** 对文件内容执行正则替换并保存（与叁岛 shared.mjs 对齐） */
+export function replaceInFile(filePath, pattern, replacement) {
+    const oldContent = readFile(filePath);
+    const newContent = oldContent.replace(pattern, replacement);
+    if (newContent !== oldContent) {
+        writeFile(filePath, newContent);
+    }
+    return { oldContent, newContent, replaced: newContent !== oldContent };
+}
+
+export function isValidVersion(version) {
+    return /^v?\d+\.\d+\.\d+(?:\.\d+)?$/.test(String(version));
+}
+
+/** 最小 HTML 转义（用于把更新日志文本渲染进生成的 HTML 页面）。 */
+export function htmlEscape(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+export function stripV(version) {
+    return String(version).replace(/^v/, '');
+}
+
+export function withV(version) {
+    return `v${stripV(version)}`;
+}
+
+export function releaseTag(version) {
+    return `${withV(version)}-code-zip`;
+}
+
+/**
+ * 本体包文件名（含扩展名）。
+ * 命名约定：`{崩铁杀版本}_{完全体|丐版}[_不含崩铁杀].zip`——版本由调用方传入，
+ * 取自 release/releases.json 的当前发布版本（如 `26.10.3.4`），便于按版本区分产物。
+ * —— 「包含崩铁杀」不写后缀（视为默认形态）；仅「不含崩铁杀」时追加 `_不含崩铁杀`。
+ * @param {{ version: string, variant: 'full'|'slim', withBts: boolean }} o
+ */
+export function bodyZipName({ version, variant, withBts }) {
+    const suffix = variant === 'full' ? '完全体' : '丐版';
+    return `${stripV(version)}_${suffix}${withBts ? '' : '_不含崩铁杀'}.zip`;
+}
+
+export const log = {
+    info(message) {
+        console.log(`\x1b[36m[INFO]\x1b[0m ${message}`);
+    },
+    ok(message) {
+        console.log(`\x1b[32m[OK]\x1b[0m ${message}`);
+    },
+    warn(message) {
+        console.log(`\x1b[33m[WARN]\x1b[0m ${message}`);
+    },
+    error(message) {
+        console.error(`\x1b[31m[ERROR]\x1b[0m ${message}`);
+    },
+};

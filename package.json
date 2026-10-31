@@ -1,0 +1,41 @@
+{
+  "name": "bts-extension",
+  "version": "26.10.3.4",
+  "description": "崩铁杀（崩坏：星穹铁道·三国杀）- 无名杀游戏扩展构建脚本",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs --zip",
+    "zip:release": "node scripts/zip.mjs --version",
+    "dev:install": "node scripts/sync.mjs install",
+    "dev:export": "node scripts/sync.mjs export",
+
+    "zip": "node scripts/zip.mjs --interactive",
+    "rebuild": "node scripts/rebuild.mjs --interactive",
+    "assets:migrate": "node scripts/migrate.mjs --interactive",
+    "opt:png": "node scripts/opt-png.mjs --interactive",
+    "voice": "node scripts/voice.mjs --interactive",
+    "playtest": "node scripts/playtest.mjs --interactive",
+    "check": "node scripts/check.mjs --interactive",
+
+    "pack": "node scripts/pack.mjs --interactive",
+    "purge": "node scripts/purge.mjs --interactive",
+    "publish": "node scripts/publish.mjs"
+  },
+  "AIscript": {
+    "dev": "node scripts/dev.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:fast": "node scripts/verify.mjs --fast",
+    "verify:full": "node scripts/verify.mjs --full",
+    "smoke": "node ../_others/smoke/run-all.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "health": "node ../_others/debug/health.mjs",
+    "docs:audit": "node scripts/docs-audit.mjs --strict",
+    "scaffold": "node scripts/scaffold.mjs"
+  },
+  "author": "一个月惹",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,511 @@
+// 昔涟（源 animal.lua L9084-9247）—— 记忆、誓约、乐土与爱诗。
+// 技能：誓约（必杀技·记忆阈值后强化黄金裔/摸牌）、追忆（用杀/决斗得记忆）、众愿（他人回合后/弃杀得记忆）、
+//       乐土（手牌【杀】当【决斗】+ 独立牌堆引擎：伤害+爱诗→除外1牌+1记忆）、爱诗（空标记，授予黄金裔，
+//       各黄金裔技能经 hasSkill 检测后自行结算"诗歌"加成，参照五虎将大旗范式）。
+import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
+
+export const sort = 'huangjinyi';
+export const title = '冰·记忆·往昔的涟漪'; // 属性·命途
+export const intro =
+    `${B('昔涟')}攒${get.poptip('bts_glossary_jiyi_faq')}给黄金裔同伴铺路：把${get.poptip('bts_sk_aishi')}交给他们，攒够${get.poptip('bts_glossary_jiyi_faq')}就开${get.poptip('bts_sk_letu')}、抛${get.poptip('bts_glossary_bisha_faq')}，自己手里的${get.poptip('bts_glossary_bisha_faq')}也能少花力气。`;
+
+export const character = {
+    bts_ch_xilian: {
+        sex: 'female',
+        group: 'huangjinyi',
+        hp: 4,
+        skills: ['bts_sk_shiyue', 'bts_sk_zhuiyi', 'bts_sk_zhongyuan'],
+    },
+};
+
+export const skill = {
+    // ── 必杀技·誓约（源 st_shiyue = SkillCard + ZeroCardViewAsSkill，L9116-9161）──
+    // 出牌阶段，弃24枚记忆（星启或已发动过则为12枚）并选择一名角色：若其为黄金裔，其获得爱诗；
+    // 否则其摸三张牌。首次发动后你获得乐土，并选择任意名角色获得怒气豁免；
+    // 若你为星启，这些角色各执行一个额外回合。
+    bts_sk_shiyue: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        bts_bisha_angry: false, // 资源型必杀（记忆发动、不消耗怒气）→ 拥有者不获得怒气（utils.hasAngryBisha 门控）
+        // audit-choosetarget: skip  —— 首次发动分支的金黄裔挠怒豁免是次级分发（0..many，依赖本分支是否首次），无法上提；0下限为合法「不豁免」
+        enable: 'phaseUse',
+        filter(event, player) {
+            // 源 enabled_at_play（L9157-9160）：记忆 ≥ n（星启/已发动过为12，否则24）
+            const need =
+                lib.bts.api.god(player) ||
+                player.countMark('bts_mk_shiyue_used')
+                    ? 12
+                    : 24;
+            return player.countMark('bts_mk_jiyi') >= need;
+        },
+        filterTarget() {
+            // 源 Card filter（L9119）：目标数0个时可选（实际1名目标）
+            return true;
+        },
+        selectTarget: 1,
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_shiyue');
+            const target = event.targets[0];
+            const need =
+                lib.bts.api.god(player) ||
+                player.countMark('bts_mk_shiyue_used')
+                    ? 12
+                    : 24;
+            player.removeMark('bts_mk_jiyi', need); // 源 L9126：LoseOther(player, "@jiyi", n)
+            // 源 L9127-9138：黄金裔 → 获得爱诗；否则摸三张牌
+            if (target.group === 'huangjinyi')
+                await target.addSkill('bts_sk_aishi');
+            else await target.draw(player, 3); // 源 L9136：targets[1]:drawCards(3)
+            // 源 L9139-9147：首次发动 → 获得乐土并选择怒气豁免角色
+            if (!player.countMark('bts_mk_shiyue_used')) {
+                player.addMark('bts_mk_shiyue_used', 1);
+                // 源 L9142：acquireSkill(player, "st_letu")
+                // 子技能（牌堆引擎/使出）随父显式挂载，保证 mark 展示与 enable 按钮（group 只挂 trigger）
+                await player.addSkill(['bts_sk_letu', 'bts_sk_letu_pile', 'bts_sk_letu_use']);
+                player.addMark('bts_mk_letu_active', 1);
+                // 源 L9140：setPlayerMark(player, "st_zhongyuan", 0) —— 誓约获得的乐土为永久
+                // （清除"众愿"临时乐土标记，避免被下个自己回合结束回收）
+                player.setStorage('bts_mk_zhongyuan_used', false, true);
+                // 源 L9144：askForUseCard("@@st_shiyue_st_letu!") —— 选择任意名角色
+                const result = await player
+                    .chooseTarget(
+                        '誓约：选择任意名角色获得怒气豁免',
+                        [0, Infinity],
+                        () => true,
+                        (target) => get.attitude(player, target),
+                    )
+                    .forResult();
+                for (const target of result.targets || []) {
+                    // 源 L9099-9103：目标获得怒气豁免，星启时执行额外回合
+                    target.addMark('bts_mk_extra_max', 1);
+                    if (lib.bts.api.god(player)) lib.bts.api.extraTurn(target, 'bts_extra_turn');
+                }
+                // 源 L9094-9097：自己也获得怒气豁免，星启时执行额外回合
+                player.addMark('bts_mk_extra_max', 1);
+                if (lib.bts.api.god(player)) lib.bts.api.extraTurn(player, 'bts_extra_turn');
+            }
+        },
+        ai: {
+            // AI 口径：记忆满12/24换「黄金裔友方得爱诗（永久『诗歌』加成，未持有者优先）／
+            // 其他友方摸3」；无友方可喂则不喂敌（目标价值经态度加权排除敌方）。首次发动另
+            // 附乐土+怒气豁免礼包，星启再加额外回合（源 max_shiyue StarRail-ai.lua L1517-1550 估值9）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_shiyue')) return -1;
+                const need =
+                    lib.bts.api.god(player) ||
+                    player.countMark('bts_mk_shiyue_used')
+                        ? 12
+                        : 24;
+                if (player.countMark('bts_mk_jiyi') < need) return -1; // filter 同门
+                const poemTarget = game.hasPlayer(
+                    (t) =>
+                        t !== player &&
+                        t.isAlive() &&
+                        t.group === 'huangjinyi' &&
+                        get.attitude(player, t) > 0 &&
+                        !t.hasSkill('bts_sk_aishi'),
+                );
+                const hasTarget =
+                    poemTarget ||
+                    game.hasPlayer(
+                        (t) =>
+                            t !== player &&
+                            t.isAlive() &&
+                            get.attitude(player, t) > 0,
+                    );
+                if (!hasTarget) return 0; // 仅敌方/中立可喂：保留记忆（源 AI 不选敌）
+                let value = poemTarget ? 8 : 6; // 首选授诗；退而摸3
+                if (!player.countMark('bts_mk_shiyue_used')) value += 1; // 首次：乐土+怒气豁免
+                if (lib.bts.api.god(player)) value += 1; // 星启：获豁免角色各额外回合
+                return Math.min(9, value);
+            },
+            result: {
+                // 目标获益：黄金裔得爱诗（未持有更高）；其他摸3；敌方获益由态度加权排除
+                target: (player, target) =>
+                    target.group === 'huangjinyi'
+                        ? target.hasSkill('bts_sk_aishi')
+                            ? 0.5
+                            : 3
+                        : 1.5,
+            },
+        },
+    },
+
+    // ── 锁定技·追忆（源 st_zhuiyi = TriggerSkill Compulsory CardUsed，L9163-9178）──
+    // 当你使用【杀】或【决斗】后，获得1枚记忆；【决斗】改为3枚。
+    bts_sk_zhuiyi: {
+        trigger: { player: 'useCard' },
+        forced: true,
+        filter(event) {
+            // 源 L9168-9169：使用【杀】或【决斗】
+            return ['sha', 'juedou'].includes(event.card?.name);
+        },
+        async content(event, trigger, player) {
+            // 源 L9170-9175：决斗+3，杀+1，gainMark("@jiyi", n)（trigger=useCard 事件）
+            player.addMark('bts_mk_jiyi', trigger.card.name === 'juedou' ? 3 : 1);
+        },
+    },
+
+    // ── 触发技·众愿（源 st_zhongyuan = TriggerSkill EventPhaseStart NotActive，L9180-9205）──
+    // 一名角色的回合结束时：若其不为你，其可以令你获得1枚记忆标记；否则，若你没有"乐土"，
+    // 你可以弃置一张【杀】获得3枚记忆标记，于下个回合的回合结束前拥有乐土（临时乐土）。
+    // （无名杀 phaseAfter 即回合结束事件，与源 EventPhaseStart+NotActive 同义；
+    //   临时乐土于下个自己的回合结束时回收，源 L9187-9189 同款。）
+    // 结构：「他人回合结束 +1 记忆」（源 L9191-9193，每名他人的回合都来一次、纯收益）拆为子技能
+    //   other 并标 frequent——引擎 checkFrequent 命中即给 chooseBool 打 frequentSkill，chooseBool 见之
+    //   直接 ui.click.ok()（content.js:3607-3621 / 7676），免去每回合手动点确定；可选性质不变
+    //   （仍走 chooseBool，只是自动确认）。自己回合结束的复杂交互（弃【杀】重获乐土）留在本技能
+    //   cost/content，不受影响——子技能 filter 已排除自己回合。
+    bts_sk_zhongyuan: {
+        trigger: { player: 'phaseAfter' },
+        // 子技能随父挂载（expandSkills 按 group 展开；本库范式：bts_sk_shijie_damage / bts_sk_liubu_take）
+        group: ['bts_sk_zhongyuan_other'],
+        // 本体范式（界限突破·奋励 refenli、一将成名·奋励 fenli：group + subfrequent + subSkill 子技自带 frequent）：
+        // subfrequent 把「自动发动」开关挂到本技能条目上，控制 <父>_<子>（get/index.js 读它渲染开关；
+        // ui/click autoskill2 写 autoskilllist；chooseBool 再读 autoskilllist 决定是否自动确认）。
+        subfrequent: ['other'],
+        filter(event, player) {
+            // 源 L9187-9196：自己回合结束 → 有临时乐土需回收 / 无乐土且手牌有【杀】可弃
+            if (player.hasSkill('bts_sk_letu'))
+                return player.getStorage('bts_mk_zhongyuan_used', false);
+            return player.getCards('h').some((card) => get.name(card) === 'sha');
+        },
+        async cost(event, trigger, player) {
+            // trigger=phaseAfter 事件（仅自己回合——他人回合的「+1 记忆」已移入子技能 other）
+            // 源 L9187-9189：自己回合结束且有临时乐土 → 直接回收（无交互）
+            if (
+                player.hasSkill('bts_sk_letu') &&
+                player.getStorage('bts_mk_zhongyuan_used', false)
+            ) {
+                event.result = { bool: true, cost_data: { strip: true } };
+                return;
+            }
+            // 源 L9194：无乐土 → askForCard("Slash")（仅选择弃【杀】，弃牌移入 content 结算）
+            event.result = await player
+                .chooseCard(
+                    'h',
+                    (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                    '众愿：是否弃置一张【杀】获得3枚记忆并重获乐土？',
+                )
+                // cost 型内层：最高分≤0 即取消（引擎 ai/basic.js）。3枚记忆可推进誓约进度，
+                // 另暂获乐土（杀当决斗+爱诗产粮）；弃低价值【杀】才划算，接近阈值时加码
+                //（6 - 杀价值 的口径参照风堇「虹光」cost）
+                .set('ai', (card) => {
+                    let value = 6 - get.value(card);
+                    const need =
+                        lib.bts.api.god(player) ||
+                        player.countMark('bts_mk_shiyue_used')
+                            ? 12
+                            : 24;
+                    if (player.countMark('bts_mk_jiyi') + 3 >= need) value += 1;
+                    return value;
+                })
+                .forResult();
+        },
+        async content(event, trigger, player) {
+            // trigger=phaseAfter 事件；event.cost_data/event.cards 为自选结果（标准约定）
+            if (event.cost_data?.strip) {
+                // 源 L9187-9189：临时乐土于下个自己回合结束回收（移除技能并清标记）
+                player.setStorage('bts_mk_zhongyuan_used', false, true);
+                await player.removeSkill(['bts_sk_letu', 'bts_sk_letu_pile', 'bts_sk_letu_use']);
+                return;
+            }
+            // 源 L9196-9198：弃【杀】后得3记忆并重获乐土（临时，下个自己回合结束回收）
+            if (event.cards) await player.discard(event.cards); // 源：弃【杀】移入 content 结算
+            player.addMark('bts_mk_jiyi', 3);
+            if (!player.hasSkill('bts_sk_letu'))
+                await player.addSkill(['bts_sk_letu', 'bts_sk_letu_pile', 'bts_sk_letu_use']);
+            player.setStorage('bts_mk_zhongyuan_used', true, true);
+            player.addMark('bts_mk_letu_active', 1);
+        },
+        ai: { result: { player: 1 } },
+        subSkill: {
+            // ── 众愿·他人回合（源 L9191-9193）──
+            // 他人回合结束时你可以获得1枚记忆。纯收益无代价（本移植由昔涟自决、恒取）→ frequent 让
+            // 引擎自动确认，不再每回合手点确定（源由回合结束者征询、按「其视昔涟为友」门控——决策归属差异）。
+            // 译名由引擎 subSkill 注册自动继承父技能（lib.translate[子] = lib.translate[父] = '众愿'，
+            // game/index.js:8259-8263），故 logSkill/popup 与拆分前一致；audio 直接写父技键＝复用父技能
+            // 语音（本体范式：奋励子技 audio:"refenli"；引擎按技能名取该技 audio，get/audio.js:194）。
+            other: {
+                audio: 'bts_sk_zhongyuan',
+                trigger: { global: 'phaseAfter' },
+                frequent: true,
+                prompt: '众愿：是否获得1枚记忆标记？',
+                filter(event, player) {
+                    // 他人回合结束（自己回合走父技能 cost/content）
+                    return event.player !== player;
+                },
+                async content(event, trigger, player) {
+                    // 源 L9193：p:gainMark("@jiyi") —— 他人回合结束得1记忆
+                    player.addMark('bts_mk_jiyi', 1);
+                },
+            },
+        },
+    },
+
+    // ── 关联技·乐土（源 st_letu = FilterSkill，L9222-9233）──
+    // 你可以将手牌【杀】当【决斗】使用；同时承载"乐土"独立牌堆（源 #st_letu，L9207-9221，
+    // 参照无名杀邓艾田/陈寿扑克牌堆范式：addToExpansion + 标记展示 + 副牌堆出牌）。
+    // 乐土引擎：任意角色造成伤害后，若你拥有爱诗，将牌堆顶1张置入"乐土"牌堆并获得1枚记忆
+    // （源 L9215：GetXiLian(p) 时 gainMark("@jiyi")）；乐土牌能当手牌使用或打出，
+    // 于你的下个出牌阶段开始前回收（源描述）。
+    // 结构（对齐克拉拉范式）：父技能=杀当决斗（enable），牌堆引擎/标记/出牌为子技能。
+    bts_sk_letu: {
+        charlotte: true,
+        enable: 'phaseUse',
+        // 子技能随父挂载：无名杀 addSkillTrigger 经 expandSkills 把 group 技能一并挂载
+        // （本库范式：jizi 远征 attach / waerte 断界 ritual / 海妖 lock 同款；mark 展示另在授予处显式 addSkill 保证）
+        group: ['bts_sk_letu_pile', 'bts_sk_letu_use'],
+        filterCard(card) {
+            // 源 view_filter（L9225）：手牌且为【杀】
+            return get.name(card) === 'sha';
+        },
+        position: 'h',
+        selectCard: 1,
+        viewAs: {
+            // 源 L9228：克隆 duel
+            name: 'juedou',
+            isCard: true,
+            storage: { bts_sk_letu: true },
+        },
+        subSkill: {
+            // 乐土·牌堆引擎 + 展示（源 #st_letu；参照邓艾田 intro content: "expansion"）
+            pile: {
+                charlotte: true,
+                mark: true,
+                marktext: '乐',
+                intro: { content: 'expansion', markcount: 'expansion' },
+                // 引擎（任意伤害+爱诗）+ 出牌阶段回收（描述"下个出牌阶段开始前"）
+                trigger: { player: 'phaseUseBegin', global: 'damageEnd' },
+                forced: true,
+                filter(event, player, triggername) {
+                    if (triggername === 'phaseUseBegin')
+                        return player.getExpansions('bts_letu').length > 0;
+                    // 源 #st_letu L9573-9579：can_trigger = 伤害来源 hasSkill("st_aishi")
+                    //（player＝Damage 事件焦点＝伤害来源）。定夺（C-02）：由「技能持有者查爱诗」
+                    // 改为「伤害来源查爱诗」（对齐源）。
+                    return (
+                        event.num > 0 &&
+                        event.source?.isAlive() &&
+                        event.source.hasSkill('bts_sk_aishi')
+                    );
+                },
+                async content(event, trigger, player) {
+                    if (event.triggername === 'phaseUseBegin') {
+                        // 源描述：乐土牌于你的下个出牌阶段开始前回收（弃置）
+                        const cards = player.getExpansions('bts_letu');
+                        if (cards.length) await player.loseToDiscardpile(cards);
+                        return;
+                    }
+                    // 源 L9214：p:addToPile("&letu", getNCards(1)) —— 牌堆顶1张置入乐土牌堆
+                    const cards = get.cards(1);
+                    const next = player.addToExpansion(cards, 'gain2');
+                    next.gaintag.add('bts_letu');
+                    await next;
+                    // 源 L9215：GetXiLian(p) 时 p:gainMark("@jiyi") —— 获得1枚记忆（『誓约』之诗）
+                    player.addMark('bts_mk_jiyi', 1);
+                },
+                onremove(player) {
+                    const cards = player.getExpansions('bts_letu');
+                    if (cards.length) player.loseToDiscardpile(cards);
+                },
+            },
+            // 乐土·使出：牌能当手牌使用或打出（参照无名杀急袭 chooseButton 副牌堆出牌范式）
+            use: {
+                charlotte: true,
+                enable: ['chooseToUse', 'chooseToRespond'],
+                filter(event, player) {
+                    return player.getExpansions('bts_letu').length > 0;
+                },
+                chooseButton: {
+                    dialog(event, player) {
+                        return ui.create.dialog(
+                            '乐土：将一张乐土牌当手牌使用或打出',
+                            player.getExpansions('bts_letu'),
+                            'hidden',
+                        );
+                    },
+                    filter(button, player) {
+                        const card = button.link;
+                        const evt = _status.event.getParent();
+                        return evt.filterCard(
+                            get.autoViewAs(card, [card]),
+                            player,
+                            evt,
+                        );
+                    },
+                    backup(links, player) {
+                        const card = links[0];
+                        return {
+                            position: 'x',
+                            selectCard: -1,
+                            filterCard(card2) {
+                                return card2 === card;
+                            },
+                            viewAs: {
+                                name: get.name(card),
+                                suit: get.suit(card),
+                                number: get.number(card),
+                                isCard: true,
+                                storage: { bts_sk_letu_use: true },
+                            },
+                            card: card,
+                        };
+                    },
+                    prompt(links, player) {
+                        return `乐土：将${get.translation(links[0])}当手牌使用或打出`;
+                    },
+                },
+                subSkill: { backup: {} },
+                ai: { order: 1, result: { player: 1 } },
+            },
+        },
+        ai: {
+            // ai-guard: skip：viewAs 型无独立 content（杀→决斗转化在使用流程内结算，不会空转）
+            // AI 口径：手牌【杀】≥2张且有敌方时才把杀当【决斗】（决斗不可闪、逼资源）；仅1张时
+            // 若拿去决斗、对方出杀后自身无杀续拼将反受伤害——保留应对
+            order(item, player) {
+                if (player.countCards('h', 'sha') < 2) return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1;
+                return 6;
+            },
+            result: { target: -1 },
+        },
+    },
+
+    // ── 关联技·爱诗（源 st_aishi = 空触发技（纯标记），L9235-9241；由誓约授予黄金裔）──
+    // 纯标记技能（参照无名杀国战"五虎将大旗"wuhujiangdaqi 范式：nopop+mark，自身无效果，
+    // 被各黄金裔技能经 hasSkill('bts_sk_aishi') 检测后在各自内部结算"诗歌"加成）；
+    // intro 列出全部『××』之诗（对应 animal.lua L13739 现役版，按无名杀实际实现标注）。
+    bts_sk_aishi: {
+        charlotte: true,
+        nopop: true,
+        mark: true,
+        intro: {
+            name: '爱诗',
+            content:
+                '<div style="margin-top:-5px">' +
+                '<div class="skill">【浪漫】</div><div class="skillinfo">阿格莱雅发动「共舞」不会结束出牌阶段</div>' +
+                '<div class="skill">【门径】</div><div class="skillinfo">缇宝发动「礼物」时自己额外获得1层暴击祝福</div>' +
+                '<div class="skill">【纷争】</div><div class="skillinfo">万敌「血仇」造成伤害后获得等同体力上限祝福数的血仇标记</div>' +
+                '<div class="skill">【生死】</div><div class="skillinfo">遐蝶「荒芜」新蕊标记上限+7</div>' +
+                '<div class="skill">【理性】</div><div class="skillinfo">那刻夏「驱虚」概率+15%，成功后目标无升华则附加1层升华</div>' +
+                '<div class="skill">【天空】</div><div class="skillinfo">风堇「晨昏」回复值+1</div>' +
+                '<div class="skill">【诡计】</div><div class="skillinfo">赛飞儿「热情」视为使用【杀】不再有次数限制</div>' +
+                '<div class="skill">【负世】</div><div class="skillinfo">白厄「燔世」波次结束时，可弃所有手牌重复燔世流程，否则获得6枚火种并终止</div>' +
+                '<div class="skill">【海洋】</div><div class="skillinfo">海瑟音「海曲」附加的绝海祝福层数+2</div>' +
+                '<div class="skill">【律法】</div><div class="skillinfo">刻律德菈「军功」分摊时军功持有者额外+1升变</div>' +
+                '<div class="skill">【岁月】</div><div class="skillinfo">长夜月发动「昼离」后获得1枚忆质标记</div>' +
+                '<div class="skill">【大地】</div><div class="skillinfo">丹恒·腾荒「辟世」额外附加1层护盾</div>' +
+                '<div class="skill">【誓约】</div><div class="skillinfo">昔涟「乐土」除外牌后获得1枚记忆标记</div>' +
+                '<div class="skill">【开拓】</div><div class="skillinfo">开拓者发动「星尘」后回复1点怒气且下次使用【决斗】结算完毕后昔涟视为对相同角色使用【决斗】（无名杀未实现）</div>' +
+                '</div>',
+        },
+    },
+};
+
+export const marks = {
+    bts_mk_shiyue_used: { markKind: 'record' },
+    bts_mk_jiyi: {
+        markKind: 'mark',
+        glossaryId: 'bts_glossary_jiyi_faq',
+    },
+    bts_mk_letu_active: {
+        markKind: 'mark',
+        markType: 'text',
+        glossaryId: 'bts_glossary_st_letu_active_faq',
+    },
+    bts_mk_zhongyuan_used: {
+        markKind: 'record',
+    },
+};
+
+export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_xilian_skin1': '皮肤1',
+    'bts_ch_xilian_skin2': '皮肤2',
+    'bts_ch_xilian_skin3': '皮肤3',
+    'bts_ch_xilian_skin53': '皮肤53',
+    bts_mk_shiyue_used: '誓约已用',
+    bts_ch_xilian: '昔涟',
+    bts_sk_shiyue: '誓约',
+    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过此技能则改为12枚）并选择一名角色：若其为黄金裔，其获得${get.poptip('bts_sk_aishi')}；否则其摸三张牌。首次发动后你获得${get.poptip('bts_sk_letu')}，选择任意名角色使其下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各执行一个额外回合。`,
+    bts_sk_zhuiyi: '追忆',
+    bts_sk_zhuiyi_info: `锁定技，当你使用【杀】或【决斗】后，获得1枚${get.poptip('bts_glossary_jiyi_faq')}；【决斗】改为3枚。`,
+    bts_sk_zhongyuan: '众愿',
+    bts_sk_zhongyuan_info: `一名角色的回合结束时，若其不为你，其可以令你获得1枚${get.poptip('bts_glossary_jiyi_faq')}；否则，若你没有${get.poptip('bts_sk_letu')}，你可以弃置一张【杀】获得3枚${get.poptip('bts_glossary_jiyi_faq')}，于下个回合的回合结束前拥有${get.poptip('bts_sk_letu')}。`,
+    bts_sk_letu: '乐土',
+    bts_sk_letu_info: `你可以将手牌【杀】当【决斗】使用；任意角色造成伤害后，若你拥有${get.poptip('bts_sk_aishi')}，你将牌堆顶一张牌称为"${get.poptip('bts_sk_letu')}"（能当手牌使用或打出）置于武将牌上并获得1枚${get.poptip('bts_glossary_jiyi_faq')}，此${get.poptip('bts_sk_letu')}牌于你的下个出牌阶段开始时置入弃牌堆。`,
+    bts_sk_letu_use: '乐土',
+    bts_sk_aishi: '爱诗',
+    bts_sk_aishi_info: `昔涟授予黄金裔的标记。拥有${get.poptip('bts_sk_aishi')}时，各黄金裔技能获得额外的"诗歌"效果（见各技能详情）。`,
+    bts_mk_jiyi: '记忆',
+    bts_mk_letu_active: '乐土状态',
+
+    '$bts_sk_shiyue1': "记忆的涟漪，等待被流星的亲吻唤醒——要用「爱」铭记我，在那美丽的明天",
+    '$bts_sk_shiyue2': "别眨眼哦，有惊喜~",
+    '$bts_sk_shiyue3': "愿「浪漫」永不离席",
+    '$bts_sk_shiyue4': "愿「门径」再无别离",
+    '$bts_sk_shiyue5': "愿「纷争」加冕成王",
+    '$bts_sk_shiyue6': "愿「生死」萌发新蕊",
+    '$bts_sk_shiyue7': "愿「理性」启蒙真理",
+    '$bts_sk_shiyue8': "愿「天空」治愈晨昏",
+    '$bts_sk_shiyue9': "愿「诡计」皆为游戏",
+    '$bts_sk_shiyue10': "愿「负世」照拂黎明",
+    '$bts_sk_shiyue11': "愿「海洋」奏响欢宴",
+    '$bts_sk_shiyue12': "愿「律法」遍入群星",
+    '$bts_sk_shiyue13': "愿「岁月」守望长夜",
+    '$bts_sk_shiyue14': "愿「大地」捍卫前路",
+    '$bts_sk_shiyue15': "愿「开拓」，共赴「爱」的约定♪",
+    '$bts_sk_shiyue16': "愿世界，如你我所愿",
+    '$bts_sk_zhuiyi1': "逃不掉哦~",
+    '$bts_sk_zhuiyi2': "翻开吧，永恒的一页",
+    '$bts_sk_zhuiyi3': "以爱为因，涤荡憎恨",
+    '$bts_sk_zhuiyi4': "以我为因，改写毁灭",
+    '$bts_sk_zhongyuan1': "百花啊，请为明天绽放",
+    '$bts_sk_zhongyuan2': "群星啊，请为英雄闪耀",
+    '$bts_sk_letu1': "收下吧，我们的答案~",
+    '$bts_sk_letu2': "让刹那，成为永恒~",
+    '~bts_ch_xilian': "我会…等你……",
+    bts_mk_zhongyuan_used: '众愿·临时乐土',
+    bts_mk_zhongyuan_used_info: `来源：${get.poptip('bts_sk_zhongyuan')}（弃杀）赋予；${get.poptip('bts_sk_letu')}标记为临时，于下个自己的回合结束时回收`,
+};
+
+export const simpleTranslate = {
+    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}；弃${get.poptip('bts_glossary_jiyi_faq')}让黄金裔拿${get.poptip('bts_sk_aishi')}，不然摸3；第一次发还送${get.poptip('bts_sk_letu')}和${get.poptip('bts_glossary_nuqi_faq')}豁免`,
+    bts_sk_zhuiyi_info: `锁；用杀记1、用决斗记3${get.poptip('bts_glossary_jiyi_faq')}`,
+    bts_sk_zhongyuan_info: `别人回合结束+1${get.poptip('bts_glossary_jiyi_faq')}；自己回合结束无${get.poptip('bts_sk_letu')}可弃杀+3重拿${get.poptip('bts_sk_letu')}（临时，下回合结束回收）`,
+    bts_sk_letu_info: `手牌杀当决斗；有${get.poptip('bts_sk_aishi')}时任意伤害后白嫖1张${get.poptip('bts_sk_letu')}牌（可当手牌）并+1${get.poptip('bts_glossary_jiyi_faq')}`,
+    bts_sk_aishi_info: '标记；给黄金裔的"诗歌"加成（见技能详情）',
+};
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
+
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
+export const glossary = [
+    {
+        id: 'bts_glossary_extra_st_faq',
+        name: '|怒气豁免|',
+        info: `消耗${get.poptip('bts_glossary_nuqi_faq')}时豁免等量${get.poptip('bts_glossary_nuqi_faq')}：由${get.poptip('bts_sk_shiyue')}赋予（昔涟可选择任意角色获得）。`,
+    },
+    {
+        id: 'bts_glossary_jiyi_faq',
+        name: '|记忆|',
+        info: `昔涟专属：${get.poptip('bts_sk_zhuiyi')}用杀/决斗、${get.poptip('bts_sk_zhongyuan')}获得；拥有${get.poptip('bts_sk_aishi')}时经${get.poptip('bts_sk_letu')}引擎（任意伤害后除外牌）获得；满12/24发动${get.poptip('bts_sk_shiyue')}。`,
+    },
+    {
+        id: 'bts_glossary_st_letu_active_faq',
+        name: '|乐土状态|',
+        info: `昔涟状态：由${get.poptip('bts_sk_shiyue')}（永久）、${get.poptip('bts_sk_zhongyuan')}（临时）获得；状态内可将手牌【杀】当【决斗】，且拥有${get.poptip('bts_sk_aishi')}时任意角色造成伤害后除外1张${get.poptip('bts_sk_letu')}牌（能当手牌使用或打出）并获1枚${get.poptip('bts_glossary_jiyi_faq')}。`,
+    },
+];

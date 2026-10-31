@@ -1,0 +1,268 @@
+// 不死途（源 animal.lua L9488-9571）—— 光伤、麻痹与婪酣追击。
+// 技能：飨宴（必杀技·光伤+虚拟【杀】）、鞭哨（无属性伤害转虚数）、宿怨（光/麻痹受伤后追击）。
+import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
+export const sort = 'xunhaiyouxia';
+export const title = '雷·巡猎·折足之狼'; // 属性·命途
+export const intro =
+    `${B(get.poptip('bts_glossary_bless_busi_faq'))}把伤害染成光；${get.poptip('bts_glossary_mabi_faq')}或光属目标受伤时，补一记追击。`;
+
+export const character = {
+    bts_ch_busitu: {
+        sex: 'male',
+        group: 'xunhaiyouxia',
+        hp: 4,
+        skills: ['bts_sk_xiangyan', 'bts_sk_bianshao', 'bts_sk_suyuan'],
+    },
+};
+
+export const skill = {
+    // ── 必杀技·飨宴（源 st_xiangyan = SkillCard + ZeroCardViewAsSkill，L9489-9510）──
+    // 出牌阶段，失5怒气，对一名其他角色造成1点虚数伤害，视为对其使用【杀】，然后弃置全部婪酣。
+    bts_sk_xiangyan: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        enable: 'phaseUse',
+        filter(event, player) {
+            // 源 enabled_at_play（L9508）：怒气≥5 才可发动
+            return lib.bts.api.getAngry(player, 5);
+        },
+        filterTarget(card, player, target) {
+            // 源 Card filter（L9492）：目标 ≠ 自己
+            return target !== player;
+        },
+        selectTarget: 1,
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_xiangyan');
+            const target = event.targets[0];
+            lib.bts.api.loseAngry(player, 5); // 源 L9495：LoseAngry(player, 5)
+            // 源 L9496：造成 reason 含 "_light" 的伤害（虚数属性，reason 后缀供 damageEnd 判属性）
+            const damage = target.damage(player, 1, 'nocard');
+            damage.reason = 'bts_sk_xiangyan_light';
+            lib.bts.api.setDamageNature(damage, 'light');
+            await damage;
+            // 源 L9497：ViewAsCardOnly —— 视为对目标使用一张【杀】
+            await player.useCard(
+                {
+                    name: 'sha',
+                    isCard: true,
+                    storage: { bts_sk_xiangyan: true },
+                },
+                target,
+            );
+            // 源 L9498：弃置全部婪酣（loseAllMarks "@lanhan"）
+            player.removeMark('bts_mk_lanhan', player.countMark('bts_mk_lanhan'));
+        },
+        // 追击（源 max_xiangyan Death L9511-9524；曾漏实现，已补）：其他角色因此技能死亡时
+        // 可视为使用【杀】。
+        group: ['bts_sk_xiangyan_chase'],
+        subSkill: {
+            chase: {
+                audio: 'bts_sk_xiangyan',
+                trigger: { global: 'dieAfter' },
+                filter(event, player) {
+                    // 源 L9511-9524：致死伤害 reason / 致死牌 skillName 含 max_xiangyan 且来源=不死途
+                    //（光伤 reason=bts_sk_xiangyan_light / 虚拟【杀】storage=bts_sk_xiangyan）。
+                    const reason = event.reason?.reason;
+                    return (
+                        event.source === player &&
+                        (reason?.includes('bts_sk_xiangyan') ||
+                            event.reason?.card?.storage?.bts_sk_xiangyan)
+                    );
+                },
+                async cost(event, trigger, player) {
+                    // 源 askForUseCard（可取消）——选目标（可取消=不追击）；追击【杀】按普通【杀】距离
+                    event.result = await player
+                        .chooseTarget(
+                            '飨宴：是否视为使用一张【杀】？',
+                            [0, 1],
+                            (card, source, target) =>
+                                target !== source && player.inRange(target),
+                        )
+                        // AI 口径：价值取 get.effect（含态度），无正收益就不选（取消=不追击）
+                        //（源 max_xiangyan Death，L9511-9524）
+                        .set('ai', (t) =>
+                            get.effect(t, { name: 'sha', isCard: true }, player, player),
+                        )
+                        .forResult();
+                },
+                async content(event, trigger, player) {
+                    if (!event.targets?.length) return;
+                    // 源 max_xiangyan_slash（L9526-9534）：克隆【杀】、skillName 置 max_xiangyan（storage
+                    // bts_sk_xiangyan 供再击杀时追击链继续判定）。
+                    await player.useCard(
+                        {
+                            name: 'sha',
+                            isCard: true,
+                            storage: { bts_sk_xiangyan: true },
+                        },
+                        event.targets[0],
+                    );
+                },
+                ai: { result: { player: 1 } },
+            },
+        },
+        ai: {
+            // AI 口径：5怒气换「1点光伤（受伤者附加光属性，联鞭哨/宿怨）+1张虚拟【杀】」；
+            // 无敌人不发动（伤害无落点）（源 st_xiangyan，animal.lua L9489-9510）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xiangyan')) return -1;
+                return lib.bts.aiHelpers.hasEnemy(player) ? 9 : -1;
+            },
+            result: {
+                // 1点光伤+视为【杀】：双段输出按目标受损计
+                target: -2,
+            },
+        },
+    },
+
+    // ── 触发技·鞭哨（源 st_bianshao = TriggerSkill DamageCaused，L9539-9551）──
+    // 你造成无属性伤害时，可令此伤害视为虚数属性；若目标不为虚数角色且不处于麻痹，须弃一张【杀】。
+    bts_sk_bianshao: {
+        trigger: { source: 'damageBegin1' },
+        logTarget: 'player',
+        filter(event, player) {
+            // 源 L9546 条件之一：伤害无属性（GetNature(damage) == nil），且目标 ≠ 自己
+            return event.player !== player && !lib.bts.api.getNature(event);
+        },
+        async cost(event, trigger, player) {
+            // 源 L9546：目标麻痹/虚数 → 免费发动；否则须弃【杀】。无名杀拆为 chooseBool + 选牌。
+            const free =
+                lib.bts.api.getAbnor(trigger.player, 'numb') ||
+                lib.bts.api.getNature(null, trigger.player) === 'light';
+            if (
+                !free &&
+                !player
+                    .getCards('h')
+                    .some((card) => get.name(card) === 'sha')
+            ) {
+                event.result = { bool: false }; // 无【杀】可弃 → 不能发动
+                return;
+            }
+            const result = await player
+                .chooseBool('鞭哨：是否将此伤害转为虚数属性？')
+                // AI 口径：转光=目标受伤后附加光属性（再受光伤转麻痹、可供宿怨利用）；
+                // 免费（麻痹/虚数）时对敌即转；须弃杀时仅对敌且【杀】富余（≥2）才转
+                //（源 st_bianshao，L9539-9551）
+                .set('ai', () => {
+                    if (get.attitude(player, trigger.player) >= 0) return false;
+                    if (free) return true;
+                    return (
+                        player.countCards('h', (c) => get.name(c) === 'sha') >= 2
+                    );
+                })
+                .forResult();
+            if (!result.bool) {
+                event.result = { bool: false };
+                return;
+            }
+            if (free) {
+                event.result = { bool: true };
+                return;
+            }
+            // 源 askForCard("Slash")：选择一张【杀】作为代价（结算移入 content）
+            const choice = await player
+                .chooseCard(
+                    '鞭哨：选择一张【杀】',
+                    'h',
+                    (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                )
+                // AI 口径：弃最不有用的【杀】（没用度分值，同引擎弃牌默认口径）
+                .set('ai', (card) =>
+                    card && typeof card === 'object'
+                        ? 10 - get.useful(card)
+                        : -1,
+                )
+                .forResult();
+            if (!choice.bool) {
+                event.result = { bool: false };
+                return;
+            }
+            event.result = { bool: true, cost_data: { slashes: choice.cards } };
+        },
+        async content(event, trigger, player) {
+            // 源 askForCard("Slash")：结算 cost 所选【杀】作为代价（自选数据在 event.cost_data）
+            if (event.cost_data?.slashes?.length)
+                await player.discard(event.cost_data.slashes);
+            // 源 L9547：AddNew(damage, "_light") —— 令伤害获得虚数属性（改触发事件 damageBegin1）
+            lib.bts.api.setDamageNature(trigger, 'light');
+        },
+    },
+
+    // ── 锁定技·宿怨（源 st_suyuan = TriggerSkill Compulsory Damaged，L9553-9570）──
+    // 当处于麻痹或为虚数角色的其他角色受到不为你造成的伤害后，
+    // 若你的婪酣少于3枚，你获得1枚婪酣、回复1点怒气并视为对其使用【杀】。
+    bts_sk_suyuan: {
+        trigger: { global: 'damageEnd' },
+        forced: true,
+        logTarget: 'player',
+        filter(event, player) {
+            // 源 L9919：damage.from 须存在（无来源不触发「不为你造成」语义）。
+            return (
+                event.player &&
+                event.player !== player &&
+                event.source &&
+                event.source !== player &&
+                event.num > 0 &&
+                (lib.bts.api.getAbnor(event.player, 'numb') ||
+                    lib.bts.api.getNature(null, event.player) === 'light') &&
+                player.countMark('bts_mk_lanhan') < 3 // 源 L9560：p:getMark("@lanhan") < 3
+            );
+        },
+        async content(event, trigger, player) {
+            player.addMark('bts_mk_lanhan', 1); // 源 L9561：p:gainMark("@lanhan")
+            lib.bts.api.addAngry(player); // 源 L9562：AddAngry(p)
+            // 源 L9563：ViewAsCardOnly(p, damage.to, "_st_suyuan") —— 视为对受伤者使用【杀】
+            await player.useCard(
+                { name: 'sha', isCard: true, storage: { bts_sk_suyuan: true } },
+                trigger.player,
+            );
+        },
+    },
+};
+
+export const marks = {
+    // 婪酣：展示标记（源 st_lanhan 空技能纯标记，效果散落各技能见 attachGlossaryDerivations）。
+    bts_mk_lanhan: {
+        markKind: 'mark',
+        glossaryId: 'bts_glossary_lanhan_faq',
+    },
+};
+
+export const translate = {
+    bts_ch_busitu: '不死途',
+    bts_sk_xiangyan: '飨宴',
+    bts_sk_xiangyan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害，视为对其使用【杀】，然后弃置全部${get.poptip('bts_glossary_lanhan_faq')}标记。当其他角色因此技能而死亡时，你可以视为使用【杀】。`,
+    bts_sk_bianshao: '鞭哨',
+    bts_sk_bianshao_info: `当你对其他角色造成无属性伤害时，你可以令此伤害视为${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害；若其不为${get.poptip('bts_glossary_nature_light_faq')}角色且不处于${get.poptip('bts_glossary_mabi_faq')}，你须弃置一张【杀】。`,
+    bts_sk_suyuan: '宿怨',
+    bts_sk_suyuan_info: `锁定技，当${get.poptip('bts_glossary_nature_light_faq')}或处于${get.poptip('bts_glossary_mabi_faq')}的其他角色受到不为你造成的伤害后，若你的${get.poptip('bts_glossary_lanhan_faq')}少于3枚，你获得1枚${get.poptip('bts_glossary_lanhan_faq')}、回复1点${get.poptip('bts_glossary_nuqi_faq')}并视为对其使用【杀】。`,
+    bts_mk_lanhan: '婪酣',
+
+    '$bts_sk_xiangyan1': "献出我血，吞没不义……",
+    '$bts_sk_xiangyan2': "恶兽们，来，开始自相残杀吧！",
+    '$bts_sk_bianshao1': "千疮百孔呐",
+    '$bts_sk_bianshao2': "露馅了吧",
+    '$bts_sk_suyuan1': "以牙还牙",
+    '$bts_sk_suyuan2': "争个死活",
+
+    '~bts_ch_busitu': "我的…星星们啊……",
+};
+
+export const simpleTranslate = {
+    bts_sk_xiangyan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}光伤+虚拟杀并清${get.poptip('bts_glossary_lanhan_faq')}；以此击杀可追击`,
+    bts_sk_bianshao_info: '无属性伤害可转光，条件不足弃杀',
+    bts_sk_suyuan_info: `锁；光/${get.poptip('bts_glossary_mabi_faq')}他人受非你伤害时，${get.poptip('bts_glossary_lanhan_faq')}<3则+${get.poptip('bts_glossary_lanhan_faq')}回怒并追杀`,
+};
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
+
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
+export const glossary = [
+    {
+        id: 'bts_glossary_lanhan_faq',
+        name: '|婪酣|',
+        info: `不死途专属：${get.poptip('bts_sk_suyuan')}获得；${get.poptip('bts_sk_xiangyan')}消耗全部。`,
+    },
+];

@@ -1,0 +1,272 @@
+// 砂金（源 animal.lua L4877-4982）—— 赌注与护盾。
+// 技能：勋爵（必杀技·恐惧+判定得赌注+星启全场加盾）、枪口（V2.3 名「宾果」；护盾角色受伤积赌注/异常加盾/7赌注群杀）、基石（准备阶段弃杀给自己与一名角色各加盾）。
+import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
+export const sort = 'gongsi';
+export const title = '虚数·存护·囚石铸金'; // 属性·命途
+export const intro =
+    `${B('砂金')}靠${get.poptip('bts_glossary_hudun_faq')}角色受伤攒${get.poptip('bts_glossary_duzhu_faq')}，攒满7枚用${get.poptip('bts_glossary_duzhu_faq')}砸群体杀。`;
+
+export const character = {
+    bts_ch_shajin: {
+        sex: 'male',
+        group: 'gongsi',
+        hp: 4,
+        skills: ['bts_sk_xunjue', 'bts_sk_qiangkou', 'bts_sk_jishi'],
+    },
+};
+
+export const skill = {
+    // ── 必杀技·勋爵（源 st_xunjue = SkillCard + ZeroCardViewAsSkill，L4878-4913）──
+    // 出牌阶段，失5怒气，令攻击范围内一名有牌角色附加1层恐惧，判定并获等同点数一半（向上取整）的赌注；
+    // 若你为星启，所有拥有护盾的角色各获得1点护盾。
+    bts_sk_xunjue: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        enable: 'phaseUse',
+        filter(event, player) {
+            // 源 enabled_at_play（L4911）：怒气≥5
+            return lib.bts.api.getAngry(player, 5);
+        },
+        filterTarget(card, player, target) {
+            // 源 Card filter（L4884）：目标 ≠ 自己、不空区域、在攻击范围内
+            return target !== player && player.inRange(target) && target.countCards('hej');
+        },
+        selectTarget: 1,
+        logTarget: 'player',
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_xunjue');
+            const target = event.targets[0];
+            lib.bts.api.loseAngry(player, 5); // 源 L4887：LoseAngry(player, 5)
+            // 源 L4888：AddAbnormal(targets[1], "@abnormal_scary", 1, player)
+            lib.bts.api.addAbnormal(target, 'scary', 1, player);
+            // 源 L4889-4894：判定并获 ceil(点数/2) 赌注
+            // 判定「无结果」契约：角色死亡（judge() 不设 forceDie）/离场除名/被移除时，事件被引擎逐步骤拦截
+            //（ContentCompilerBase.isPrevented）→ forResult()=undefined = 判定未发生 → 不获得赌注、不进后续
+            //（不以 || 0 伪造成 0 点）。
+            const judge = await player.judge().forResult();
+            if (!judge) return;
+            player.addMark('bts_mk_duzhu', Math.ceil(judge.number / 2));
+            // 源 L4895-4901：星启时所有拥有护盾的角色各+1护盾
+            if (lib.bts.api.god(player))
+                for (const candidate of lib.bts.api.seatOrder(
+                    game.filterPlayer((candidate) => lib.bts.api.getShield(candidate)),
+                ))
+                    lib.bts.api.addShield(candidate, 1, player);
+        },
+        ai: {
+            // AI 口径：代价=失5怒气；收益=目标1层恐惧（不能弃牌）＋判定期望≈4枚赌注（点数一半上取整）；
+            // 星启时全场有盾者各+1盾（净收益按友/敌态度：敌方持盾为负）。赌注逼近7枚（宾果群杀）时
+            // 边际价值递增；无攻击范围内有牌敌方不发动（源 L4878-4913）。
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_xunjue')) return -1;
+                if (!lib.bts.api.getAngry(player, 5)) return -1;
+                const hasEnemy = game.hasPlayer(
+                    (target) =>
+                        target !== player &&
+                        target.isAlive() &&
+                        get.attitude(player, target) < 0 &&
+                        player.inRange(target) &&
+                        target.countCards('hej') > 0,
+                );
+                if (!hasEnemy) return -1;
+                let value = 5; // 恐惧＋期望≈4枚赌注
+                const duzhu = player.countMark('bts_mk_duzhu');
+                if (duzhu >= 4) value += 1; // 逼近7枚：边际价值递增
+                if (duzhu >= 6) value += 1;
+                if (lib.bts.api.god(player)) {
+                    let shieldNet = 0;
+                    for (const target of game.players) {
+                        if (!target.isAlive() || !lib.bts.api.getShield(target))
+                            continue;
+                        shieldNet += get.attitude(player, target) >= 0 ? 1 : -1;
+                    }
+                    value += shieldNet > 0 ? 1 : shieldNet < 0 ? -1 : 0;
+                }
+                return Math.max(1, Math.min(9, value));
+            },
+            result: {
+                // 目标受损=1层恐惧（不能弃牌）＋为砂金输送期望赌注；敌方独享（源 L4888-4894）
+                target: (player, target) => {
+                    if (target === player) return -1;
+                    if (get.attitude(player, target) >= 0) return -1.5;
+                    let value = 1.3; // 恐惧封锁弃牌≈1＋赌注进度≈0.3
+                    if (player.countMark('bts_mk_duzhu') >= 4) value += 0.3; // 逼近宾果
+                    if (target.countCards('h') > 2) value += 0.2; // 高牌量：不能弃牌更疼
+                    return -value;
+                },
+            },
+        },
+    },
+
+    // ── 锁定技·枪口（源 st_qiangkou = TriggerSkill Compulsory DamageInflicted，L5890-5921；
+    //      V2.3 名 st_binguo·宾果，V2.5 改名并删掉译文，故中文名由我方按源旧译文定为「枪口」）──
+    // 拥有护盾的角色受到伤害时，你获得1枚赌注；异常伤害额外令其获得等同伤害值的护盾；
+    // 赌注达到7枚时弃7枚，对伤害来源及伤害关联角色视为使用【杀】。
+    bts_sk_qiangkou: {
+        trigger: { global: 'damageBegin2' },
+        forced: true,
+        filter(event, player) {
+            // 源 L4922：受伤者拥有护盾
+            return event.player && lib.bts.api.getShield(event.player);
+        },
+        async content(event, trigger, player) {
+            // 源 L4924：p:gainMark("@duzhu")
+            player.addMark('bts_mk_duzhu', 1);
+            // 源 L4925-4927：异常伤害（reason 含 "abnormal"）→ 受伤者获得等同伤害值的护盾（trigger=damageBegin2 事件）
+            if (trigger.reason?.includes('abnormal'))
+                lib.bts.api.addShield(trigger.player, trigger.num, player);
+            // 源 L4928-4939：赌注>6 时弃7枚，对「本次伤害来源 + 曾伤过受伤者/砂金的角色」视为使用【杀】
+            // （DamageLink 记在来源上、键=被伤者，与 bts_damage_link_ 同向；原实现误打全体其他角色，已按原版收窄）
+            if (player.countMark('bts_mk_duzhu') >= 7) {
+                player.removeMark('bts_mk_duzhu', 7);
+                const targets = [];
+                const seen = new Set();
+                if (
+                    trigger.source &&
+                    trigger.source.isAlive() &&
+                    trigger.source !== player
+                ) {
+                    targets.push(trigger.source);
+                    seen.add(trigger.source.playerid);
+                }
+                for (const candidate of game.filterPlayer(
+                    (candidate) =>
+                        candidate !== player &&
+                        candidate.isAlive() &&
+                        (candidate.countMark(
+                            `bts_damage_link_${trigger.player.playerid}`,
+                        ) > 0 ||
+                            candidate.countMark(
+                                `bts_damage_link_${player.playerid}`,
+                            ) > 0),
+                )) {
+                    if (!seen.has(candidate.playerid)) {
+                        targets.push(candidate);
+                        seen.add(candidate.playerid);
+                    }
+                }
+                if (targets.length)
+                    await player.useCard({ name: 'sha', isCard: true }, targets);
+            }
+        },
+    },
+
+    // ── 触发技·基石（源 st_jishi = TriggerSkill EventPhaseStart Start + OneCardViewAsSkill，L5923-5957；
+    //      V2.3 名 st_jishil，V2.5 改名并改为「自己 + 一名角色各1层护盾」（源 on_use：AddAShield(player) + AddAShield(targets[1], player)）──
+    // 准备阶段开始时，可弃置一张【杀】，你与一名角色各获得1点护盾。
+    bts_sk_jishi: {
+        trigger: { player: 'phaseZhunbeiBegin' },
+        filter(event, player) {
+            // 源 L4977：准备阶段且手牌有【杀】可弃（无名杀把弃牌放进 cost）
+            return player.getCards('h').some((card) => get.name(card) === 'sha');
+        },
+        async cost(event, trigger, player) {
+            // 源 L4978：askForUseCard("@@st_jishil") —— 弃【杀】选目标。
+            // cost 型触发技无顶层 check 读取点：发动与否=本处 ai1/ai2（最高分≤0→取消，引擎 ai/basic.js）。
+            // AI 口径：ai1=【杀】富余（≥2）才换盾，独一张保留进攻/响应；ai2=只给友方/自己，
+            // 受伤者更急（护盾≈1点减伤；源 L4949-4981）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '基石：弃置一张【杀】，你与一名角色各获得1点护盾',
+                    position: 'h',
+                    filterCard: (card) => get.name(card) === 'sha',
+                    filterTarget: () => true,
+                    ai1: (card) => {
+                        if (!card || typeof card !== 'object')
+                            return -1; // 技能按钮候选（非牌）不选
+                        if (get.name(card) !== 'sha') return -1;
+                        if (
+                            player.countCards(
+                                'h',
+                                (c) => get.name(c) === 'sha',
+                            ) < 2
+                        )
+                            return -1; // 只处理多余【杀】
+                        return 5 - get.value(card); // 富余杀换1盾：按牌值折价
+                    },
+                    ai2: (target) => {
+                        const attitude = get.attitude(player, target);
+                        if (attitude <= 0) return attitude; // 敌方/中立不给分（全员无友→取消）
+                        let value = attitude;
+                        if (target.isDamaged())
+                            value +=
+                                Math.min(2, target.maxHp - target.hp) * 0.5; // 受伤者更急
+                        return value;
+                    },
+                })
+                .forResult();
+        },
+        async content(event, trigger, player) {
+            // cost 所选目标/牌在技能事件 event.targets/event.cards（标准约定）
+            // 源 L5952：弃【杀】
+            await player.discard(event.cards);
+            // 源 L5953-5954：AddAShield(player) + AddAShield(targets[1], player)
+            // —— V2.5 新增「自己」这一份（V2.3 只给目标）。
+            lib.bts.api.addShield(player, 1, player);
+            lib.bts.api.addShield(event.targets[0], 1, player);
+        },
+        ai: {
+            // 发动决策在 cost 的 ai1/ai2（cost 型触发技，引擎不询顶层 check）；此 result 供跨技能估值：
+            // 目标获得1点护盾（+1点减伤=受益）；施动方以弃一张【杀】为代价（源 L4949-4981）。
+            result: {
+                player: -0.5,
+                target: 1,
+            },
+        },
+    },
+};
+
+export const marks = {
+    bts_mk_duzhu: {
+        markKind: 'mark',
+        glossaryId: 'bts_glossary_duzhu_faq',
+    },
+};
+
+export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_shajin_skin1': '皮肤1',
+    'bts_ch_shajin_skin10': '皮肤10',
+    'bts_ch_shajin_skin2': '皮肤2',
+    'bts_ch_shajin_skin3': '皮肤3',
+    'bts_ch_shajin_skin4': '皮肤4',
+    'bts_ch_shajin_skin5': '皮肤5',
+    'bts_ch_shajin_skin6': '皮肤6',
+    'bts_ch_shajin_skin7': '皮肤7',
+    'bts_ch_shajin_skin8': '皮肤8',
+    'bts_ch_shajin_skin9': '皮肤9',
+    bts_ch_shajin: '砂金',
+    bts_sk_xunjue: '勋爵',
+    bts_sk_xunjue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令攻击范围内一名有牌角色附加1层${get.poptip('bts_glossary_abnormal_scary_faq')}并判定，获得等同于判定点数一半（向上取整）的${get.poptip('bts_glossary_duzhu_faq')}标记，若你为${get.poptip('bts_glossary_xingqi_faq')}，令所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
+    bts_sk_qiangkou: '枪口',
+    bts_sk_qiangkou_info: `锁定技，拥有${get.poptip('bts_glossary_hudun_faq')}的角色受到伤害时，你获得1枚${get.poptip('bts_glossary_duzhu_faq')}；异常伤害额外令其获得等同伤害值的${get.poptip('bts_glossary_hudun_faq')}；${get.poptip('bts_glossary_duzhu_faq')}达到7枚时弃7枚，视为对本次伤害来源和所有对你或其造成过伤害的角色使用【杀】。`,
+    bts_sk_jishi: '基石',
+    bts_sk_jishi_info: `准备阶段开始时，你可以弃置一张【杀】，你与一名角色各获得1点${get.poptip('bts_glossary_hudun_faq')}。`,
+
+    '$bts_sk_xunjue1': "骰子已经掷下",
+    '$bts_sk_xunjue2': "一无所有？或者，赢下所有！",
+    '$bts_sk_qiangkou1': "小心头顶！",
+    '$bts_sk_qiangkou2': "全部买入！",
+    '$bts_sk_jishi1': "全押了，我买单",
+    '$bts_sk_jishi2': "不用问，随便花",
+    '~bts_ch_shajin': "满盘皆输啊…",
+    bts_mk_duzhu: '赌注',
+    bts_mk_duzhu_info: `来源：${get.poptip('bts_sk_xunjue')}、${get.poptip('bts_sk_qiangkou')}赋予；${get.poptip('bts_sk_qiangkou')}：满7发动群杀`,
+};
+
+export const simpleTranslate = {
+    bts_sk_xunjue_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}施加${get.poptip('bts_glossary_abnormal_scary_faq')}并判定获得${get.poptip('bts_glossary_duzhu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}时全场+1${get.poptip('bts_glossary_hudun_faq')}）`,
+    bts_sk_qiangkou_info: `锁；${get.poptip('bts_glossary_hudun_faq')}角色受伤时+${get.poptip('bts_glossary_duzhu_faq')}，7枚后对来源与伤害关联者用杀`,
+    bts_sk_jishi_info: `准备阶段可弃杀，你与1名角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
+};
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
+
+// ── 角色专属词条（随角色包 gather('glossary') 聚合进 fullTranslate，详见 character/bts/index.js）。
+export const glossary = [
+    {
+        id: 'bts_glossary_duzhu_faq',
+        name: '|赌注|',
+        info: `砂金专属：${get.poptip('bts_sk_xunjue')}判定、${get.poptip('bts_sk_qiangkou')}受伤各+1枚；满7点亮${get.poptip('bts_sk_qiangkou')}，对伤害来源与伤害关联者使用【杀】。`,
+    },
+];

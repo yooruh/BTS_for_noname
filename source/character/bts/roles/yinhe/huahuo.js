@@ -1,0 +1,188 @@
+// 花火（源 animal.lua L4652-4759）—— 千役分配与游鱼额外回合。
+import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'yinhe';
+export const title = '量子·同谐·假面愚者'; // 属性·命途
+export const intro = `${B('花火')}公开分配牌并令其可作【杀】，还能弃两【杀】支援队友的额外回合。`;
+export const character = {
+    bts_ch_huahuo: {
+        sex: 'female',
+        group: 'yinhe',
+        hp: 4,
+        skills: ['bts_sk_qianyi', 'bts_sk_guiji', 'bts_sk_youyu'],
+    },
+};
+export const skill = {
+    bts_sk_qianyi: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        // audit-choosetarget: skip  —— 每「交给一张摸到的牌」在 content 循环内即时选一个收牌者（依赖本轮摸牌数），无法上提；每次 chooseTarget 下限1不可取消
+        enable: 'phaseUse',
+        filter(event, player) {
+            return lib.bts.api.getAngry(player, 5);
+        },
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_qianyi');
+            lib.bts.api.loseAngry(player, 5);
+            // 源：摸 x 张牌并展示（星启为 5 张，否则 4 张），再逐张公开分配。
+            // 注：源 L4660 `if God(player) then n = 5 end` 为死代码（n 赋值未用、x 恒 4），
+            // 按源描述「若你为星启则改为五张」实现摸 5（定夺保持现状）。
+            const num = lib.bts.api.god(player) ? 5 : 4;
+            const cards = get.cards(num);
+            for (const card of cards) card.addKnower('everyone');
+            await player.gain(cards, 'gain2');
+            for (const card of cards) {
+                const result = await player
+                    .chooseTarget(
+                        `千役：将${get.translation(card)}交给一名角色`,
+                        [1, 1],
+                        () => true,
+                    )
+                    // AI 口径：标记牌在谁手谁能当【杀】——优先给缺【杀】的友方；无合适对象时
+                    // 自留（选自己=不交出；全负分=取消，源 L4652-4759 逐张分配）
+                    .set('ai', (target) => {
+                        if (target === player) return 2;
+                        const att = get.attitude(player, target);
+                        if (att <= 0) return -1;
+                        return (
+                            att + (target.countCards('h', 'sha') === 0 ? 2 : 0)
+                        );
+                    })
+                    .forResult();
+                const target = result.bool ? result.targets[0] : player;
+                if (target !== player && get.position(card) === 'h')
+                    await player.give(card, target, 'visible');
+                // 源 setCardFlag：这些牌在任意角色手牌中视为【杀】。
+                card.storage ??= {};
+                card.storage.bts_sk_qianyi = true;
+            }
+            // 源：所有存活角色获得过滤技能 #st_qianyi。
+            for (const target of lib.bts.api.seatOrder(
+                game.filterPlayer((target) => target.isAlive()),
+            )) {
+                if (!target.hasSkill('bts_sk_qianyi_slash', true))
+                    // 引擎签名 addAdditionalSkill(分组键, 技能)：第一参为分组键、第二参为实际技能；
+                    // 单参调用会把 undefined 当技能数组，在 player.js L10004 崩溃（实机崩溃教训）。
+                    // 分组键带来源 playerid，避免不同花火互相按同键清组。
+                    target.addAdditionalSkill(
+                        'bts_sk_qianyi_' + player.playerid,
+                        'bts_sk_qianyi_slash',
+                    );
+            }
+        },
+        subSkill: {
+            // ── 临时技·千役视为杀（千役展示牌在任意角色手牌中当【杀】使用；
+            //    源 acquireSkill "#st_qianyi" 授予全体存活角色）──
+            slash: {
+                sub: true,
+                sourceSkill: 'bts_sk_qianyi',
+                charlotte: true,
+                audio: false,
+                enable: ['chooseToUse', 'chooseToRespond'],
+                position: 'h',
+                filter(event, player) {
+                    if (event.respondTo) return event.respondTo[1]?.name === 'sha';
+                    return player
+                        .getCards('h')
+                        .some((card) => card.storage?.bts_sk_qianyi);
+                },
+                filterCard(card) {
+                    return card.storage?.bts_sk_qianyi === true;
+                },
+                viewAs: { name: 'sha' },
+                prompt: '将千役标记牌当【杀】使用',
+                ai: {
+                    order: 8, // 标记牌当杀用（保留真【杀】应对决斗/反制）——viewAs 无 content，无空转路径
+                    result: { target: 1 },
+                    // 协议标签（消费方 Player#hasSha）：仅手握千役标记牌才可视为有杀，缺牌不得虚报
+                    //——条件化，必须配 skillTagFilter（§3）
+                    respondSha: true,
+                    skillTagFilter(player) {
+                        return player
+                            .getCards('h')
+                            .some((card) => card.storage?.bts_sk_qianyi);
+                    },
+                },
+            },
+        },
+        ai: {
+            // AI 口径：失5怒摸4/5张（星启5）并逐张分配——标记牌在谁手谁能当【杀】；
+            // 有缺【杀】友方时更积极（支援到位），否则自留亦强（源 L4652-4759）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_qianyi')) return -1;
+                const base = lib.bts.api.god(player) ? 7 : 6;
+                const poor = game.countPlayer(
+                    (t) =>
+                        t.isAlive() &&
+                        t !== player &&
+                        get.attitude(player, t) > 0 &&
+                        t.countCards('h', 'sha') === 0,
+                );
+                return poor > 0 ? base + 1 : base;
+            },
+            // 自方收益=净得4/5张牌，分配环节可自留（供外部 get.effect 参考）
+            result: { player: 2 },
+        },
+    },
+    bts_sk_guiji: {
+        mod: {
+            maxHandcard(player, num) {
+                return num + 2;
+            },
+        },
+    },
+    bts_sk_youyu: {
+        // 源 st_youyu = EventPhaseStart + Player_NotActive（L4749-4757），非 global——
+        // 引擎 triggerable 仅事件焦点（进入 NotActive 者=花火自己）持技时触发，即【花火自己的回合结束】。
+        // 原实现误用 global:'phaseEnd' + event.player !== player（其他角色回合结束），已按原版修正。
+        trigger: { player: 'phaseEnd' },
+        filter(event, player) {
+            return (
+                player.getCards('he').filter((card) => get.name(card) === 'sha')
+                    .length >= 2
+            );
+        },
+        async cost(event, trigger, player) {
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '游鱼：弃置两张【杀】、翻面，令一名其他角色获得致命祝福和额外回合',
+                    position: 'he',
+                    filterCard: (card) => get.name(card) === 'sha',
+                    selectCard: 2,
+                    filterTarget: (card, source, target) => target !== source,
+                    // AI 口径：代价=2【杀】+翻面（下回合休息），收益全在目标（额外回合+致命祝福）；
+                    // 敌方/中立态度为负 → 不选，无友方时取消（源 L4749-4757）
+                    ai1: (card) => 6 - get.value(card),
+                    ai2: (target) => get.attitude(player, target),
+                })
+                .forResult();
+        },
+        async content(event, trigger, player) {
+            // cost 所选两张【杀】在技能事件 event.cards，结算弃置
+            await player.discard(event.cards);
+            player.turnOver();
+            await lib.bts.api.addBless(event.targets[0], 'fatal', 1, player);
+            lib.bts.api.extraTurn(event.targets[0], 'bts_extra_turn');
+        },
+        ai: { result: { player: 1 } },
+    },
+};
+export const translate = {
+    bts_ch_huahuo: '花火',
+    bts_sk_qianyi: '千役',
+    bts_sk_qianyi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，摸四张牌并展示之（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为五张），然后将这些牌逐张交给任意角色（可留给自己）；这些牌在任意角色的手牌中均视为【杀】。`,
+    bts_sk_guiji: '诡计',
+    bts_sk_guiji_info: '锁定技，你的手牌上限+2。',
+    bts_sk_youyu: '游鱼',
+    bts_sk_youyu_info: `回合结束时，你可以弃置两张【杀】并翻面，令一名其他角色附加1层${get.poptip('bts_glossary_bless_fatal_faq')}并执行一个额外回合。`,
+
+    '$bts_sk_qianyi1': "来捉迷藏呀",
+    '$bts_sk_qianyi2': "愚者千面，游戏人间…你，会找到答案么？",
+    '$bts_sk_youyu1': "不能动摇哦",
+    '$bts_sk_youyu2': "再加把劲呢？",
+    '~bts_ch_huahuo': "玩大了……",
+};
+export const simpleTranslate = {
+    bts_sk_qianyi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}摸4牌展示（${get.poptip('bts_glossary_xingqi_faq')}5）并逐张分配，这些牌均视为【杀】`,
+    bts_sk_guiji_info: '锁；手牌上限+2',
+    bts_sk_youyu_info: `回合结束可弃2杀翻面，令1名其他角色+1${get.poptip('bts_glossary_bless_fatal_faq')}并额外回合`,
+};
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

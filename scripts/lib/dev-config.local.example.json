@@ -1,0 +1,12 @@
+{
+  "_note": "占位路径，按本机实际位置替换后另存为 dev-config.local.json（.gitignore 忽略，不入库）。",
+  "installed": [
+    "D:/path/to/noname/resources/app/extension/崩铁杀"
+  ],
+  "pack": {
+    "nonameBuild": "D:/path/to/noname-build",
+    "desktopApp": "D:/path/to/noname/resources/app",
+    "baseDir": "D:/path/to/电脑基座包目录",
+    "keystoreProps": "D:/path/to/apk-signing/keystore.properties"
+  }
+}

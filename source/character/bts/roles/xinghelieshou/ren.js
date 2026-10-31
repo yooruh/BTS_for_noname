@@ -1,0 +1,195 @@
+// 刃（源 animal.lua L2559-2641）—— 万死必杀技压血+暴击风伤、倏忽锁定不死祝福、狱变弃杀入地狱。
+import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xinghelieshou';
+export const title = '风·毁灭·业途游魂'; // 属性·命途
+export const intro =
+    `${B('刃')}是自损爆发：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_wansi'))}把体力压到上限一半并对目标造成${get.poptip('bts_glossary_bless_critical_faq')}风伤，${B(get.poptip('bts_sk_shuhu'))}掉血叠${get.poptip('bts_glossary_bless_busi_faq')}、满5层回血并反杀，${B(get.poptip('bts_sk_yubian'))}弃【杀】入${get.poptip('bts_glossary_abnormal_diyu_faq')}把手牌当【决斗】。` +
+    `<li>${get.poptip('bts_glossary_bless_busi_faq')}满5层会移除并回复2体力、对上个伤害你的角色使用【杀】`;
+
+export const character = {
+    bts_ch_ren: {
+        sex: 'male',
+        group: 'xinghelieshou',
+        hp: 4,
+        skills: [
+            'bts_sk_wansi',
+            'bts_sk_shuhu',
+            'bts_sk_yubian',
+        ],
+    },
+};
+
+export const skill = {
+    // ── 必杀技·万死（源 st_wansi = ZeroCardViewAsSkill，L2560-2585）──
+    bts_sk_wansi: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        enable: 'phaseUse',
+        filter(event, player) {
+            return lib.bts.api.getAngry(player, 5);
+        },
+        filterTarget(event, player, target) {
+            return (
+                target !== player &&
+                get.distance(player, target) <= player.getAttackRange()
+            );
+        },
+        selectTarget: 1,
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_wansi');
+            const target = event.targets[0];
+            if (!target) return;
+            lib.bts.api.loseAngry(player, 5); // 源 L2566
+            // 体力调整至上限的一半
+            const x = Math.floor(player.maxHp / 2);
+            if (player.hp < x) await player.recover(player, x - player.hp);
+            else if (player.hp > x) await player.loseHp(player.hp - x);
+            // 1点风属性暴击伤害
+            const damage = target.damage(player, 1, 'nocard');
+            damage.reason = 'bts_sk_wansi_bts_reason_critical'; // 源 "st_wansi_critical_wind"
+            lib.bts.api.setDamageNature(damage, 'wind');
+            await damage;
+        },
+        ai: {
+            // AI 口径：需5怒气+敌人在攻击范围内；收益=1点风属性暴击伤害（异属性相克+1/同风转中毒）
+            // +体力调整（低于半血回复、高于半血掉血推进倏忽祝福）（源 animal.lua L2560-2585）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_wansi'))
+                    return -1;
+                let best = 0; // 最佳敌方单次收益（1点伤害≈1.5评估单位）
+                for (const t of game.players) {
+                    if (!t.isAlive() || t === player) continue;
+                    if (get.attitude(player, t) >= 0) continue;
+                    if (get.distance(player, t) > player.getAttackRange())
+                        continue;
+                    let v = 1.5; // 1点风属性暴击伤害
+                    const nat = lib.bts.api.getNature(null, t);
+                    if (nat && nat !== 'wind') v += 1.5; // 元素相克：伤害+1
+                    else if (nat === 'wind') v += 0.8; // 同属性结算转为附加1层中毒
+                    if (v > best) best = v;
+                }
+                if (!best) return -1;
+                const half = Math.floor(player.maxHp / 2);
+                if (player.hp > half)
+                    // 掉血推进倏忽（4层时本次必触发满层回血+反杀）
+                    best += lib.bts.api.getBless(player, 'busi', 4) ? 1.5 : 0.4;
+                else if (player.hp < half)
+                    best += Math.min(2, half - player.hp) * 0.8; // 回复至上限一半
+                return best >= 4.5 ? 8 : best >= 3.5 ? 6 : best >= 2.5 ? 4 : 2;
+            },
+            threaten: 2.5,
+            result: {
+                player: 1,
+                // 目标受损=风伤+属性互动（相克+1/同风转中毒）
+                target: (player, target) => {
+                    let v = 1.5;
+                    const nat = lib.bts.api.getNature(null, target);
+                    if (nat && nat !== 'wind') v += 1.5;
+                    else if (nat === 'wind') v += 0.8;
+                    return -v;
+                },
+            },
+        },
+    },
+
+    // ── 锁定技·倏忽（源 st_shuhu = TriggerSkill Compulsory HpChanged，L2586-2616）──
+    bts_sk_shuhu: {
+        trigger: { player: ['damageEnd', 'loseHpEnd'] },
+        forced: true,
+        filter(event, player) {
+            return event.num > 0;
+        },
+        async content(event, trigger, player) {
+            await lib.bts.api.addBless(player, 'busi'); // 源 AddBless(@bless_busi)
+            if (!lib.bts.api.getBless(player, 'busi', 5)) return;
+            await player.recover(player, 2); // 源 recover 2（先回血，原版 L2604）
+            await lib.bts.api.removeBless(player, 'busi', -1); // 再移除全部不死祝福（原版 L2605，归0时hp>0不触发濒死）
+            // 源 L2696-2700：LastDamagedLink 单槽标记=最近一次来源，只对「上个伤害你的存活
+            // 角色」用一张【杀】（同风堇·走开 / 长夜月 / 青歌·合颂范式：取 .pop().source）。
+            const last = player
+                .getAllHistory('damage')
+                .filter((ev) => ev.source)
+                .pop();
+            const target = last?.source;
+            if (!target || !target.isAlive()) return;
+            const use = player.useCard(
+                { name: 'sha', isCard: true },
+                target,
+            ); // 视为对上个伤害你的角色使用【杀】
+            await use;
+        },
+    },
+
+    // ── 狱变（源 st_yubian = TriggerSkill EventPhaseStart，L2617-2627）──
+    bts_sk_yubian: {
+        enable: 'phaseUse',
+        filter(event, player) {
+            return !lib.bts.api.getAbnor(player, 'diyu');
+        },
+        filterCard(card, player) {
+            return get.name(card) === 'sha';
+        },
+        selectCard: 1,
+        position: 'h',
+        prompt: '弃置一张【杀】，失去1点体力，附加3层地狱',
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_yubian');
+            await player.discard(event.cards);
+            await player.loseHp(1);
+            lib.bts.api.addAbnormal(player, 'diyu', 3, player); // 源 AddAbnormal(@abnormal_diyu, 3)
+        },
+        ai: {
+            // AI 口径：弃1杀+失1体力，换取约3回合「手牌当【决斗】」（地狱异常至多3层、每层1回合）；
+            // 可转化手牌越多越值，且失血推进倏忽祝福；残血（≤1）禁用（源 animal.lua L2617-2627）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yubian'))
+                    return -1;
+                if (player.hp <= 1) return -1; // 再失1体力即濒死
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1; // 无敌方目标时【决斗】无处可用
+                const fuel = Math.max(0, player.countCards('h') - 1); // 扣除弃置的1张【杀】
+                let v = 1 + Math.min(3, fuel * 0.7);
+                v += lib.bts.api.getBless(player, 'busi', 4) ? 1.5 : 0.4; // 推进倏忽（4层时本次触发满层效果）
+                return Math.min(7, v);
+            },
+            result: { player: 1 },
+        },
+    },
+    // 地狱为全角色通用规则：手牌视为【决斗】+使用【决斗】失去1点体力。
+    // 已上移至规则层（RULE_MARKS['bts_abnormal_diyu'] 标记技能 + resolver useCard），
+    // 原 bts_sk_yubian_diyu / bts_sk_yubian_duel 移除（刃/千冶均自动生效）。
+};
+
+export const translate = {
+    bts_ch_ren: '刃',
+    bts_sk_wansi: '万死',
+    bts_sk_wansi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，你将体力值调整至你的${get.poptip('bts_glossary_bless_maxhp_faq')}的一半，然后对其造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
+
+    bts_sk_shuhu: '倏忽',
+    bts_sk_shuhu_info: `锁定技，当你扣减体力后，附加1层${get.poptip('bts_glossary_bless_busi_faq')}，然后若拥有至少5层${get.poptip('bts_glossary_bless_busi_faq')}，移除全部${get.poptip('bts_glossary_bless_busi_faq')}，回复2点体力，视为对上个对你造成伤害的角色使用【杀】。`,
+
+    bts_sk_yubian: '狱变',
+    bts_sk_yubian_info: `出牌阶段，你可以弃置一张【杀】，失去1点体力，附加3层${get.poptip('bts_glossary_abnormal_diyu_faq')}。`,
+
+    '$bts_sk_wansi1': "此番美景，我虽求而不得……",
+    '$bts_sk_wansi2': "却能，邀诸位共赏",
+    '$bts_sk_shuhu1': "彼岸…葬送！",
+    '$bts_sk_shuhu2': "悉数…奉还！",
+    '$bts_sk_yubian1': "其势…已成！",
+    '$bts_sk_yubian2': "死兆…将至！",
+    '~bts_ch_ren': "这次能成功吗……",
+};
+
+export const simpleTranslate = {
+    bts_sk_wansi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}${get.poptip('bts_glossary_bless_critical_faq')}伤害，并将体力调整至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半`,
+    bts_sk_shuhu_info: `锁；扣减体力后+1${get.poptip('bts_glossary_bless_busi_faq')}；≥5层时移除全部，回复2体力，对上个伤害你的角色使用杀`,
+    bts_sk_yubian_info: `出牌阶段，弃1张【杀】失去1体力，+3层${get.poptip('bts_glossary_abnormal_diyu_faq')}`,
+};
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

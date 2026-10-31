@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext", "dom", "dom.iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "paths": {
+      "noname": ["../../../noname/resources/app/noname.js"],
+      "noname.js": ["./noname.d.ts"]
+    }
+  },
+  "include": [
+    "extension.js",
+    "source/**/*.js",
+    "../../../noname/resources/app/src/typings/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "scripts"]
+}

@@ -1,0 +1,177 @@
+// 杰帕德（源 animal.lua L3908-3961）—— 永屹必杀技护盾、震慑弃杀反击冻结、刚正濒死回血。
+import { lib, game, ui, get, ai, _status, styleText, B, O } from '../../shared.js';import { extensionPath } from '../../../../tool/utils/paths.js';
+
+export const sort = 'yaliluo';
+export const title = '冰·存护·以朗道之名'; // 属性·命途
+export const intro =
+    `${B('杰帕德')}是防守反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yongyi'))}给自己和队友加${get.poptip('bts_glossary_hudun_faq')}，${B(get.poptip('bts_sk_zhenshe'))}被【杀】指定时弃杀反击${get.poptip('bts_glossary_abnormal_freeze_faq')}，${B(get.poptip('bts_sk_gangzheng'))}濒死时回血。` +
+    `<li>${get.poptip('bts_glossary_abnormal_freeze_faq')}会让目标不能使用装备牌`;
+
+export const character = {
+    bts_ch_jiepade: {
+        sex: 'male',
+        group: 'yaliluo',
+        hp: 4,
+        skills: ['bts_sk_yongyi', 'bts_sk_zhenshe', 'bts_sk_gangzheng'],
+    },
+};
+
+export const skill = {
+    // ── 必杀技·永屹（源 st_yongyi = SkillCard + ZeroCardViewAsSkill，L3909-3931）──
+    // 出牌阶段，失4怒气并选择至少一名其他角色，你与这些角色各附加1层护盾。
+    bts_sk_yongyi: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        enable: 'phaseUse',
+        filter(event, player) {
+            // 源 enabled_at_play（L3929）：怒气≥4
+            return lib.bts.api.getAngry(player, 4);
+        },
+        filterTarget(card, player, target) {
+            // 源 Card filter（L3912）：目标 ≠ 自己
+            return target !== player;
+        },
+        selectTarget: [1, Infinity],
+        multitarget: true, // 一次性结算；非 multitarget 会按目标重跑 content（《技能开发规范》B14）
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_yongyi');
+            lib.bts.api.loseAngry(player, 4); // 源 L3915：LoseAngry(player, 4)
+            // 源 L3916：AddAShield(player)
+            lib.bts.api.addShield(player, 1);
+            // 源 L3917-3919：对每个目标 AddAShield(p, player)
+            for (const target of event.targets || [])
+                lib.bts.api.addShield(target, 1, player);
+        },
+        ai: {
+            // AI 口径：4怒=自己+至多全体非己角色各1层护盾（每层抵御1点伤害、贯通不抵）；量级随
+            // 友军数（源 AI max_yongyi：Friends_AI(-2)=只带友方，且需有 friends_noself 才发动）
+            //（源 max_yongyi L3909-3931）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_yongyi')) return -1;
+                let friends = 0;
+                for (const t of game.players) {
+                    if (t.isAlive() && t !== player && get.attitude(player, t) > 0) friends++;
+                }
+                if (!friends) return -1; // 仅自己1层不值4怒（源 AI 同门：无 friends_noself 不发动）
+                return Math.min(7, Math.round(4 + Math.min(3, friends * 1.2)));
+            },
+            result: {
+                // 施动方：自己+1护盾；目标侧：友军每名+1护盾（残血者更可能立即承伤）
+                player: 1,
+                target: (player, target) => (target.hp <= 2 ? 1.5 : 1),
+            },
+        },
+    },
+
+    // ── 触发技·震慑（源 st_zhenshe = TriggerSkill TargetConfirmed，L3933-3946）──
+    // 当其他角色使用【杀】指定你为目标后，你可以弃置一张【杀】，令其附加1层冻结。
+    bts_sk_zhenshe: {
+        trigger: { target: 'useCardToPlayer' },
+        logTarget: 'player',
+        filter(event, player) {
+            // 源 L3940：你被其他角色的【杀】指定为目标，且手牌有【杀】可弃
+            return (
+                event.target === player &&
+                event.card?.name === 'sha' &&
+                event.player !== player &&
+                player.getCards('h').some((card) => get.name(card) === 'sha')
+            );
+        },
+        async cost(event, trigger, player) {
+            // 源 L3940：askForCard(player, "Slash")。本技为 cost 型触发技：发动与否由下方内联 AI 决定。
+            // AI 口径：仅对敌方来源发动（源 AI StarRail-ai.lua @st_zhenshe→ThrowSlash_AI：非敌返回不发）；
+            // 冻结=伤害基数-1+禁用装备牌，对攻击者威慑高；弃估值最低的【杀】（源 st_zhenshe L3933-3946）
+            const result = await player
+                .chooseBool(
+                    '震慑：是否弃置一张【杀】令' +
+                        get.translation(trigger.player) +
+                        '附加1层冻结？',
+                )
+                .set('ai', () => get.attitude(player, trigger.player) < 0)
+                .forResult();
+            if (!result.bool) {
+                event.result = { bool: false };
+                return;
+            }
+            const cards = await player
+                .chooseCard(
+                    'h',
+                    (card) => get.name(card) === 'sha',
+                    '弃置一张【杀】',
+                )
+                .set('ai', (card) => 6 - get.value(card)) // 弃估值最低的【杀】（源 AI sortByUseValue）
+                .forResult();
+            if (!cards.bool) {
+                event.result = { bool: false };
+                return;
+            }
+            event.result = { bool: true };
+            event.result.cards = cards.cards; // 弃牌留待 content 结算
+        },
+        async content(event, trigger, player) {
+            // trigger=触发事件（useCardToPlayer）；trigger.player = 杀的使用者（冻结来源）
+            if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
+            lib.bts.api.addAbnormal(trigger.player, 'freeze', 1, player); // 源 L3943：AddAbnormal(use.from, "@abnormal_freeze")
+        },
+        // 触发技（cost 型）：发动决策在 cost 内联 AI；result 供跨技能估值查询（冻结≈攻击者伤害基数-1+禁装备）
+        ai: { result: { player: 1, target: -1 } },
+    },
+
+    // ── 觉醒技·刚正（源 st_gangzheng = TriggerSkill Skill_Wake EnterDying，L3948-3960）──
+    // 当你进入濒死状态时，回复体力至体力上限的一半（至多1点），此技能仅发动一次。
+    bts_sk_gangzheng: {
+        trigger: { player: 'dying' },
+        forced: true, // 觉醒技（源 Compulsory 语义）：濒死自动回复，无询问
+        filter(event, player) {
+            // 源 L3954：濒死且未觉醒
+            return player.countMark('bts_sk_gangzheng') === 0;
+        },
+        async content(event, trigger, player) {
+            player.addMark('bts_sk_gangzheng', 1); // 源 L3956：setPlayerMark 觉醒标记
+            // 源 L3957：recover(min(1, maxHp/2) - hp)
+            const target = Math.min(1, Math.floor(player.maxHp / 2));
+            if (player.hp < target) await player.recover(player, target - player.hp);
+        },
+        // 觉醒进度在头像可见（真技能 mark:true 范式，素材文件名即技能 ID）
+        mark: true,
+        intro: {
+            name: '刚正',
+            content: (storage) =>
+                storage
+                    ? '刚正已发动（限一次）。'
+                    : '当你进入濒死状态时，回复体力至体力上限的一半（至多1点），此技能仅发动一次。',
+        },
+        markimage: `${extensionPath}/image/mark/bts_sk_gangzheng.png`,
+    },
+};
+
+export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_jiepade_skin1': '皮肤1',
+    'bts_ch_jiepade_skin2': '皮肤2',
+    bts_ch_jiepade: '杰帕德',
+    bts_sk_yongyi: '永屹',
+    bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
+
+    bts_sk_zhenshe: '震慑',
+    bts_sk_zhenshe_info: `当其他角色使用【杀】指定你为目标后，你可以弃置一张【杀】，令其附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}。`,
+
+    bts_sk_gangzheng: '刚正',
+    bts_sk_gangzheng_info: `觉醒技，当你进入濒死状态时，你回复体力至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点），此技能仅发动一次。`,
+
+    '$bts_sk_yongyi1': "我以朗道之名",
+    '$bts_sk_yongyi2': "历经冰雪，铸成此志，永不终结！",
+    '$bts_sk_zhenshe1': "有我在",
+    '$bts_sk_zhenshe2': "胜负已分",
+    '$bts_sk_gangzheng1': "奉陪到底",
+    '$bts_sk_gangzheng2': "还没到我退场的时候",
+    '~bts_ch_jiepade': "我…还不能……",
+};
+
+export const simpleTranslate = {
+    bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
+    bts_sk_zhenshe_info: `被他人用杀指定后，弃1杀令其+1${get.poptip('bts_glossary_abnormal_freeze_faq')}`,
+    bts_sk_gangzheng_info: `觉醒；濒死时回复至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点，限一次）`,
+};
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

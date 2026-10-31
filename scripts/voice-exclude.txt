@@ -1,0 +1,55 @@
+# 检查豁免清单（供 scripts/voice.mjs 使用）
+#
+# 作用：把「本来就没有对应语音/资源」的条目列入这里，检查与清单不再为其报告：
+#   - 无后缀条目（技能）：gen 不再预留「缺音频（待补）」空位、reorganize 移除其残留条目、
+#     write 跳过其台词行。适用于 mod技 / 内部子技 / 封锁技 / 链驱动等纯机制型技能。
+#   - <角色id>.die：该角色的阵亡语音不进检查（gen 不列占位、write 跳过其 ~ 台词行）。
+#   - <角色id>.bgm：该角色的 BGM 配齐检查跳过（用于「太阳神源侧与仓库均无、留空」的角色）。
+#   - <角色id>.all：整个角色——技能 + 阵亡 + BGM 全部豁免（技能语义同无后缀）。
+#
+# 格式：每行一个条目；支持 * 通配（如 bts_sk_*_blocker）；# 起注释（整行或行尾）；
+#   空行忽略。剥去后缀后需以 bts_ 开头（防误配）。
+# 管理：`node scripts/voice.mjs exclude` 交互菜单；或 `exclude list|add|remove [id…]`；
+#   也可直接编辑本文件，之后重跑 `node scripts/voice.mjs gen` 生效。
+#
+bts_sk_fanshi_drive         # 白厄·燔世——波次驱动（变身期延后结算子技）
+bts_sk_fanshi_drive_skip    # 白厄·燔世——推进跳过
+bts_sk_shihun_tail          # 白厄·弑魂——收尾追击
+bts_sk_canmeng_blocker      # 黄泉·残梦——封锁技（skillBlocker 机制）
+bts_sk_guiji                # 花火·诡计
+bts_sk_pingfu               # 藿藿·凭附
+bts_sk_yeying               # 长夜月·夜影
+bts_sk_aishi                # 昔涟·爱诗
+bts_sk_jungong              # 刻律德菈·军功
+bts_sk_funny_lock           # 欢愉取消伤害，规则技
+bts_sk_yilei                # 真珠天赋技
+bts_sk_rongcha              # 真珠天赋技
+bts_sk_dongcha              # 真珠天赋技
+bts_sk_xuanmu               # 火花·炫目（源 V2.5 为 # 内部技，源配音键为空）
+bts_sk_feiteng              # 火花·沸腾（同上）
+bts_sk_tianmi               # 火花·甜蜜（同上）
+bts_sk_zhenju               # 银狼LV999·真局（源 V2.5 为 # 内部技，源配音键为空）
+bts_sk_jiaju                # 银狼LV999·假局（同上）
+bts_sk_yincang              # 银狼LV999·隐藏（同上）
+
+# BGM 留空（太阳神源侧与仓库均无角色曲）
+bts_ch_aha.bgm
+bts_ch_aisida.bgm
+bts_ch_alan.bgm
+bts_ch_buluoniya.bgm
+bts_ch_busitu.bgm
+bts_ch_heita.bgm
+bts_ch_huke.bgm
+bts_ch_kelala.bgm
+bts_ch_misha.bgm
+bts_ch_natasha.bgm
+bts_ch_peila.bgm
+bts_ch_qingque.bgm
+bts_ch_sangbo.bgm
+bts_ch_sushang.bgm
+bts_ch_tingyun.bgm
+bts_ch_yinlang_lv999.bgm
+bts_ch_zhenzhu.bgm
+
+bts_ch_shiwaluo.die
+bts_diy_ch_baie_yingxing.all

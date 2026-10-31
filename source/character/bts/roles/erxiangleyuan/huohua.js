@@ -1,0 +1,316 @@
+// 火花（源 animal.lua L11263-11323，V2.2 欢愉子系统）—— 狂欢、连线与花手。
+// 技能：狂欢（必杀技·随机失体）、连线（出牌阶段欢愉行动+补手）、花手（欢愉行动后弃牌堆底5张）。
+import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
+export const sort = 'erxiangleyuan';
+export const title = '火·欢愉·狂欢企划'; // 称号
+export const intro =
+    `${B('火花')}点燃${get.poptip('bts_sk_kuanghuan')}，用${get.poptip('bts_glossary_funnypoint_faq')}与${get.poptip('bts_glossary_bless_funny_faq')}赌一场大起大落。` +
+    `<li>${B('火花')}是欢愉角色：其造成的伤害会被欢愉规则取消，唯有处于${get.poptip('bts_glossary_huanju_shengge_faq')}时例外（阿哈·【欢愉万相】赋予，至其回合结束）——因此其杀伤依赖「失去体力」类效果（如${B(get.poptip('bts_sk_kuanghuan'))}）。`;
+
+export const character = {
+    bts_ch_huohua: {
+        sex: 'female',
+        group: 'erxiangleyuan',
+        hp: 4,
+        skills: [
+            'bts_sk_kuanghuan',
+            'bts_sk_lianxian_funny',
+            'bts_sk_huashou',
+            'bts_sk_xuanmu',
+            'bts_sk_feiteng',
+            'bts_sk_tianmi',
+            'bts_sk_funny_lock',
+        ],
+    },
+};
+
+export const skill = {
+    // ── 必杀技·狂欢（源 max_kuanghuan = SkillCard + ZeroCardViewAsSkill，L11264-11288）──
+    // 出牌阶段，失5怒气并选择至少一名其他角色，各以 14.4%+（欢愉祝福×10%）令其失去4点体力。
+    bts_sk_kuanghuan: {
+        // 终结技（源必杀技 max_*，描述以「必杀技」开头；bts_bisha 标签供技能按 id 识别终结技）
+        bts_bisha: true,
+        enable: 'phaseUse',
+        filter(event, player) {
+            // 源 enabled_at_play（L11285）：怒气≥5
+            return lib.bts.api.getAngry(player, 5);
+        },
+        filterTarget(card, player, target) {
+            // 源 Card filter（L11267）：目标 ≠ 自己
+            return target !== player;
+        },
+        selectTarget: [1, Infinity],
+        multitarget: true, // 一次性结算；非 multitarget 会按目标重跑 content（《技能开发规范》B14）
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_kuanghuan');
+            lib.bts.api.loseAngry(player, 5); // 源 L11270：LoseAngry(player, 5)
+            // 源 L11271-11274：各目标 FunnyNumber(14.4) → loseHp(4)
+            for (const target of event.targets)
+                if (lib.bts.api.funnyNumber(player, 14.4)) await target.loseHp(4);
+        },
+        ai: {
+            // AI 口径：5怒气换「每目标 4×p 期望体力流失」（p=14.4%+欢愉祝福×10%，不可防）；
+            // 无敌人不发动；祝福抬高概率后加分（源 max_kuanghuan，animal.lua L11264-11288）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_kuanghuan')) return -1;
+                if (
+                    !game.hasPlayer(
+                        (t) =>
+                            t.isAlive() &&
+                            t !== player &&
+                            get.attitude(player, t) < 0,
+                    )
+                )
+                    return -1;
+                return lib.bts.api.getBless(player, 'funny', -1) >= 3 ? 9 : 8;
+            },
+            result: {
+                // 期望值=4×p（体力流失为目标净损）；残梦期间 getBless 恒 0，期望自然回落
+                target: (player) =>
+                    -4 *
+                    Math.min(
+                        1,
+                        0.144 + lib.bts.api.getBless(player, 'funny', -1) * 0.1,
+                    ),
+            },
+        },
+    },
+
+    // ── 主动技·连线（源 st_lianxian_funny = SkillCard target_fixed + ZeroCardViewAsSkill，L11289-11309）──
+    // 出牌阶段限两次，执行欢愉行动，若手牌不足5张补至5张。
+    bts_sk_lianxian_funny: {
+        // 欢愉技标签：funnyPlayer 以此判定「拥有欢愉行动」（utils.funnyPlayer）
+        bts_funny_skill: true,
+        enable: 'phaseUse',
+        usable: 2, // 源 enabled_at_play（L11306）：usedTimes("#st_lianxian_funny") < 2
+        group: ['bts_sk_lianxian_funny_discard'],
+        async content(event, trigger, player) {
+            lib.bts.aiGuard.record(player, 'bts_sk_lianxian_funny');
+            // 源 L11293-11300：FunnyAct(player)，成功且手牌<5 时补至5张（发动记录由引擎自动）。
+            // funnyAct 按各技能的 bts_funny 注册表逐条执行（本技能效果即下表连线项）；
+            // afterFunnyAct（花手）与「弃置 1 张」追补子技配合：funny 为空/1 时由弃牌链触发
+            //（源 L1698-1701），funny≥2 时由 funnyAct 收束步补办——此处不再显式调用。
+            // initiator=event.name：本技能自动日志已由引擎记录，行动时不再重复 logSkill。
+            const done = await lib.bts.api.funnyAct(
+                player,
+                null,
+                null,
+                event.name,
+            );
+            if (done && player.countCards('h') < 5)
+                await player.draw(player, 5 - player.countCards('h'));
+        },
+        // 欢愉行动注册（自注册重构）：funnyAct 泛化派发时执行——弃1【杀】/欢愉时刻弃牌；
+        // 取消选牌时 ctx.aborted（对应旧 if 链的 return false 语义）。
+        bts_funny: {
+            order: 30,
+            async act(ctx) {
+                // 源 L11105-11109：funny 为空/1 时 after=false（该路径 +1 笑点由「弃置 1 张」追补
+                // 子技承担，源 L1698-1701）；funny≥2（欢愉时刻大额）时保持 after，由收束补办。
+                if (ctx.funny == null || ctx.funny === 1) ctx.after = false;
+                if (ctx.funny == null) ctx.funny = 1;
+                if (
+                    lib.bts.api.getBless(ctx.player, 'funny') ||
+                    ctx.player.storage.bts_funny_time
+                ) {
+                    // 源 room:askForDiscard(target, "@st_fuyuan", funny, funny)：funny=0（笑点不足
+                    // 10 的欢愉时刻）时源为无操作直通——显式跳过，避免 0/0 空弹框（实机 2026-10-11）。
+                    if (ctx.funny > 0)
+                        await ctx.target.chooseToDiscard(
+                            '欢愉（连线）：弃置牌',
+                            'he',
+                            ctx.funny,
+                            ctx.funny,
+                            true,
+                        );
+                } else {
+                    const card = await ctx.target
+                        .chooseCard(
+                            '欢愉（连线）：弃置一张【杀】',
+                            'he',
+                            (card) => get.name(card) === 'sha',
+                        )
+                        // AI 口径：弃最不有用的【杀】（没用度分值，同引擎弃牌默认口径）
+                        .set('ai', (card) =>
+                            card && typeof card === 'object'
+                                ? 10 - get.useful(card)
+                                : -1,
+                        )
+                        .forResult();
+                    // forResult() 返回 {bool, cards} 结果对象（对象恒真值）——取消须判 .bool；
+                    // 弃置须传 .cards（曾把结果对象直传 discard＝空操作，取消也能走完流程补牌白嫖）。
+                    if (!card.bool) {
+                        ctx.aborted = true;
+                        return;
+                    }
+                    await ctx.target.discard(card.cards);
+                }
+                ctx.done = true;
+            },
+        },
+        ai: {
+            // AI 口径：执行欢愉行动（弃1【杀】/欢愉时刻弃牌）+手牌不足5补至5；缺口越大越值。
+            // 非欢愉时刻须有【杀】可弃（无候选牌时不发动，防空烧一次限次）
+            //（源 st_lianxian_funny，L11289-11309）
+            order(item, player) {
+                if (lib.bts.aiGuard.blocked(player, 'bts_sk_lianxian_funny'))
+                    return -1;
+                if (!player.countCards('he')) return -1; // 无牌可弃（无代价）：不发动
+                const canSkipSha =
+                    lib.bts.api.getBless(player, 'funny') ||
+                    player.storage.bts_funny_time;
+                if (
+                    !canSkipSha &&
+                    !player.countCards('he', (c) => get.name(c) === 'sha')
+                )
+                    return -1;
+                const deficit = Math.max(0, 5 - player.countCards('h'));
+                if (deficit >= 3) return 8;
+                if (deficit >= 2) return 6;
+                return 4;
+            },
+            result: {
+                // 补牌收益随缺口（5-手牌）上升；弃牌成本由 order 的【杀】门槛承担
+                player: (player) =>
+                    Math.max(0.5, Math.min(2, (5 - player.countCards('h')) * 0.4)),
+            },
+        },
+        subSkill: {
+            // 弃牌追补（源 gamerule_ex·CardsMoveOneTime L1698-1701）：你弃置 1 张牌（是【杀】或
+            // 你有欢愉祝福）→ 执行欢愉行动后置（+1 笑点；花手弃牌堆底 5 张）。源为 gamerule
+            // 静默触发（仅笑点日志，无技能播报）→ silent；同时也是连线 funnyAct after=false 路径
+            // 的 +1 笑点来源。
+            discard: {
+                trigger: { player: 'discardAfter' },
+                silent: true,
+                popup: false,
+                filter(event, player) {
+                    // 源 L1698：单张移动（card_ids:length()==1）且（是【杀】或有欢愉祝福）。
+                    return (
+                        (event.cards || []).length === 1 &&
+                        (event.cards[0].name === 'sha' ||
+                            lib.bts.api.getBless(player, 'funny'))
+                    );
+                },
+                content(event, trigger, player) {
+                    lib.bts.api.afterFunnyAct(player);
+                },
+            },
+        },
+    },
+
+    // ── 锁定技·炫目（源 #st_xuanmu = TriggerSkill Compulsory CardUsed，V2.5 L11950-11965）──
+    // 当你发动必杀技后，若你拥有欢愉升格标记，获得13枚笑点并摸四张牌（V2.3 为 8 枚）。
+    bts_sk_xuanmu: {
+        trigger: { player: 'useSkillAfter' },
+        forced: true,
+        filter(event, player) {
+            // 源 L11957：牌技能名含 "max_"（必杀技）且拥有升格标记；以 bts_bisha 标签判定
+            //（勿子串匹配，同真珠·艺垒先例）；升格 = bts_mk_huanju_shengge-clear。
+            return (
+                event.player === player &&
+                lib.skill[event.skill]?.bts_bisha === true &&
+                player.countMark('bts_mk_huanju_shengge-clear') > 0
+            );
+        },
+        async content(event, trigger, player) {
+            player.addMark('bts_mk_funnypoint', 13); // 源 L11959：gainMark("@funnypoint", 13)
+            await player.draw(player, 4); // 源 L11960：drawCards(4)
+        },
+    },
+
+    // ── 锁定技·沸腾（源 #st_feiteng = TriggerSkill Compulsory PreHpLost，V2.5 L11966-11983）──
+    // 当其他角色失去体力时，若你拥有至少10枚笑点且拥有欢愉升格标记，失去值+1。
+    bts_sk_feiteng: {
+        // 失去体力前（源 PreHpLost）：改 trigger.num 于 content 读取之前生效
+        trigger: { global: 'loseHpBegin' },
+        forced: true,
+        filter(event, player) {
+            // 源 L11973：其他角色（非持技者）失去体力；持技者存活（源 can_trigger isAlive）
+            return (
+                event.player.isAlive() &&
+                event.player !== player &&
+                event.num > 0 &&
+                player.isAlive() &&
+                player.countMark('bts_mk_funnypoint') >= 10 &&
+                player.countMark('bts_mk_huanju_shengge-clear') > 0
+            );
+        },
+        async content(event, trigger, player) {
+            trigger.num += 1; // 源 L11975：data:setValue(data:toInt() + 1)
+        },
+    },
+
+    // ── 锁定技·甜蜜（源 #st_tianmi = TriggerSkill Compulsory PreHpLost，V2.5 L11985-12002）──
+    // 当其他角色失去体力时，若你有至少5张手牌且拥有欢愉升格标记，失去值+1。
+    bts_sk_tianmi: {
+        trigger: { global: 'loseHpBegin' },
+        forced: true,
+        filter(event, player) {
+            // 源 L11992：其他角色（非持技者）；持技者存活（源 can_trigger isAlive）
+            return (
+                event.player.isAlive() &&
+                event.player !== player &&
+                event.num > 0 &&
+                player.isAlive() &&
+                player.countCards('h') >= 5 &&
+                player.countMark('bts_mk_huanju_shengge-clear') > 0
+            );
+        },
+        async content(event, trigger, player) {
+            trigger.num += 1; // 源 L11994：data:setValue(data:toInt() + 1)
+        },
+    },
+
+    // ── 触发技·花手（源 st_huashou = TriggerSkill Damaged 空触发，L11317-11323）──
+    // 锁定技，当你执行欢愉行动后，弃置牌堆底五张牌。触发点：utils.afterFunnyAct 在
+    // +1 笑点后派发 bts_funny_act_after（规则层只广播，效果在本技能自注册；
+    // 自动日志 + 音频即由此接通，原手动 logSkill 已删）。
+    bts_sk_huashou: {
+        trigger: { player: 'bts_funny_act_after' },
+        forced: true,
+        async content(event, trigger, player) {
+            const cards = get.bottomCards(5);
+            if (cards.length) game.cardsDiscard(cards);
+        },
+    },
+};
+
+export const translate = {
+    // 可选皮肤显示名（皮肤N；scripts/migrate.mjs --skins 维护，图经 image/skin 目录扫描发现）。
+    'bts_ch_huohua_skin1': '皮肤1',
+    bts_ch_huohua: '火花',
+    bts_sk_kuanghuan: '狂欢',
+    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各以 14.4%+（${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率失去4点体力。`,
+    bts_sk_lianxian_funny: '连线',
+    bts_sk_lianxian_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段限两次，你可以执行${get.poptip('bts_glossary_funny_act_faq')}，若手牌不足5张补至5张；你弃置一张牌后，若此牌为【杀】或你拥有${get.poptip('bts_glossary_bless_funny_faq')}，你获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。欢愉行动：你弃置一张【杀】（处于${get.poptip('bts_glossary_funny_time_faq')}时可弃任意牌）。`,
+    bts_sk_huashou: '花手',
+    bts_sk_huashou_info: `锁定技，当你执行${get.poptip('bts_glossary_funny_act_faq')}后，弃置牌堆底五张牌。`,
+    bts_sk_xuanmu: '炫目',
+    bts_sk_xuanmu_info: `锁定技，当你发动${get.poptip('bts_glossary_bisha_faq')}后，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你获得13枚${get.poptip('bts_glossary_funnypoint_faq')}并摸四张牌。`,
+    bts_sk_feiteng: '沸腾',
+    bts_sk_feiteng_info: `锁定技，当其他角色失去体力时，若你拥有至少10枚${get.poptip('bts_glossary_funnypoint_faq')}且拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，其此次失去的体力值+1。`,
+    bts_sk_tianmi: '甜蜜',
+    bts_sk_tianmi_info: `锁定技，当其他角色失去体力时，若你有至少五张手牌且拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，其此次失去的体力值+1。`,
+    '~bts_ch_huohua': "哼，不演了……",
+
+    '$bts_sk_kuanghuan1': "亲爱的粉丝们，久等啦~",
+    '$bts_sk_kuanghuan2': "和火花一起，狂欢到世界尽头吧！",
+    '$bts_sk_lianxian_funny1': "PK一下？",
+    '$bts_sk_lianxian_funny2': "正片开始！",
+    '$bts_sk_lianxian_funny3': "惩罚时间！",
+    '$bts_sk_lianxian_funny4': "全体起立！",
+    '$bts_sk_huashou1': "来了来了！要被泼天的富贵——砸、中、咯！",
+    '$bts_sk_huashou2': "不要走开！下一位幸运儿——就、是、你！",
+};
+
+export const simpleTranslate = {
+    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标各14.4%+倍${get.poptip('bts_glossary_bless_faq')}失4体力`,
+    bts_sk_lianxian_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；限两次执行${get.poptip('bts_glossary_funny_act_faq')}（弃杀），手牌补至5`,
+    bts_sk_huashou_info: `执行${get.poptip('bts_glossary_funny_act_faq')}后弃牌堆底5张`,
+    bts_sk_xuanmu_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若有${get.poptip('bts_glossary_huanju_shengge_faq')}，+13${get.poptip('bts_glossary_funnypoint_faq')}并摸4`,
+    bts_sk_feiteng_info: `锁；他人失去体力时，笑点≥10且有${get.poptip('bts_glossary_huanju_shengge_faq')}则失去值+1`,
+    bts_sk_tianmi_info: `锁；他人失去体力时，手牌≥5且有${get.poptip('bts_glossary_huanju_shengge_faq')}则失去值+1`,
+};
+
+export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
