@@ -90,7 +90,7 @@ function run(cmd, args, { allowFail = false, cwd } = {}) {
 function printBanner() {
     console.log(`
 \x1b[35m╔══════════════════════════════════╗
-║ 崩铁杀 发布脚本（zips+Release）║
+║  崩铁杀 发布脚本（zips+Release） ║
 ╚══════════════════════════════════╝\x1b[0m
 `);
 }

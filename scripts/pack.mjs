@@ -22,9 +22,18 @@
  *       （默认不开启；不可省略——引擎对缺失键会自动改写为开启）。
  *     · 包含电脑基座 → 与基座 zip 合体（游戏内容并入 <基座>/resources/app/；
  *       同名冲突：内容一致去重、不一致本体优先并告警）。
+ *     · 官方电脑版自带的卸载器（基座内 `Uninstall noname.exe`）一律剔除：合体包不带，
+ *       安装器载荷也不带——电脑端卸载入口只保留安装器自写的 uninst.exe 与「卸载 无名杀」快捷方式。
  *     · 电脑端专属（合体 / 安装器）：基座自带的扩展（应用配置 / 拖拽读取…）随基座安装、
  *       安装器不提供选择框 → 默认启用：`extensions` 登记 + `extension_<名>_enable: true`。
  *       只改电脑端产物；本体包本身不动（APK 不含这些目录，登记了会报加载失败）。
+ *     · 电脑端还必须给壳打补丁（`patchDesktopShellExtensionSeed`）：壳在页面脚本之前直接往 IndexedDB 写
+ *       `extensions`，值是硬编码的 `BUILTIN_EXTENSIONS`（只有 应用配置/拖拽读取），且只在列表为空时写；
+ *       而 lib.config 是「config.json 打底 + IndexedDB 覆盖」——所以只写 config.json 等于白写，
+ *       覆盖更新时那条分支还不触发。补丁把「空才写」换成「把本包带的扩展补进列表」（名单打包时按包
+ *       硬编码，与应用配置/拖拽读取同一段代码），并逐个用 `extension/<名>/extension.js` 的存在性过滤：
+ *       安装器没勾选的组件没有目录 → 不登记，不弹「扩展加载出错」。启用与否仍由 `extension_<名>_enable`
+ *       决定：崩铁杀 true（启用）、本体扩展 false（装好但默认不开）。
  * [2] APK 打包
  *     扫描「本体打包」目录中不含电脑基座内容的 zip，任选其一：
  *     · 打包前先把 `zip` 源同步进构建树 dist 扩展（约定：避免打包版本与项目扩展不一致）。
@@ -42,16 +51,21 @@
  *     角色语音 / 本体扩展）→ 编译出带组件选择的安装 exe。
  *     · 安装目录默认 = 首个非系统盘固定盘符的 \noname（如 D:\noname）；没有
  *       其他固定盘才退回系统盘（C:\noname）。
+ *     · 基座自带的官方卸载器（或旧流程合体包里的遗留）在解包阶段即剔除，不进安装载荷。
  *     · 更新模式：注册表记录的上次安装目录、该目录存在非空、且含启动器/资源/卸载器
  *       任一 → 自动沿用旧目录覆盖更新（保留现有文件不删除）；命令行显式 /D= 优先。
  *     · 可选：桌面快捷方式；六个可选组件默认全选；某组件在包中不存在则不显示。
  *     · 崩铁杀勾选后保留其扩展内全部素材（与本体媒体勾选无关）。
+ *     · 压缩分档：音频/图像/字体/打包件（mp3/jpg/png/gif/woff2/pak…）本身已压过，再压几乎
+ *       无收益却占载荷八成体积 → 解包时单独成树（`<段>.raw`），安装器用 SetCompress off 直存；
+ *       其余（js/html/exe/dll…）走压缩器：默认 zlib（快），--best 换 lzma（更小、慢数倍）。
+ *       NSIS 的 /SOLID 会忽略 SetCompress off，因此这里必须用非 solid 模式。
  *     · 编译完成后清理全部临时文件（安装器目录不残留 zip）。
  *
  * ── 用法（AI / 自动化）──────────────────────────────────────────────────
  *   node scripts/pack.mjs body --variant full|slim [--with-bts] [--base <基座zip>|--with-base] [--dry-run]
  *   node scripts/pack.mjs apk --from <本体包zip> [--rebuild] [--dry-run]
- *   node scripts/pack.mjs installer --from <zip> [--fast] [--dry-run]
+ *   node scripts/pack.mjs installer --from <zip> [--best] [--dry-run]
  *   node scripts/pack.mjs bases                                 列出可用电脑基座包
  *   无参数运行（npm run pack）＝交互式菜单。
  *
@@ -479,12 +493,18 @@ function listBaseExtensionNames(z, prefix) {
 }
 
 /**
- * 电脑端预设：把基座自带扩展登记进 config 的 `extensions` 并置 `extension_<名>_enable: true`。
- * 与 injectBtsConfig 的 stockExtensions（本体扩展，默认关闭）区分：这些随基座安装、安装器无选择框。
- * 只动名单内的扩展，其余键原样保留。
+ * 电脑端 config 预设（合体包 / 安装器共用）：
+ *
+ * 1. 基座自带扩展（应用配置 / 拖拽读取…）登记进 `extensions` 并置 `extension_<名>_enable: true`
+ *    —— 它们随基座安装、安装器不提供选择框，必须默认启用。
+ * 2. `extensionsOverride`（安装器专用）：config 的 `extensions` 只留基座自带扩展。运行时真正生效的名单
+ *    由壳补丁（patchDesktopShellExtensionSeed）按实际安装的目录写进 IndexedDB，config 这边保持干净，
+ *    避免「列了但没装」被引擎当成扩展去加载。
+ *
+ * 返回值带上最终名单（`extensions`），供壳补丁生成硬编码预置。
+ * 只动上述键，其余配置原样保留。
  */
-function enableBaseExtensionsInConfig(text, names) {
-    if (!names.length) return { text, changed: [] };
+function presetDesktopConfig(text, { baseExtensions = [], extensionsOverride = null } = {}) {
     const eol = text.includes('\r\n') ? '\r\n' : '\n';
     const lines = text.split(/\r?\n/);
     let idx = -1;
@@ -494,7 +514,7 @@ function enableBaseExtensionsInConfig(text, names) {
             break;
         }
     }
-    if (idx < 0) throw new Error('config 中未找到 `"extensions": [...]` 行，无法登记基座扩展');
+    if (idx < 0) throw new Error('config 中未找到 `"extensions": [...]` 行，无法预设电脑端扩展');
     const indent = lines[idx].match(/^(\s*)/)[1];
     const parsed = lines[idx].match(/^\s*"extensions":\s*(\[.*?\])\s*,?\s*$/);
     let list;
@@ -504,15 +524,18 @@ function enableBaseExtensionsInConfig(text, names) {
         throw new Error(`config 的 extensions 行无法解析：${lines[idx].trim()}`);
     }
     const changed = [];
-    for (const name of names) {
-        if (list.includes(name)) continue;
-        list.push(name);
-        changed.push(name);
+
+    const next = extensionsOverride ? [...extensionsOverride] : [...list];
+    if (!extensionsOverride) {
+        for (const name of baseExtensions) if (!next.includes(name)) next.push(name);
     }
-    if (changed.length) lines[idx] = `${indent}"extensions": ${JSON.stringify(list)},`;
+    if (JSON.stringify(next) !== JSON.stringify(list)) {
+        lines[idx] = `${indent}"extensions": ${JSON.stringify(next)},`;
+        changed.push('extensions');
+    }
 
     const missing = [];
-    for (const name of names) {
+    for (const name of baseExtensions) {
         const key = `extension_${name}_enable`;
         const pattern = new RegExp(`^\\s*"${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:`);
         const at = lines.findIndex((line) => pattern.test(line));
@@ -524,11 +547,34 @@ function enableBaseExtensionsInConfig(text, names) {
             changed.push(key);
         }
     }
+
     if (missing.length) lines.splice(idx + 1, 0, ...missing);
-    if (!changed.length) return { text, changed };
+    if (!changed.length) return { text, changed, extensions: next };
     const out = lines.join(eol);
     JSON.parse(out); // 语法校验
-    return { text: out, changed };
+    return { text: out, changed, extensions: next };
+}
+
+/** 读 config 文本里的 `"extensions": [...]` 名单（解析失败返回空数组） */
+function readConfigExtensions(text) {
+    const line = text.split(/\r?\n/).find((l) => /^\s*"extensions":\s*\[.*?\],?\s*$/.test(l));
+    if (!line) return [];
+    const m = line.match(/^\s*"extensions":\s*(\[.*?\])\s*,?\s*$/);
+    try {
+        const list = JSON.parse(m[1]);
+        return Array.isArray(list) ? list : [];
+    } catch {
+        return [];
+    }
+}
+
+/** 去重合并（保持顺序：先 base 后 extra） */
+function mergeExtensionNames(base, extra) {
+    const out = [];
+    for (const name of [...(base || []), ...(extra || [])]) {
+        if (typeof name === 'string' && name && !out.includes(name)) out.push(name);
+    }
+    return out;
 }
 
 // 将 zip 源（扩展内容）同步到构建树 dist 扩展：dist 里的崩铁杀是“塞入物”，官方构建不会更新它，
@@ -719,6 +765,89 @@ function wrapperOf(entries) {
     return segs.size === 1 ? [...segs][0] : '';
 }
 
+/** 去掉 wrapper 前缀，得到安装根相对路径（无 wrapper 时原样返回） */
+function relInWrapper(name, wrapper) {
+    return wrapper && name.startsWith(wrapper + '/') ? name.slice(wrapper.length + 1) : name;
+}
+
+/**
+ * 官方电脑版的卸载器（基座内 `Uninstall noname.exe`）：电脑端产物一律剔除。
+ * 卸载入口只保留安装器自写的 `uninst.exe` 与「卸载 无名杀」快捷方式；官方卸载器绑的是官方安装记录
+ * 与官方目录，落到我们自选目录后运行只会报错或误删。
+ * 只认安装根层的 exe（wrapper 内深度 1），不误伤 resources/app/node_modules 里的同名文件。
+ */
+const OFFICIAL_UNINSTALLER_RE = /^(?:uninstall|uninst)(?:[ ._-].*)?\.exe$|^卸载.*\.exe$/i;
+
+function isOfficialUninstaller(rel) {
+    return typeof rel === 'string' && !rel.includes('/') && OFFICIAL_UNINSTALLER_RE.test(rel);
+}
+
+/**
+ * 桌面壳 preload 补丁：扩展预置名单硬编码（与应用配置 / 拖拽读取 同一段代码）。
+ *
+ * 壳在页面脚本之前往 IndexedDB 的 config 库写 `extensions`，值是硬编码的 `BUILTIN_EXTENSIONS`，
+ * 且只在「列表为空」时写。所以：
+ *  · 只有壳里写死的扩展会加载，`game/config.json` 的名单被 IndexedDB 覆盖；
+ *  · 覆盖更新时库非空，名单根本不会重写。
+ * 本补丁把那段「空才写」换成「把本包带的扩展补进列表」（已有条目不动），名单由打包时按包生成；
+ * 逐个用 `fs.existsSync(<app>/extension/<名>/extension.js)` 过滤——安装器没勾选的组件没有目录，
+ * 不登记，避免启动时弹「扩展加载出错」。壳里拿不到 fs 或找不到 app 根目录时不过滤（宁可多登记），
+ * 免得筛没整个名单。
+ *
+ * 启用与否仍由 `extension_<名>_enable` 决定（config.json 预设）：崩铁杀 true → 启用，
+ * 本体扩展 false → 装好不开，应用配置 / 拖拽读取 true → 启用。
+ *
+ * 只认 `resources/app/app/preload.js`（1.76 基座）与 `resources/app/app/menu.js`（1.75 基座）。
+ */
+const SHELL_SEED_RE = /(if\s*\(\s*!Array\.isArray\(\s*extensions\s*\)[^)]*\)\s*\{\s*(\w+)\.put\([\s\S]*?,\s*(['"])extensions\3\s*\)\s*;?\s*\})/;
+const SHELL_SEED_MARK = '崩铁杀补丁：扩展预置名单';
+const SHELL_PATCH_FILE_RE = /(^|\/)app\/(?:preload|menu)\.js$/;
+
+function isDesktopShellFile(destRel) {
+    return typeof destRel === 'string' && destRel.startsWith('resources/') && SHELL_PATCH_FILE_RE.test(destRel);
+}
+
+function patchDesktopShellExtensionSeed(text, presetNames) {
+    if (!Array.isArray(presetNames) || !presetNames.length) return { text, patched: false, already: false, reason: 'empty' };
+    if (text.includes(SHELL_SEED_MARK)) return { text, patched: false, already: true };
+    const m = SHELL_SEED_RE.exec(text);
+    if (!m) return { text, patched: false, already: false };
+    const store = m[2];
+    const q = m[3];
+    const added = `
+    /* ${SHELL_SEED_MARK}（打包时生成；按 extension/ 目录过滤后合并进 IndexedDB） */
+    var __btsPreset = ${JSON.stringify(presetNames)};
+    var __btsFs = null;
+    var __btsRoot = null;
+    try {
+      if (typeof window.require === 'function') __btsFs = window.require('fs');
+    } catch (e) {
+      __btsFs = null;
+    }
+    if (__btsFs) {
+      var __btsRoots = [];
+      try { if (window.__dirname) __btsRoots.push(String(window.__dirname)); } catch (e) { /* ignore */ }
+      try { if (window.process && window.process.resourcesPath) __btsRoots.push(String(window.process.resourcesPath) + '/app'); } catch (e) { /* ignore */ }
+      try { if (window.process && window.process.cwd) __btsRoots.push(String(window.process.cwd()) + '/resources/app'); } catch (e) { /* ignore */ }
+      for (var __btsR = 0; __btsR < __btsRoots.length; __btsR++) {
+        try {
+          if (__btsFs.existsSync(__btsRoots[__btsR] + '/extension')) { __btsRoot = __btsRoots[__btsR]; break; }
+        } catch (e) { /* ignore */ }
+      }
+    }
+    var __btsFound = __btsPreset.filter(function (name) {
+      if (!__btsRoot) return true;
+      try { return __btsFs.existsSync(__btsRoot + '/extension/' + name + '/extension.js'); } catch (e) { return true; }
+    });
+    var __btsList = Array.isArray(extensions) ? extensions.slice() : [];
+    for (var __btsI = 0; __btsI < __btsFound.length; __btsI++) {
+      if (__btsList.indexOf(__btsFound[__btsI]) < 0) __btsList.push(__btsFound[__btsI]);
+    }
+    if (!Array.isArray(extensions) || __btsList.length !== extensions.length) ${store}.put(__btsList, ${q}extensions${q});`;
+    const at = m.index + m[0].length;
+    return { text: text.slice(0, at) + added + text.slice(at), patched: true };
+}
+
 async function runBaseMerge({ bodyZip, baseZip, dryRun }) {
     if (!existsSync(bodyZip)) throw new Error(`本体包不存在：${bodyZip}`);
     if (!existsSync(baseZip)) throw new Error(`基座包不存在：${baseZip}`);
@@ -732,19 +861,22 @@ async function runBaseMerge({ bodyZip, baseZip, dryRun }) {
         const wrapper = wrapperOf(bz.entries);
         const prefix = wrapper ? `${wrapper}/resources/app/` : 'resources/app/';
         const cfgTarget = `${prefix}game/config.json`;
-        // 基座自带扩展（应用配置 / 拖拽读取…）：随基座安装、无选择框 → 电脑端默认启用
+        // 电脑端预设：基座自带扩展默认启用；壳里硬编码的预置名单 = 基座扩展 + 本包带的扩展
         const baseExts = listBaseExtensionNames(bz, prefix);
         let cfgOverride = null;
-        if (baseExts.length) {
-            const cfgEntry = gz.entries.find((e) => e.name === 'game/config.json' && !e.isDir);
-            if (!cfgEntry) {
-                warn(`基座含扩展（${baseExts.join('、')}），但本体包缺少 game/config.json，无法登记默认启用`);
-            } else {
-                const res = enableBaseExtensionsInConfig(readEntryData(gz, cfgEntry).toString('utf8'), baseExts);
-                if (res.changed.length) cfgOverride = Buffer.from(res.text, 'utf8');
-                say(`电脑端默认启用（基座自带）：${baseExts.join('、')}${res.changed.length ? '' : '（config 已是此状态）'}`);
-            }
+        let shellPreset = baseExts;
+        const baseCfgEntry = gz.entries.find((e) => e.name === 'game/config.json' && !e.isDir);
+        if (!baseCfgEntry) {
+            warn('本体包缺少 game/config.json，无法写入电脑端扩展预设（扩展可能不会被加载）');
+        } else {
+            const cfgText = readEntryData(gz, baseCfgEntry).toString('utf8');
+            const res = presetDesktopConfig(cfgText, { baseExtensions: baseExts });
+            if (res.changed.length) cfgOverride = Buffer.from(res.text, 'utf8');
+            shellPreset = mergeExtensionNames(baseExts, res.extensions);
+            say(`电脑端预设：${shellPreset.join('、') || '（无）'}（基座自带默认启用；壳预置名单按实际目录过滤）${res.changed.length ? '' : '（config 已是此状态）'}`);
         }
+        // 官方卸载器不进合体包（安装器自带 uninst.exe）
+        const officialUninstallers = bz.entries.filter((e) => !e.isDir && isOfficialUninstaller(relInWrapper(e.name, wrapper))).map((e) => relInWrapper(e.name, wrapper));
         const baseByName = new Map(bz.entries.map((e) => [e.name, e]));
         const skipBaseNames = new Set();
         const addGame = [];
@@ -776,6 +908,7 @@ async function runBaseMerge({ bodyZip, baseZip, dryRun }) {
         say(`合并计划：新增 ${addGame.filter((x) => !x.ge.isDir).length} 文件 / ${addGame.filter((x) => x.ge.isDir).length} 目录；与基座完全相同去重 ${skipDup}；目录合并跳过 ${skipDirs}；内容冲突 ${conflicts.length}（本体优先）`);
         for (const c of conflicts.slice(0, 20)) warn(`冲突（本体覆盖基座）：${c}`);
         if (conflicts.length > 20) warn(`… 另有 ${conflicts.length - 20} 个冲突未列出`);
+        if (officialUninstallers.length) say(`剔除官方卸载器：${officialUninstallers.join('、')}（卸载入口由安装器的 uninst.exe 提供）`);
         if (dryRun) {
             say(`[dry-run] 将输出：${out}`);
             return null;
@@ -785,6 +918,17 @@ async function runBaseMerge({ bodyZip, baseZip, dryRun }) {
         try {
             for (const be of bz.entries) {
                 if (skipBaseNames.has(be.name)) continue;
+                const beRel = relInWrapper(be.name, wrapper);
+                if (!be.isDir && isOfficialUninstaller(beRel)) continue;
+                if (!be.isDir && isDesktopShellFile(beRel)) {
+                    const res = patchDesktopShellExtensionSeed(readEntryData(bz, be).toString('utf8'), shellPreset);
+                    if (res.patched) {
+                        zw.addBuffer(be.name, Buffer.from(res.text, 'utf8'));
+                        say(`桌面壳补丁：${beRel}（写死预置名单 ${shellPreset.length} 项，按目录过滤）`);
+                        continue;
+                    }
+                    if (!res.already) warn(`桌面壳文件未匹配到扩展预置代码，${beRel} 未打补丁（基座版本可能已变）`);
+                }
                 zw.addRaw(be.nameRaw, be, readEntryRaw(bz, be));
             }
             for (const { ge, target } of addGame) {
@@ -810,7 +954,10 @@ async function runBaseMerge({ bodyZip, baseZip, dryRun }) {
             const cfgBts = cfgEntry ? readEntryData(v, cfgEntry).toString('utf8').includes('崩铁杀') : false;
             const hasExt = v.entries.some((e) => e.name.startsWith(`${prefix}extension/崩铁杀/`));
             const hasIndex = v.entries.some((e) => e.name === `${prefix}index.html`);
-            ok(`复核：entry=${v.count}  index.html=${hasIndex ? '✓' : '✗'}  崩铁杀扩展=${hasExt ? '✓' : '—'}  config预设崩铁杀=${cfgBts ? '✓' : '—'}`);
+            const hasOfficialUninstaller = v.entries.some((e) => !e.isDir && isOfficialUninstaller(relInWrapper(e.name, wrapper)));
+            const hasShellPatch = v.entries.some((e) => !e.isDir && isDesktopShellFile(relInWrapper(e.name, wrapper)) && readEntryData(v, e).toString('utf8').includes(SHELL_SEED_MARK));
+            ok(`复核：entry=${v.count}  index.html=${hasIndex ? '✓' : '✗'}  崩铁杀扩展=${hasExt ? '✓' : '—'}  config预设崩铁杀=${cfgBts ? '✓' : '—'}  官方卸载器=${hasOfficialUninstaller ? '✗ 仍在包内' : '已剔除'}  壳预置名单=${hasShellPatch ? '✓' : '—'}`);
+            if (hasOfficialUninstaller) warn('合体包仍含官方卸载器，请检查剔除逻辑');
             if (hasExt && !cfgBts) warn('含崩铁杀扩展但 config 未见预设（旧流程产物？）');
         } finally {
             v.close();
@@ -1115,6 +1262,22 @@ function routeGameRel(p) {
     return 'core';
 }
 
+/**
+ * 已压缩格式：再压几乎不缩（mp3/jpg/…），却占完全体载荷约八成体积，是 NSIS 编译耗时主因。
+ * 解包时把它们写入 `<段>.raw` 树，安装器对该树用 SetCompress off 直存。
+ */
+const RAW_TREE_SUFFIX = '.raw';
+const PRECOMPRESSED_EXTS = new Set([
+    'mp3', 'ogg', 'opus', 'm4a', 'aac', 'flac', 'webm', 'mp4', 'mkv',
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'jxl',
+    'woff', 'woff2', 'pak', 'zip', 'apk', '7z', 'rar', 'gz', 'xz', 'bz2',
+]);
+
+function isPrecompressed(rel) {
+    const i = rel.lastIndexOf('.');
+    return i >= 0 && PRECOMPRESSED_EXTS.has(rel.slice(i + 1).toLowerCase());
+}
+
 /** 全部基座候选的 wrapper 相对路径集合（用于判分合体包里的「基座部分」） */
 function buildBaseRefSet() {
     const set = new Set();
@@ -1157,7 +1320,11 @@ function planInstallerPayload({ info, zipPath, baseZip }) {
     if (baseZip) {
         const z = openZip(baseZip);
         try {
-            for (const e of z.entries) if (!e.isDir) bumpCount(counts, 'core', e.usize);
+            const bw = wrapperOf(z.entries);
+            for (const e of z.entries) {
+                if (e.isDir || isOfficialUninstaller(relInWrapper(e.name, bw))) continue;
+                bumpCount(counts, 'core', e.usize);
+            }
         } finally {
             z.close();
         }
@@ -1170,6 +1337,7 @@ function planInstallerPayload({ info, zipPath, baseZip }) {
             if (info.kind === 'merged') {
                 if (!info.wrapper || !e.name.startsWith(info.wrapper + '/')) continue;
                 const dest = e.name.slice(info.wrapper.length + 1);
+                if (isOfficialUninstaller(dest)) continue;
                 bumpCount(counts, baseRef.has(dest) ? 'core' : routeGameRel(dest), e.usize);
             } else {
                 bumpCount(counts, routeGameRel('resources/app/' + e.name), e.usize);
@@ -1191,8 +1359,12 @@ function planInstallerPayload({ info, zipPath, baseZip }) {
     return { counts, hasLauncher };
 }
 
-/** 解包：mapEntry(name, isDir) → { section, destRel } | null；文件按 section 分流写入 payloadRoot */
-function extractZipToPayload({ zipPath, payloadRoot, mapEntry }) {
+/**
+ * 解包：mapEntry(name, isDir) → { section, destRel } | null；文件按 section 分流写入 payloadRoot。
+ * 已压缩格式落到 `<section>.raw`（安装器对这两棵树用不同压缩档），统计仍按逻辑段累计。
+ * shellPreset = 桌面壳要硬编码的扩展预置名单（见 patchDesktopShellExtensionSeed）。
+ */
+function extractZipToPayload({ zipPath, payloadRoot, mapEntry, shellPreset }) {
     const counts = new Map();
     const madeDirs = new Set();
     const z = openZip(zipPath);
@@ -1201,17 +1373,34 @@ function extractZipToPayload({ zipPath, payloadRoot, mapEntry }) {
         for (const e of z.entries) {
             const m = mapEntry(e.name, e.isDir);
             if (!m || e.isDir) continue;
+            // 官方卸载器（基座 `Uninstall noname.exe`，或旧流程合体包遗留）不进安装载荷
+            if (isOfficialUninstaller(m.destRel)) {
+                say(`剔除官方卸载器：${m.destRel}`);
+                continue;
+            }
             if (m.destRel.includes('..')) {
                 warn(`跳过可疑路径：${e.name}`);
                 continue;
             }
-            const destAbs = join(payloadRoot, m.section, m.destRel);
+            const tree = isPrecompressed(m.destRel) ? m.section + RAW_TREE_SUFFIX : m.section;
+            const destAbs = join(payloadRoot, tree, m.destRel);
             const dir = dirname(destAbs);
             if (!madeDirs.has(dir)) {
                 mkdirSync(dir, { recursive: true });
                 madeDirs.add(dir);
             }
-            writeFileSync(destAbs, readEntryData(z, e));
+            let data = readEntryData(z, e);
+            // 桌面壳 preload：写入硬编码预置名单（见 patchDesktopShellExtensionSeed）
+            if (isDesktopShellFile(m.destRel)) {
+                const res = patchDesktopShellExtensionSeed(data.toString('utf8'), shellPreset);
+                if (res.patched) {
+                    data = Buffer.from(res.text, 'utf8');
+                    say(`桌面壳补丁：${m.destRel}（写死预置名单 ${shellPreset.length} 项，按目录过滤）`);
+                } else if (!res.already && !res.reason) {
+                    warn(`桌面壳文件未匹配到扩展预置代码，${m.destRel} 未打补丁（基座版本可能已变）`);
+                }
+            }
+            writeFileSync(destAbs, data);
             bumpCount(counts, m.section, e.usize);
             n++;
             if (n % 2500 === 0) say(`  … 已解包 ${n} 个文件`);
@@ -1222,7 +1411,7 @@ function extractZipToPayload({ zipPath, payloadRoot, mapEntry }) {
     return counts;
 }
 
-function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present, hasLauncher, fast, totalBytes }) {
+function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present, hasLauncher, compressor, totalBytes }) {
     const viParts = ver.split('.').map((x) => String(Number(x) || 0));
     while (viParts.length < 4) viParts.push('0');
     const vi = viParts.slice(0, 4).join('.');
@@ -1233,7 +1422,8 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('!include "MUI2.nsh"');
     L.push('!include "FileFunc.nsh"');
     L.push('!include "LogicLib.nsh"');
-    L.push(`SetCompressor /SOLID ${fast ? 'zlib' : 'lzma'}`);
+    // 不用 /SOLID：solid 模式会忽略 SetCompress off，已压缩媒体就白压一遍（见 isPrecompressed）
+    L.push(`SetCompressor ${compressor}`);
     L.push(`Name ${lit(displayName)}`);
     L.push(`OutFile ${lit(exePath)}`);
     L.push('RequestExecutionLevel user');
@@ -1347,16 +1537,26 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('; 更新=覆写模式：同名文件直接覆盖，不删除旧目录中的其他文件');
     L.push('SetOverwrite on');
     L.push('');
+    // 每段两棵树：`<段>.raw` 直存（已压缩媒体，SetCompress off），`<段>` 走压缩器。
+    // 两棵树相对布局一致，缺哪棵就跳过（某段可能只有一类文件）。
+    const emitPayloadTree = (sectionKey) => {
+        for (const [tree, compress] of [[sectionKey + RAW_TREE_SUFFIX, false], [sectionKey, true]]) {
+            const dir = join(payloadRoot, tree);
+            if (!existsSync(dir)) continue;
+            L.push(`  SetCompress ${compress ? 'auto' : 'off'}`);
+            L.push('  File /r ' + lit(dir + '\\*.*'));
+        }
+    };
     L.push('Section "无名杀本体（必需）" SecCore');
     L.push('  SectionIn RO');
     L.push('  SetOutPath "$INSTDIR"');
-    L.push('  File /r ' + lit(join(payloadRoot, 'core') + '\\*.*'));
+    emitPayloadTree('core');
     L.push('SectionEnd');
     for (const c of present) {
         L.push('');
         L.push(`Section ${lit(`${c.label}（${mb(c.bytes)}）`)} ${c.id}`);
         L.push('  SetOutPath "$INSTDIR"');
-        L.push('  File /r ' + lit(join(payloadRoot, c.key) + '\\*.*'));
+        emitPayloadTree(c.key);
         L.push('SectionEnd');
     }
     if (hasLauncher) {
@@ -1402,7 +1602,7 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     return nsiPath;
 }
 
-async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
+async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor }) {
     const info = classifyZip(zipPath);
     if (!['body', 'merged'].includes(info.kind)) throw new Error(`无法识别的本体包：${basename(zipPath)}（既无根 index.html，也非单层 wrapper 合体包）`);
     if (info.kind === 'merged' && baseZip) warn('所选为已合体包，--base 将被忽略');
@@ -1429,6 +1629,34 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
     const missing = COMPONENTS.filter((c) => !counts.has(c.key)).map((c) => c.label);
     if (missing.length) say(`  包中不存在（不显示）：${missing.join('、')}`);
     if (!hasLauncher) warn('基座中未找到 noname.exe，安装器将不创建快捷方式/启动项');
+
+    // 桌面壳要硬编码的预置名单 = 基座自带扩展 + 本包带的扩展；安装器按组件勾选安装，
+    // 运行时由壳逐个用目录存在性过滤（没勾选的组件没有目录 → 不登记）
+    const baseExtSource = base || (info.kind === 'merged' ? zipPath : null);
+    let baseExts = [];
+    if (baseExtSource) {
+        const z0 = openZip(baseExtSource);
+        try {
+            const w0 = wrapperOf(z0.entries);
+            if (w0) baseExts = listBaseExtensionNames(z0, `${w0}/resources/app/`);
+        } finally {
+            z0.close();
+        }
+    }
+    let packExts = [];
+    {
+        const z0 = openZip(zipPath);
+        try {
+            const cfgName = info.kind === 'merged' ? `${info.wrapper}/resources/app/game/config.json` : 'game/config.json';
+            const cfgEntry0 = z0.entries.find((e) => e.name === cfgName && !e.isDir);
+            if (cfgEntry0) packExts = readConfigExtensions(readEntryData(z0, cfgEntry0).toString('utf8'));
+        } finally {
+            z0.close();
+        }
+    }
+    const shellPreset = mergeExtensionNames(baseExts, packExts);
+    say(`  桌面壳预置名单：${shellPreset.join('、') || '（无）'}（写死在壳里，按实际安装目录过滤）`);
+
     if (dryRun) {
         say(`[dry-run] 将输出：${exeOut}`);
         return null;
@@ -1460,6 +1688,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
             const c = extractZipToPayload({
                 zipPath: base,
                 payloadRoot,
+                shellPreset,
                 mapEntry: (name) => (name.startsWith(w + '/') ? { section: 'core', destRel: name.slice(w.length + 1) } : null),
             });
             mergeCounts(stats, c);
@@ -1470,6 +1699,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
             const c = extractZipToPayload({
                 zipPath,
                 payloadRoot,
+                shellPreset,
                 mapEntry: (name) => {
                     if (!name.startsWith(info.wrapper + '/')) return null;
                     const dest = name.slice(info.wrapper.length + 1);
@@ -1486,25 +1716,20 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
             mergeCounts(stats, c);
         }
         // 电脑端默认启用基座自带扩展（应用配置 / 拖拽读取…）：payload 里的 config.json 已为本体最终版
-        const baseExtSource = base || (info.kind === 'merged' ? zipPath : null);
         if (baseExtSource) {
-            const z = openZip(baseExtSource);
-            let baseExts = [];
-            try {
-                const wrapperName = wrapperOf(z.entries);
-                if (wrapperName) baseExts = listBaseExtensionNames(z, `${wrapperName}/resources/app/`);
-            } finally {
-                z.close();
-            }
-            if (baseExts.length) {
-                const cfgPath = join(payloadRoot, 'resources', 'app', 'game', 'config.json');
-                if (!existsSync(cfgPath)) {
-                    warn(`基座含扩展（${baseExts.join('、')}），但 payload 缺少 resources/app/game/config.json，无法登记默认启用`);
-                } else {
-                    const res = enableBaseExtensionsInConfig(readFileSync(cfgPath, 'utf8'), baseExts);
-                    if (res.changed.length) writeFileSync(cfgPath, res.text, 'utf8');
-                    say(`电脑端默认启用（基座自带）：${baseExts.join('、')}${res.changed.length ? '' : '（config 已是此状态）'}`);
-                }
+            // 解包按组件分目录（core/opt_*），路径必须带上 config.json 所属的分段
+            const cfgSection = routeGameRel('resources/app/game/config.json');
+            const cfgPath = join(payloadRoot, cfgSection, 'resources', 'app', 'game', 'config.json');
+            if (!existsSync(cfgPath)) {
+                warn(`payload 缺少 ${cfgSection}/resources/app/game/config.json，无法写入电脑端扩展预设（扩展可能不会被加载）`);
+            } else {
+                // extensions 只留基座自带扩展：运行时生效的名单由壳里硬编码的预置按目录写入
+                const res = presetDesktopConfig(readFileSync(cfgPath, 'utf8'), { baseExtensions: baseExts, extensionsOverride: baseExts });
+                if (res.changed.length) writeFileSync(cfgPath, res.text, 'utf8');
+                say(
+                    `电脑端预设：基座自带扩展（${baseExts.join('、') || '无'}）默认启用；扩展名单由壳预置（${shellPreset.length} 项）按目录写入` +
+                        `${res.changed.length ? '' : '（config 已是此状态）'}`,
+                );
             }
         }
         const extractSecs = ((Date.now() - t0) / 1000).toFixed(1);
@@ -1517,7 +1742,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
             ver,
             present,
             hasLauncher,
-            fast,
+            compressor,
             totalBytes,
         });
         const t1 = Date.now();
@@ -1532,7 +1757,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, fast }) {
         const warnLines = makensisOut.split(/\r?\n/).filter((l) => /warning/i.test(l)).slice(0, 8);
         for (const w2 of warnLines) warn(`makensis: ${w2.trim()}`);
         if (!existsSync(exeOut)) throw new Error(`makensis 完成但未生成：${exeOut}`);
-        ok(`安装器输出：${exeOut}（${mb(statSync(exeOut).size)}；编译 ${compileSecs} 秒，压缩=${fast ? 'zlib' : 'lzma'}）`);
+        ok(`安装器输出：${exeOut}（${mb(statSync(exeOut).size)}；编译 ${compileSecs} 秒，压缩=${compressor}（已压缩媒体直存））`);
         OUTPUTS.push(exeOut);
         return exeOut;
     } finally {
@@ -1604,7 +1829,7 @@ async function interactiveInstaller() {
         cands.map((c) => ({ label: `${c.name}（${mb(c.size)}）${c.kind === 'merged' ? '（含电脑基座）' : ''}`, value: c.path })),
     );
     if (!pick) return;
-    await runInstallerBuild({ zipPath: pick.value, baseZip: null, dryRun: false, fast: false });
+    await runInstallerBuild({ zipPath: pick.value, baseZip: null, dryRun: false, compressor: 'zlib' });
 }
 
 async function interactiveFlow() {
@@ -1632,8 +1857,8 @@ function printUsage() {
         --base 指定基座合体；--with-base 自动挑默认基座合体
   node scripts/pack.mjs apk --from <本体包zip> [--rebuild] [--dry-run]
         将所选本体包封装为安卓 APK（--rebuild 先全量重建外壳）
-  node scripts/pack.mjs installer --from <zip> [--fast] [--dry-run]
-        生成 NSIS 安装向导（--fast 用 zlib 压缩换速度；默认 lzma 更小）
+  node scripts/pack.mjs installer --from <zip> [--best] [--dry-run]
+        生成 NSIS 安装向导（默认 zlib：快；--best 换 lzma：更小、慢数倍。已压缩媒体两档都直存）
   node scripts/pack.mjs bases                                 列出可用电脑基座包
 可选：--out/--build-tree/--desktop-app/--base-dir/--apk-src/--ks-props 覆盖路径（见文件头注释）。
 输出：默认写入 <仓库>/_others/打包目录/{本体打包|APK打包|安装器打包}。`);
@@ -1704,7 +1929,7 @@ async function main() {
         }
         const baseZip = opts['--base'] ? resolve(opts['--base']) : null;
         if (baseZip && !existsSync(baseZip)) throw new Error(`基座包不存在：${baseZip}`);
-        await runInstallerBuild({ zipPath: from, baseZip, dryRun: DRY, fast: flags.has('--fast') });
+        await runInstallerBuild({ zipPath: from, baseZip, dryRun: DRY, compressor: flags.has('--best') ? 'lzma' : 'zlib' });
         return;
     }
     throw new Error(`未知子命令：${SUB}（可用：body | apk | installer | bases）`);
