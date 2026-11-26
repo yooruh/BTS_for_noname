@@ -221,7 +221,8 @@ export const translate = {
     bts_sk_caicai: '猜猜',
     bts_sk_caicai_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令至少一名其他角色各附加1层诅咒；若你为${get.poptip('bts_glossary_xingqi_faq')}，视为对这些角色使用【杀】。`,
     bts_sk_liwu: '礼物',
-    bts_sk_liwu_info: `准备阶段开始时，你可以弃置一张【杀】，令你与任意名其他角色各附加3层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}；若你拥有${get.poptip('bts_sk_aishi')}，你与这些角色额外各获得1层${get.poptip('bts_glossary_bless_critical_faq')}。`,
+    bts_sk_liwu_info: `准备阶段开始时，你可以弃置一张【杀】，令你与任意名其他角色各附加3层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}；`
+        + `若你拥有${get.poptip('bts_sk_aishi')}，你与这些角色额外各获得1层${get.poptip('bts_glossary_bless_critical_faq')}。`,
     bts_sk_manglu: '忙碌',
     bts_sk_manglu_info: `锁定技，其他角色发动${get.poptip('bts_glossary_bisha_faq')}后，若其拥有${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}，你可以视为对一名其他角色使用【杀】。`,
 
@@ -235,8 +236,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_caicai_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1诅咒，${get.poptip('bts_glossary_xingqi_faq')}时对其用杀`,
-    bts_sk_liwu_info: `准备阶段可弃杀令自己和任意名其他角色各+3${get.poptip('bts_glossary_guantong_faq')}，拥有${get.poptip('bts_sk_aishi')}时你与这些角色额外各+1${get.poptip('bts_glossary_bless_critical_faq')}`,
+    bts_sk_caicai_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1诅咒，${get.poptip('bts_glossary_xingqi_faq')}时对其用杀`,
+    bts_sk_liwu_info: `准备阶段可-1杀令自己和任意名其他角色各+3${get.poptip('bts_glossary_guantong_faq')}，拥有${get.poptip('bts_sk_aishi')}时你与这些角色额外各+1${get.poptip('bts_glossary_bless_critical_faq')}`,
     bts_sk_manglu_info: `锁；他人发动${get.poptip('bts_glossary_bisha_faq')}且有${get.poptip('bts_glossary_guantong_faq')}后可对1名其他角色用杀`,
 };
 

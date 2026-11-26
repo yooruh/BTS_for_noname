@@ -171,7 +171,8 @@ export const translate = {
     'bts_ch_guinaifen_skin3': '皮肤3',
     bts_ch_guinaifen: '桂乃芬',
     bts_sk_kanxi: '看戏',
-    bts_sk_kanxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名有${get.poptip('bts_glossary_abnormal_burn_faq')}的其他角色，移除其所有${get.poptip('bts_glossary_abnormal_burn_faq')}并逐层造成1点无来源伤害。`,
+    bts_sk_kanxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名有${get.poptip('bts_glossary_abnormal_burn_faq')}的其他角色，`
+        + `移除其所有${get.poptip('bts_glossary_abnormal_burn_faq')}并逐层造成1点无来源伤害。`,
     bts_sk_yinghong: '迎红',
     bts_sk_yinghong_info: `其他角色于其回合外失去牌后，你可以弃置一张【杀】，令其附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
     bts_sk_yangyi: '养艺',
@@ -187,8 +188,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_kanxi_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}清空目标${get.poptip('bts_glossary_abnormal_burn_faq')}并逐层造成无源伤害`,
-    bts_sk_yinghong_info: `他人回合外失牌后可弃杀令其+1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
+    bts_sk_kanxi_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}清空目标${get.poptip('bts_glossary_abnormal_burn_faq')}并逐层造成无源伤害`,
+    bts_sk_yinghong_info: `他人回合外失牌后可-1杀令其+1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
     bts_sk_yangyi_info: `锁；角色受${get.poptip('bts_glossary_abnormal_burn_faq')}伤害后+1诅咒`,
 };
 

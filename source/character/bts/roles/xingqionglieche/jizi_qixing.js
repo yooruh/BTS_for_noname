@@ -389,7 +389,8 @@ export const translate = {
     bts_sk_yuanzheng: '远征',
     bts_sk_yuanzheng_info: `限定技，出牌阶段，你可以结束此阶段并对一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害。`,
     bts_sk_yuanzheng_friend: '远征',
-    bts_sk_yuanzheng_friend_info: `星穹列车势力角色获得：出牌阶段，若存在未发动「${get.poptip('bts_sk_yuanzheng')}」的姬子·启行，你可以结束此阶段，经其同意后代其发动「${get.poptip('bts_sk_yuanzheng')}」对一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害，然后你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
+    bts_sk_yuanzheng_friend_info: `星穹列车势力角色获得：出牌阶段，若存在未发动「${get.poptip('bts_sk_yuanzheng')}」的姬子·启行，你可以结束此阶段，经其同意后代其发动「${get.poptip('bts_sk_yuanzheng')}」对一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害，`
+        + `然后你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_guangshu: '光束',
     bts_sk_guangshu_info: `出牌阶段限六次，你可以弃置一名其他角色一张牌，其摸一张牌；第六次发动时，对以此法选择过的随机一名角色造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害并结束此阶段。`,
     bts_bless_qiyu: '旗语祝福',
@@ -420,11 +421,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zhuxing_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}，变${get.poptip('bts_ch_tuoxingzhe')}+额外出牌阶段后切回`,
-    bts_sk_linghang_info: `出牌开始可弃杀+3${get.poptip('bts_glossary_bless_qiyu_faq')}`,
-    bts_sk_yuanzheng_info: `限定；对1名角色炎${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害并结束出牌`,
-    bts_sk_guangshu_info:
-        '出牌限六次；弃一名其他角色一牌其摸一牌，第六次炸随机目标并结束阶段',
+    bts_sk_zhuxing_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，变形为${get.poptip('bts_ch_tuoxingzhe')}并进入一个额外的出牌阶段，该阶段结束后变回`,
+    bts_sk_linghang_info: `出牌阶段开始时，若你没有${get.poptip('bts_glossary_bless_qiyu_faq')}，可-1杀+3层${get.poptip('bts_glossary_bless_qiyu_faq')}`,
+    bts_sk_yuanzheng_info: `限；出牌阶段，可结束此阶段并对一名角色造成1点炎属性${get.poptip('bts_glossary_bless_fatal_faq')}${get.poptip('bts_glossary_guantong_faq')}伤害`,
+    bts_sk_guangshu_info: '出牌阶段限六次，-目标1牌，其+1牌；第六次发动时，对随机一名以此法选择过的角色造成1点炎属性伤害并结束此阶段',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -440,6 +440,10 @@ export const buffSkills = {
             return event.player === player;
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_qiyu')}】，【${get.translation('bts_sk_yuanzheng')}】视为未发动过`,
+            );
             player.setStorage('bts_mk_yuanzheng_used', false, true);
         },
     },

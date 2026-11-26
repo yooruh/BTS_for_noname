@@ -152,10 +152,8 @@ export const translate = {
     bts_ch_jiepade: '杰帕德',
     bts_sk_yongyi: '永屹',
     bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
-
     bts_sk_zhenshe: '震慑',
     bts_sk_zhenshe_info: `当其他角色使用【杀】指定你为目标后，你可以弃置一张【杀】，令其附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}。`,
-
     bts_sk_gangzheng: '刚正',
     bts_sk_gangzheng_info: `觉醒技，当你进入濒死状态时，你回复体力至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点），此技能仅发动一次。`,
 
@@ -169,9 +167,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
-    bts_sk_zhenshe_info: `被他人用杀指定后，弃1杀令其+1${get.poptip('bts_glossary_abnormal_freeze_faq')}`,
-    bts_sk_gangzheng_info: `觉醒；濒死时回复至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点，限一次）`,
+    bts_sk_yongyi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-4${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
+    bts_sk_zhenshe_info: `被他人用杀指定后，-1杀令其+1${get.poptip('bts_glossary_abnormal_freeze_faq')}`,
+    bts_sk_gangzheng_info: `觉；濒死时回复至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半（至多1点，限一次）`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

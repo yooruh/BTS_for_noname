@@ -193,9 +193,14 @@ export const translate = {
     bts_sk_wuhui: '无悔',
     bts_sk_wuhui_info: `锁定技，出牌阶段开始时，你失去2点体力，获得1枚${get.poptip('bts_glossary_xuechou_faq')}标记并结束此阶段。`,
     bts_sk_xuechou: '血仇',
-    bts_sk_xuechou_info: `锁定技，扣减体力后获得等量${get.poptip('bts_glossary_xuechou_faq')}；当${get.poptip('bts_glossary_xuechou_faq')}数达到你的${get.poptip('bts_glossary_bless_maxhp_faq')}时，若你未拥有${get.poptip('bts_sk_dengshen')}，弃全部${get.poptip('bts_glossary_xuechou_faq')}，获得X层${get.poptip('bts_glossary_bless_maxhp_faq')}并回复X点体力（X为你此时的${get.poptip('bts_glossary_bless_maxhp_faq')}），获得${get.poptip('bts_sk_dengshen')}并于此回合结束时执行额外回合；若你已拥有${get.poptip('bts_sk_dengshen')}，弃全部${get.poptip('bts_glossary_xuechou_faq')}，对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害，若你拥有${get.poptip('bts_sk_aishi')}，获得等同${get.poptip('bts_glossary_bless_maxhp_faq')}数的${get.poptip('bts_glossary_xuechou_faq')}标记。`,
+    bts_sk_xuechou_info: `锁定技，扣减体力后获得等量${get.poptip('bts_glossary_xuechou_faq')}；当${get.poptip('bts_glossary_xuechou_faq')}数达到你的${get.poptip('bts_glossary_bless_maxhp_faq')}时，`
+        + `若你未拥有${get.poptip('bts_sk_dengshen')}，弃全部${get.poptip('bts_glossary_xuechou_faq')}，获得X层${get.poptip('bts_glossary_bless_maxhp_faq')}并回复X点体力（X为你此时的${get.poptip('bts_glossary_bless_maxhp_faq')}），`
+        + `获得${get.poptip('bts_sk_dengshen')}并于此回合结束时执行额外回合；若你已拥有${get.poptip('bts_sk_dengshen')}，弃全部${get.poptip('bts_glossary_xuechou_faq')}，`
+        + `对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害，若你拥有${get.poptip('bts_sk_aishi')}，`
+        + `获得等同${get.poptip('bts_glossary_bless_maxhp_faq')}数的${get.poptip('bts_glossary_xuechou_faq')}标记。`,
     bts_sk_dengshen: '登神',
-    bts_sk_dengshen_info: `锁定技，${get.poptip('bts_sk_dengshen')}期间：你回复${get.poptip('bts_glossary_nuqi_faq')}且能发动${get.poptip('bts_glossary_bisha_faq')}时自动发动${get.poptip('bts_sk_zhutian')}；获得${get.poptip('bts_glossary_xuechou_faq')}标记后弃置所有手牌并回复等量体力；进入濒死状态时，失去此技能、回复1点体力并移除全部${get.poptip('bts_glossary_bless_maxhp_faq')}。`,
+    bts_sk_dengshen_info: `锁定技，${get.poptip('bts_sk_dengshen')}期间：你回复${get.poptip('bts_glossary_nuqi_faq')}且能发动${get.poptip('bts_glossary_bisha_faq')}时自动发动${get.poptip('bts_sk_zhutian')}；`
+        + `获得${get.poptip('bts_glossary_xuechou_faq')}标记后弃置所有手牌并回复等量体力；进入濒死状态时，失去此技能、回复1点体力并移除全部${get.poptip('bts_glossary_bless_maxhp_faq')}。`,
 
     '$bts_sk_zhutian1': "垂死之魂，直面我！",
     '$bts_sk_zhutian2': "我允许你们…伏首受诛！",
@@ -211,9 +216,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zhutian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_xuechou_faq')}并回复1点体力`,
-    bts_sk_wuhui_info: `锁；出牌开始失2体力+1${get.poptip('bts_glossary_xuechou_faq')}并结束出牌阶段`,
-    bts_sk_xuechou_info: `锁；扣血+${get.poptip('bts_glossary_xuechou_faq')}，标记数达${get.poptip('bts_glossary_bless_maxhp_faq')}后${get.poptip('bts_sk_dengshen')}，否则反击上个伤害来源`,
+    bts_sk_zhutian_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_xuechou_faq')}并+1体力`,
+    bts_sk_wuhui_info: `锁；出牌阶段开始时-2体力+1${get.poptip('bts_glossary_xuechou_faq')}并结束出牌阶段`,
+    bts_sk_xuechou_info: `锁；-体力后+等量${get.poptip('bts_glossary_xuechou_faq')}；达到你的${get.poptip('bts_glossary_bless_maxhp_faq')}时-全部：未${get.poptip('bts_sk_dengshen')}则获得${get.poptip('bts_glossary_bless_maxhp_faq')}、+体力并${get.poptip('bts_sk_dengshen')}，`
+        + `已${get.poptip('bts_sk_dengshen')}则对上个伤害你的角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

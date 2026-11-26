@@ -141,9 +141,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_tianzong_info: `${get.poptip('bts_glossary_bisha_faq')}；失2${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_bless_kanpo_faq')}`,
+    bts_sk_tianzong_info: `${get.poptip('bts_glossary_bisha_faq')}；-2${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_bless_kanpo_faq')}`,
     bts_sk_shanshuo_info: `锁；受伤后+1${get.poptip('bts_glossary_nuqi_faq')}并杀来源（无来源则杀全体）`,
-    bts_sk_feixia_info: '受伤后可弃杀回复1',
+    bts_sk_feixia_info: '受伤后可-1杀+1体力',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

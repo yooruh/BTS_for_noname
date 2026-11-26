@@ -4,7 +4,7 @@ import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../..
 export const sort = 'xianzhou';
 export const title = '雷·同谐·天舶司接渡使'; // 属性·命途
 export const intro =
-    `${B('停云')}给队友送${get.poptip('bts_glossary_nuqi_faq')}，挂上${get.poptip('bts_glossary_bless_cifu_faq')}后全队无属性伤害都变光伤。`;
+    `${B('停云')}给队友送${get.poptip('bts_glossary_nuqi_faq')}，挂上${get.poptip('bts_glossary_bless_cifu_faq')}后全队无属性伤害都变虚数伤害。`;
 
 export const character = {
     bts_ch_tingyun: {
@@ -140,7 +140,8 @@ export const translate = {
     'bts_ch_tingyun_skin3': '皮肤3',
     bts_ch_tingyun: '停云',
     bts_sk_yidao: '仪祷',
-    bts_sk_yidao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，令一名角色回复1点${get.poptip('bts_glossary_nuqi_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，改为回复2点。`,
+    bts_sk_yidao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，令一名角色回复1点${get.poptip('bts_glossary_nuqi_faq')}；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，改为回复2点。`,
     bts_sk_zidian: '紫电',
     bts_sk_zidian_info: `锁定技，场上有角色拥有${get.poptip('bts_glossary_bless_cifu_faq')}时，无属性伤害视为${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害。`,
     bts_sk_heyun: '和韵',
@@ -156,9 +157,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yidao_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}令1名角色+1${get.poptip('bts_glossary_nuqi_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+2）`,
-    bts_sk_zidian_info: `锁；有${get.poptip('bts_glossary_bless_cifu_faq')}时无属性伤害视为光伤`,
-    bts_sk_heyun_info: `他人受伤后可弃杀令其+3${get.poptip('bts_glossary_bless_cifu_faq')}`,
+    bts_sk_yidao_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}令1名角色+1${get.poptip('bts_glossary_nuqi_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+2）`,
+    bts_sk_zidian_info: `锁；有${get.poptip('bts_glossary_bless_cifu_faq')}时无属性伤害视为虚数属性伤害`,
+    bts_sk_heyun_info: `他人受伤后可-1杀令其+3${get.poptip('bts_glossary_bless_cifu_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

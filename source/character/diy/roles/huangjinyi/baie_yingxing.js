@@ -273,9 +273,14 @@ export const translate = {
     // 同名多投稿以此区分；样式注册见 source/precontent.js 的 NAME_PREFIXES
     bts_diy_ch_baie_yingxing_prefix: '应星DIY',
     bts_diy_sk_zhuhuo: '逐火',
-    bts_diy_sk_zhuhuo_info: `锁定技，当你成为牌的目标/使用【杀】时，你获得1/2枚${get.poptip('bts_diy_glossary_huozhong_faq')}（至多15枚）。你的回合结束时，若你的${get.poptip('bts_diy_glossary_huozhong_faq')}不少于12枚，则你移去12枚${get.poptip('bts_diy_glossary_huozhong_faq')}，失去【逐火】，获得3点${get.poptip('bts_glossary_hudun_faq')}和8点${get.poptip('bts_diy_glossary_xuli_faq')}，并令至多三名其他角色${get.poptip('bts_diy_glossary_lichang_faq')}（场上无其他角色时，移去一名其他角色的${get.poptip('bts_diy_glossary_lichang_faq')}状态）`,
+    bts_diy_sk_zhuhuo_info: `锁定技，当你成为牌的目标/使用【杀】时，你获得1/2枚${get.poptip('bts_diy_glossary_huozhong_faq')}（至多15枚）。你的回合结束时，若你的${get.poptip('bts_diy_glossary_huozhong_faq')}不少于12枚，`
+        + `则你移去12枚${get.poptip('bts_diy_glossary_huozhong_faq')}，失去【逐火】，获得3点${get.poptip('bts_glossary_hudun_faq')}和8点${get.poptip('bts_diy_glossary_xuli_faq')}，`
+        + `并令至多三名其他角色${get.poptip('bts_diy_glossary_lichang_faq')}（场上无其他角色时，移去一名其他角色的${get.poptip('bts_diy_glossary_lichang_faq')}状态）`,
     bts_diy_sk_fushi: '负世',
-    bts_diy_sk_fushi_info: `蓄力技（0/8）。每个结束阶段，你减少1点${get.poptip('bts_diy_glossary_xuli_faq')}，若如此做，你本回合：1.受到过伤害，则你回复1点体力；2.失去过牌，则你摸两张牌。当【负世】的${get.poptip('bts_diy_glossary_xuli_faq')}为0时，你对所有非${get.poptip('bts_diy_glossary_lichang_faq')}角色各造成1点伤害，然后移去所有${get.poptip('bts_diy_glossary_lichang_faq')}状态，获得${get.poptip("bts_diy_sk_zhuhuo")}并移去你的所有${get.poptip('bts_glossary_hudun_faq')}。你死亡时，令所有${get.poptip('bts_diy_glossary_lichang_faq')}者回归`,
+    bts_diy_sk_fushi_info: `蓄力技（0/8）。每个结束阶段，你减少1点${get.poptip('bts_diy_glossary_xuli_faq')}，若如此做，你本回合：1.受到过伤害，则你回复1点体力；2.失去过牌，则你摸两张牌。`
+        + `当【负世】的${get.poptip('bts_diy_glossary_xuli_faq')}为0时，你对所有非${get.poptip('bts_diy_glossary_lichang_faq')}角色各造成1点伤害，`
+        + `然后移去所有${get.poptip('bts_diy_glossary_lichang_faq')}状态，获得${get.poptip("bts_diy_sk_zhuhuo")}并移去你的所有${get.poptip('bts_glossary_hudun_faq')}。`
+        + `你死亡时，令所有${get.poptip('bts_diy_glossary_lichang_faq')}者回归`,
     bts_diy_sk_zhizhu: '支柱',
     bts_diy_sk_zhizhu_info: `锁定技，若你失去${get.poptip("bts_diy_sk_zhuhuo")}：1.回合开始时，你对所有其他角色各随机造成0~2点伤害；2.其他角色回合开始时，你视为使用一张无距离限制的雷【杀】`,
     bts_diy_sk_zhuhuo_lichang: '逐火·离场',
@@ -285,9 +290,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_diy_sk_zhuhuo_info: `锁；成为牌目标/使用【杀】各+1/+2枚${get.poptip('bts_diy_glossary_huozhong_faq')}（上限15）；你的回合结束≥12枚则去12枚、失去【逐火】，得3点${get.poptip('bts_glossary_hudun_faq')}与8点${get.poptip('bts_diy_glossary_xuli_faq')}并令至多3名其他角色${get.poptip('bts_diy_glossary_lichang_faq')}`,
-    bts_diy_sk_fushi_info: `蓄力技（0/8）；每结束阶段-1蓄力：本回合受过伤则回1点体力、失去过牌则摸2；蓄力归零时对所有非${get.poptip('bts_diy_glossary_lichang_faq')}角色各1点伤害，清空${get.poptip('bts_diy_glossary_lichang_faq')}状态、收回${get.poptip('bts_diy_sk_zhuhuo')}并移去自身${get.poptip('bts_glossary_hudun_faq')}；死亡时令所有${get.poptip('bts_diy_glossary_lichang_faq')}者回归`,
-    bts_diy_sk_zhizhu_info: `锁；失去${get.poptip('bts_diy_sk_zhuhuo')}期间：你的回合开始对所有其他角色随机造成0~2点伤害；其他角色回合开始你视为使用一张无距离限制的雷【杀】`,
+    bts_diy_sk_zhuhuo_info: `锁；成为牌目标/使用杀各+1/+2枚${get.poptip('bts_diy_glossary_huozhong_faq')}（上限15）；你的回合结束时≥12枚则-12枚、-${get.poptip('bts_diy_sk_zhuhuo')}，`
+        + `+3点${get.poptip('bts_glossary_hudun_faq')}与8点${get.poptip('bts_diy_glossary_xuli_faq')}并令至多3名其他角色${get.poptip('bts_diy_glossary_lichang_faq')}`,
+    bts_diy_sk_fushi_info: `蓄力技（0/8）；每结束阶段-1蓄力：本回合受过伤则+1体力、失去过牌则+2牌；蓄力归零时对所有非${get.poptip('bts_diy_glossary_lichang_faq')}角色各1点伤害，`
+        + `清空${get.poptip('bts_diy_glossary_lichang_faq')}状态、收回${get.poptip('bts_diy_sk_zhuhuo')}并移去自身${get.poptip('bts_glossary_hudun_faq')}；`
+        + `死亡时令所有${get.poptip('bts_diy_glossary_lichang_faq')}者回归`,
+    bts_diy_sk_zhizhu_info: `锁；失去${get.poptip('bts_diy_sk_zhuhuo')}期间：你的回合开始时对所有其他角色随机造成0~2点伤害；其他角色回合开始时你视为用一张无距离限制的雷杀`,
 };
 
 // 默认读音把「DIY」逐字符拆开（D I Y）：按叁岛式以整词覆盖（先例：银狼LV999）。

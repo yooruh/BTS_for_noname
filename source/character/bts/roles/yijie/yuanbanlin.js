@@ -238,6 +238,12 @@ export const skill = {
     bts_sk_moshu: {
         trigger: { global: 'loseAfter' },
         logTarget: 'player',
+        // frequent:'check'：弃【杀】事件频发，moshuWorth 成立（弃牌者为友方或已持致命祝福）时
+        // 引擎自动确认，免去每次手点；不成立时照常弹询问。check 与 cost 内联 ai 共用 moshuWorth。
+        check(trigger, player) {
+            return moshuWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             // 源 L10463-10467：任一角色（含弃牌者本人，L10465 无 from≠p 限制）因弃置而从手牌失去【杀】
             return (
@@ -254,10 +260,12 @@ export const skill = {
                 .getl(target)
                 .hs.filter((card) => get.name(card) === 'sha').length;
             // 源 L10114：askForSkillInvoke —— 询问是否发动
-            event.result = await player
-                .chooseBool(
-                    `魔术：是否获得${count * 2}枚宝石并令${get.translation(target)}获得致命祝福？`,
-                )
+            const ask = player.chooseBool(
+                `魔术：是否获得${count * 2}枚宝石并令${get.translation(target)}获得致命祝福？`,
+            );
+            // frequent 型触发技的自动确认须由 cost 转发 frequentSkill（本体·狂骨范式）
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
                 // AI 口径：友方或已持致命祝福（纯赚宝石）才发动（moshuWorth）
                 //（源 AI st_moshu=asFriend(弃牌者) or GetBless(fatal)，StarRail-ai.lua L3715；源 animal.lua L10463-10489）
                 .set('ai', () => moshuWorth(player, target))
@@ -295,11 +303,14 @@ export const translate = {
     'bts_ch_yuanbanlin_skin6': '皮肤6',
     bts_ch_yuanbanlin: '远坂凛',
     bts_sk_mingxin: '明薪',
-    bts_sk_mingxin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你摸一张牌并展示之，此牌视为【杀】；然后令这些角色各附加${get.poptip('bts_glossary_nature_dark_faq')}和1层诅咒，若你为${get.poptip('bts_glossary_xingqi_faq')}，获得24枚${get.poptip('bts_glossary_magic_diamond_faq')}，若如此做，此回合结束时，你执行一个额外的摸牌阶段和出牌阶段。`,
+    bts_sk_mingxin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `你摸一张牌并展示之，此牌视为【杀】；然后令这些角色各附加${get.poptip('bts_glossary_nature_dark_faq')}和1层诅咒，若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `获得24枚${get.poptip('bts_glossary_magic_diamond_faq')}，若如此做，此回合结束时，你执行一个额外的摸牌阶段和出牌阶段。`,
     bts_sk_mingxin_slash: '明薪·视为杀',
     bts_sk_mingxin_slash_info: `你可以将${get.poptip('bts_sk_mingxin')}展示的牌当【杀】使用（本回合内）。`,
     bts_sk_shiyan: '实验',
-    bts_sk_shiyan_info: `出牌阶段，若你拥有至少7张手牌或15枚${get.poptip('bts_glossary_magic_diamond_faq')}，可以弃置所有手牌并选择至少一名其他角色，消耗${get.poptip('bts_glossary_magic_diamond_faq')}以7%起始概率造成${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害；失败时下次概率翻倍，最后摸两张牌并结束出牌阶段。`,
+    bts_sk_shiyan_info: `出牌阶段，若你拥有至少7张手牌或15枚${get.poptip('bts_glossary_magic_diamond_faq')}，可以弃置所有手牌并选择至少一名其他角色，消耗${get.poptip('bts_glossary_magic_diamond_faq')}以7%起始概率造成${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害；`
+        + `失败时下次概率翻倍，最后摸两张牌并结束出牌阶段。`,
     bts_sk_moshu: '魔术',
     bts_sk_moshu_info: `一名角色弃置【杀】后，你可以获得其数量两倍的${get.poptip('bts_glossary_magic_diamond_faq')}，若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，令其附加2层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_mk_magic_diamond: '宝石',
@@ -314,9 +325,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_mingxin_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}摸1牌展示当【杀】，群体${get.poptip('bts_glossary_nature_dark_faq')}+诅咒，${get.poptip('bts_glossary_xingqi_faq')}送${get.poptip('bts_glossary_magic_diamond_faq')}额外摸/出牌阶段`,
-    bts_sk_shiyan_info: `手牌/${get.poptip('bts_glossary_magic_diamond_faq')}够数就清手牌，烧${get.poptip('bts_glossary_magic_diamond_faq')}赌${get.poptip('bts_glossary_nature_dark_faq')}暗伤`,
-    bts_sk_moshu_info: `有人弃【杀】你能拿双倍${get.poptip('bts_glossary_magic_diamond_faq')}，顺手送他${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_mingxin_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+1牌展示，此牌视为杀；然后令这些角色各附加量子并+1层诅咒；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，+24${get.poptip('bts_glossary_magic_diamond_faq')}，且此回合结束时执行一个额外的摸牌阶段和出牌阶段`,
+    bts_sk_shiyan_info: `手牌不少于7张或${get.poptip('bts_glossary_magic_diamond_faq')}不少于15枚时，可-全部手牌并消耗${get.poptip('bts_glossary_magic_diamond_faq')}，以7%起始概率造成量子属性通常伤害（失败则下次概率翻倍），最后+2牌并结束出牌阶段`,
+    bts_sk_moshu_info: `有人弃杀你能拿双倍${get.poptip('bts_glossary_magic_diamond_faq')}，顺手送他${get.poptip('bts_glossary_bless_fatal_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -326,6 +338,6 @@ export const glossary = [
     {
         id: 'bts_glossary_magic_diamond_faq',
         name: '|宝石|',
-        info: `远坂凛专属：${get.poptip('bts_sk_mingxin')}${get.poptip('bts_glossary_xingqi_faq')}、${get.poptip('bts_sk_moshu')}任一角色弃杀各+量；${get.poptip('bts_sk_shiyan')}耗3枚概率暗伤。`,
+        info: `远坂凛专属：${get.poptip('bts_sk_mingxin')}${get.poptip('bts_glossary_xingqi_faq')}获得；${get.poptip('bts_sk_moshu')}：任一角色弃置【杀】后，你获得其数量两倍的宝石；${get.poptip('bts_sk_shiyan')}：消耗宝石以概率造成${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害。`,
     },
 ];

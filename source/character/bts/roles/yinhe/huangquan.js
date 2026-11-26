@@ -53,6 +53,9 @@ export const skill = {
                 trigger.filterCard = () => false;
                 return;
             }
+            // 本技能为 silent（封锁分支逐张牌触发，不能自动记日志），发动分支按 A5 手动补记，
+            // 否则整场封锁开始却没有任何「发动了残梦」的记录。
+            player.logSkill('bts_sk_canmeng');
             lib.bts.aiGuard.record(player, 'bts_sk_canmeng');
             player.removeMark('bts_mk_canmeng', 9);
             // 源 L4766-4778：全场技能/祝福/护盾无效、不能使用/打出手牌；封锁器白名单放行残梦本体
@@ -276,7 +279,8 @@ export const translate = {
     bts_mk_canmeng_dis_used: '蚀已用',
     bts_ch_huangquan: '黄泉',
     bts_sk_canmeng: '残梦',
-    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃9枚${get.poptip('bts_glossary_canmeng_faq')}标记，令所有角色于此技能结算完毕前所有技能、${get.poptip('bts_glossary_bless_faq')}、${get.poptip('bts_glossary_hudun_faq')}无效且不能使用或打出手牌；然后限三次，你可以弃置一名角色一张牌；结算完毕后，对这些角色各造成1点伤害。`,
+    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃9枚${get.poptip('bts_glossary_canmeng_faq')}标记，令所有角色于此技能结算完毕前所有技能、${get.poptip('bts_glossary_bless_faq')}、${get.poptip('bts_glossary_hudun_faq')}无效且不能使用或打出手牌；`
+        + `然后限三次，你可以弃置一名角色一张牌；结算完毕后，对这些角色各造成1点伤害。`,
     bts_sk_chigui: '赤鬼',
     bts_sk_chigui_info: `锁定技，当其他角色附加异常或诅咒后，若你的${get.poptip('bts_glossary_canmeng_faq')}少于9枚，你获得1枚${get.poptip('bts_glossary_canmeng_faq')}。`,
     bts_sk_feidu: '飞渡',
@@ -293,9 +297,10 @@ export const translate = {
     bts_mk_canmeng_info: `来源：${get.poptip('bts_sk_chigui')}、${get.poptip('bts_sk_feidu')}赋予；${get.poptip('bts_glossary_canmeng_faq')}：满9发动`,
 };
 export const simpleTranslate = {
-    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}；弃9${get.poptip('bts_glossary_canmeng_faq')}，全场技能/${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}无效且禁出牌，可三次弃目标牌，结束各造成1伤害`,
+    bts_sk_canmeng_info: `${get.poptip('bts_glossary_bisha_faq')}；-9${get.poptip('bts_glossary_canmeng_faq')}，全场技能/${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}无效且禁出牌，`
+        + `可三次-目标1牌，结束时各造成1点伤害`,
     bts_sk_chigui_info: `锁；他人附加异常/诅咒后，${get.poptip('bts_glossary_canmeng_faq')}<9则+1`,
-    bts_sk_feidu_info: `准备阶段可弃杀+1${get.poptip('bts_glossary_canmeng_faq')}`,
+    bts_sk_feidu_info: `准备阶段可-1杀+1${get.poptip('bts_glossary_canmeng_faq')}`,
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 

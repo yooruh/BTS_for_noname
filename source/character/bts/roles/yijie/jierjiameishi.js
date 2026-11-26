@@ -1,11 +1,12 @@
 // 吉尔伽美什（源 animal.lua L9909-10032）—— 兴致阈值与王之三技。
-// 技能：乖离（必杀技·群体虚数通常伤害）、财宝（跳摸+兴致积累）、悦王（他人必杀后增幅）、
-//       承认（兴致当摸牌）、允许（他人回合结束获兴致）、背负（手牌【杀】当【过河拆桥】）。
+// 技能：乖离（必杀技·群体虚数通常伤害）、财宝（跳过摸牌+兴致积累，觉醒技）、悦王（他人必杀后增幅）、
+//       承认（摸牌阶段把兴致转为摸牌）、允许（他人回合结束获兴致）、背负（手牌【杀】当【过河拆桥】）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
+import { extensionPath } from '../../../../tool/utils/paths.js';
 export const sort = 'yijie';
 export const title = '雷·毁灭·古老的英雄王'; // 属性·命途
 export const intro =
-    `${B('吉尔伽美什')}拿${get.poptip('bts_glossary_xingzhi_faq')}换跳摸牌，攒满10点后取得王之权能。`;
+    `${B('吉尔伽美什')}用${get.poptip('bts_sk_caibao')}跳过摸牌阶段积蓄${get.poptip('bts_glossary_xingzhi_faq')}，达到10枚后觉醒取得${get.poptip('bts_sk_wanglai_chengren')}，摸牌阶段按${get.poptip('bts_glossary_xingzhi_faq')}数多摸牌。`;
 
 export const character = {
     bts_ch_jierjiameishi: {
@@ -63,9 +64,9 @@ export const skill = {
         },
     },
 
-    // ── 触发技·财宝（源 st_caibao = TriggerSkill EventPhaseStart/EventPhaseChanging，L9933-9960）──
-    // 锁定技，你跳过摸牌阶段；其他角色回合结束时，其可以令你获得1枚兴致，
-    // 兴致达到10后你获得承认、允许、背负（并移除财宝）。
+    // ── 觉醒技·财宝（源 st_caibao = TriggerSkill EventPhaseStart/EventPhaseChanging，L9933-9960）──
+    // 锁定技，你跳过摸牌阶段；其他角色回合结束时，其可以令你获得1枚兴致。
+    // 觉醒技，你的兴致达到10枚后觉醒：获得承认、允许、背负，然后本技能失效（不再跳过摸牌阶段）。
     bts_sk_caibao: {
         // 源 L9952-9955：EventPhaseChanging to Draw 跳过摸牌；无名杀以准备阶段 player.skip('phaseDraw')
         // 预标（skipList 于摸牌阶段起始检查，等效整段跳）。
@@ -73,9 +74,7 @@ export const skill = {
         forced: true,
         filter(event, player, triggername) {
             // 源 L9938：他人回合结束才触发（triggername 判变体，event.name 是基名）
-            return triggername === 'phaseAfter'
-                ? event.player !== player && !player.countMark('bts_mk_caibao_done')
-                : true;
+            return triggername === 'phaseAfter' ? event.player !== player : true;
         },
         async content(event, trigger, player) {
             if (event.triggername === 'phaseZhunbeiBegin') {
@@ -99,21 +98,25 @@ export const skill = {
                 1,
                 false,
             );
-            player.addMark('bts_mk_wanglai_chengren', 1); // 固定键镜像：累计承认数（动态 per-同意者 键不可静态注册）
+            // 累计承认数：挂在承认的计数子技上（计数/统计类只做角标，nopop 不进技能栏/菜单）
+            player.addMark('bts_sk_wanglai_chengren_count', 1);
             if (player.countMark('bts_mk_xingzhi') < 10) return; // 源 L9945：未达10枚
-            // 源 L9946-9948：达到10枚 → 移除财宝并取得承认/允许/背负
-            player.addMark('bts_mk_caibao_done', 1);
-            await player.removeSkill('bts_sk_caibao');
+            // 源 L9946-9948：达到10枚 → 取得承认/允许/背负。觉醒技用 awakenSkill 失效：财宝留在技能栏
+            // （显示为已觉醒），跳过摸牌阶段与赠兴致一并停止，摸牌阶段此后由承认结算。
             await player.addSkill('bts_sk_wanglai_chengren');
             await player.addSkill('bts_sk_wanglai_yunxu');
             await player.addSkill('bts_sk_wanglai_beifu');
+            player.awakenSkill('bts_sk_caibao');
         },
     },
 
     // ── 关联技·承认（源 wanglai_chengren = TriggerSkill Compulsory DrawNCards，L9979-9991）──
     // 锁定技，摸牌阶段额定摸牌数+兴致数，然后弃置全部兴致。
+    // 觉醒时由财宝赋予；财宝因觉醒失效后摸牌阶段恢复，此技能才真正生效。
     bts_sk_wanglai_chengren: {
         charlotte: true,
+        // 计数子技随本技能一同展开（角标仍由标记生命周期在 addMark 时挂载）
+        group: ['bts_sk_wanglai_chengren_count'],
         trigger: { player: 'phaseDrawBegin2' },
         forced: true,
         filter(event, player) {
@@ -124,10 +127,30 @@ export const skill = {
             trigger.num += player.countMark('bts_mk_xingzhi');
             player.removeMark('bts_mk_xingzhi', player.countMark('bts_mk_xingzhi'));
         },
+        // 计数子技：累计被同意的次数（纯统计，只承担角标显示）。不写成顶层标记技能：
+        // 标记生命周期会 addSkill 到玩家身上；nopop 保证不进技能栏/角色详情，sub+sourceSkill
+        // 声明为承认的子技能。图标复用既有 image/mark/bts_mk_wanglai_chengren.png。
+        subSkill: {
+            count: {
+                sub: true,
+                sourceSkill: 'bts_sk_wanglai_chengren',
+                nopop: true,
+                silent: true,
+                charlotte: true,
+                mark: true,
+                marktext: '承',
+                intro: {
+                    name: '承认',
+                    content: (storage) =>
+                        `<li>来源：${get.poptip('bts_sk_caibao')}赋予，累计被同意的次数：${storage || 0}</li>`,
+                },
+                markimage: `${extensionPath}/image/mark/bts_mk_wanglai_chengren.png`,
+            },
+        },
     },
 
     // ── 关联技·允许（源 wanglai_yunxu = TriggerSkill Compulsory EventPhaseStart，L9961-9978）──
-    // 锁定技，其他角色回合结束时，你获得1枚兴致。
+    // 锁定技，令你获得过兴致的角色回合结束时，你获得2枚兴致（源1枚，当前设计+1）。
     bts_sk_wanglai_yunxu: {
         charlotte: true,
         trigger: { global: 'phaseAfter' },
@@ -141,7 +164,7 @@ export const skill = {
             );
         },
         async content(event, trigger, player) {
-            player.addMark('bts_mk_xingzhi', 1); // 源 L9970：p:gainMark("@xingzhi")
+            player.addMark('bts_mk_xingzhi', 2); // 源 L9970：p:gainMark("@xingzhi")；定夺每次+1
         },
     },
 
@@ -206,14 +229,9 @@ export const skill = {
 };
 
 export const marks = {
-    bts_mk_caibao_done: { markKind: 'record' },
     bts_mk_xingzhi: {
         markKind: 'mark',
         glossaryId: 'bts_glossary_xingzhi_faq',
-    },
-    bts_mk_wanglai_chengren: {
-        // 固定键镜像：累计承认数（动态 bts_mk_wanglai_chengren_<pid> 无法静态注册，图标已就位）
-        markKind: 'mark',
     },
 };
 
@@ -222,23 +240,21 @@ export const translate = {
     'bts_ch_jierjiameishi_skin1': '皮肤1',
     'bts_ch_jierjiameishi_skin2': '皮肤2',
     'bts_ch_jierjiameishi_skin3': '皮肤3',
-    bts_mk_caibao_done: '财宝达成',
     bts_ch_jierjiameishi: '吉尔伽美什',
     bts_sk_guaili: '乖离',
     bts_sk_guaili_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，对这些角色各造成1点${get.poptip('bts_glossary_nature_light_dmg_faq')}通常伤害。`,
     bts_sk_caibao: '财宝',
-    bts_sk_caibao_info: `锁定技，你跳过摸牌阶段；其他角色回合结束时，其可以令你获得1枚${get.poptip('bts_glossary_xingzhi_faq')}，${get.poptip('bts_glossary_xingzhi_faq')}达到10后你获得${get.poptip('bts_sk_wanglai_chengren')}、${get.poptip('bts_sk_wanglai_yunxu')}、${get.poptip('bts_sk_wanglai_beifu')}。`,
+    bts_sk_caibao_info: `锁定技，你跳过摸牌阶段；其他角色回合结束时，其可以令你获得1枚${get.poptip('bts_glossary_xingzhi_faq')}。觉醒技，当${get.poptip('bts_glossary_xingzhi_faq')}达到10枚后觉醒：你获得${get.poptip('bts_sk_wanglai_chengren')}、${get.poptip('bts_sk_wanglai_yunxu')}和${get.poptip('bts_sk_wanglai_beifu')}，`
+        + `然后本技能失效。`,
     bts_sk_yuewang: '悦王',
     bts_sk_yuewang_info: `锁定技，其他角色发动${get.poptip('bts_glossary_bisha_faq')}后，你附加1层${get.poptip('bts_glossary_bless_zengfu_faq')}。`,
     bts_sk_wanglai_chengren: '承认',
-    bts_sk_wanglai_chengren_info: `锁定技，摸牌阶段，你弃全部${get.poptip('bts_glossary_xingzhi_faq')}标记并多摸等量的牌。`,
+    bts_sk_wanglai_chengren_info: `锁定技，摸牌阶段，你弃置全部${get.poptip('bts_glossary_xingzhi_faq')}并多摸等量的牌。`,
     bts_sk_wanglai_yunxu: '允许',
-    bts_sk_wanglai_yunxu_info: `锁定技，令你获得过${get.poptip('bts_glossary_xingzhi_faq')}标记的角色的回合结束时，你获得1枚${get.poptip('bts_glossary_xingzhi_faq')}标记。`,
+    bts_sk_wanglai_yunxu_info: `锁定技，令你获得过${get.poptip('bts_glossary_xingzhi_faq')}标记的角色的回合结束时，你获得2枚${get.poptip('bts_glossary_xingzhi_faq')}标记。`,
     bts_sk_wanglai_beifu: '背负',
     bts_sk_wanglai_beifu_info: '锁定技，你的【杀】视为【过河拆桥】。',
     bts_mk_xingzhi: '兴致',
-    bts_mk_wanglai_chengren: '承认',
-    bts_mk_wanglai_chengren_info: `来源：${get.poptip('bts_sk_caibao')}赋予；累计被同意的次数`,
 
     '$bts_sk_guaili1': "醒来吧，Ea!",
     '$bts_sk_guaili2': "知晓原初之理吧——Enuma Elish！",
@@ -253,13 +269,15 @@ export const translate = {
     '$bts_sk_wanglai_chengren2': "哈哈哈哈哈哈哈哈哈！",
     '$bts_sk_wanglai_yunxu2': "不错，来兴致了",
     '~bts_ch_jierjiameishi': "本王就先抽身了…",
-    bts_mk_xingzhi_info: `来源：${get.poptip('bts_sk_caibao')}、${get.poptip('bts_sk_wanglai_yunxu')}赋予；${get.poptip('bts_sk_wanglai_chengren')}：改摸牌、解锁王技`,
+    bts_mk_xingzhi_info: `来源：${get.poptip('bts_sk_caibao')}、${get.poptip('bts_sk_wanglai_yunxu')}赋予；${get.poptip('bts_sk_caibao')}觉醒后，`
+        + `${get.poptip('bts_sk_wanglai_chengren')}在摸牌阶段按${get.poptip('bts_glossary_xingzhi_faq')}数多摸牌并清空`,
 };
 
 export const simpleTranslate = {
-    bts_sk_guaili_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}群体虚数通常伤害`,
-    bts_sk_caibao_info: `锁；跳摸，其他回合后可+${get.poptip('bts_glossary_xingzhi_faq')}，10后获得王之三技`,
-    bts_sk_yuewang_info: `锁；他人${get.poptip('bts_glossary_bisha_faq')}后+${get.poptip('bts_glossary_bless_zengfu_faq')}`,
+    bts_sk_guaili_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成1点虚数属性通常伤害`,
+    bts_sk_caibao_info: `锁；你跳过摸牌阶段；其他角色的回合结束时，其可令你+1${get.poptip('bts_glossary_xingzhi_faq')}；觉；达到10枚后获得${get.poptip('bts_sk_wanglai_chengren')}${get.poptip('bts_sk_wanglai_yunxu')}${get.poptip('bts_sk_wanglai_beifu')}，`
+        + `本技能失效`,
+    bts_sk_yuewang_info: `锁；其他角色发动${get.poptip('bts_glossary_bisha_faq')}后，你+1层${get.poptip('bts_glossary_bless_zengfu_faq')}`,
 };
 
 // 默认读音有误（什→shí）：按叁岛式写「中文名 → 带声调拼音数组」覆盖。
@@ -272,6 +290,6 @@ export const glossary = [
     {
         id: 'bts_glossary_xingzhi_faq',
         name: '|兴致|',
-        info: `吉尔伽美什专属：${get.poptip('bts_sk_caibao')}、${get.poptip('bts_sk_wanglai_yunxu')}获得；满10由${get.poptip('bts_sk_wanglai_chengren')}按${get.poptip('bts_glossary_xingzhi_faq')}摸牌并清空。`,
+        info: `吉尔伽美什专属：${get.poptip('bts_sk_caibao')}、${get.poptip('bts_sk_wanglai_yunxu')}获得；达到10枚由${get.poptip('bts_sk_caibao')}觉醒，此后摸牌阶段由${get.poptip('bts_sk_wanglai_chengren')}按${get.poptip('bts_glossary_xingzhi_faq')}数多摸牌并清空。`,
     },
 ];

@@ -169,11 +169,11 @@ export const skill = {
 export const translate = {
     bts_ch_ren: '刃',
     bts_sk_wansi: '万死',
-    bts_sk_wansi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，你将体力值调整至你的${get.poptip('bts_glossary_bless_maxhp_faq')}的一半，然后对其造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
-
+    bts_sk_wansi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，`
+        + `你将体力值调整至你的${get.poptip('bts_glossary_bless_maxhp_faq')}的一半，然后对其造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
     bts_sk_shuhu: '倏忽',
-    bts_sk_shuhu_info: `锁定技，当你扣减体力后，附加1层${get.poptip('bts_glossary_bless_busi_faq')}，然后若拥有至少5层${get.poptip('bts_glossary_bless_busi_faq')}，移除全部${get.poptip('bts_glossary_bless_busi_faq')}，回复2点体力，视为对上个对你造成伤害的角色使用【杀】。`,
-
+    bts_sk_shuhu_info: `锁定技，当你扣减体力后，附加1层${get.poptip('bts_glossary_bless_busi_faq')}，然后若拥有至少5层${get.poptip('bts_glossary_bless_busi_faq')}，`
+        + `移除全部${get.poptip('bts_glossary_bless_busi_faq')}，回复2点体力，视为对上个对你造成伤害的角色使用【杀】。`,
     bts_sk_yubian: '狱变',
     bts_sk_yubian_info: `出牌阶段，你可以弃置一张【杀】，失去1点体力，附加3层${get.poptip('bts_glossary_abnormal_diyu_faq')}。`,
 
@@ -187,9 +187,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_wansi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}${get.poptip('bts_glossary_bless_critical_faq')}伤害，并将体力调整至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半`,
-    bts_sk_shuhu_info: `锁；扣减体力后+1${get.poptip('bts_glossary_bless_busi_faq')}；≥5层时移除全部，回复2体力，对上个伤害你的角色使用杀`,
-    bts_sk_yubian_info: `出牌阶段，弃1张【杀】失去1体力，+3层${get.poptip('bts_glossary_abnormal_diyu_faq')}`,
+    bts_sk_wansi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}${get.poptip('bts_glossary_bless_critical_faq')}伤害，`
+        + `并将体力调整至${get.poptip('bts_glossary_bless_maxhp_faq')}的一半`,
+    bts_sk_shuhu_info: `锁；-体力后+1${get.poptip('bts_glossary_bless_busi_faq')}；≥5层时移除全部，+2体力，对上个伤害你的角色使用杀`,
+    bts_sk_yubian_info: `出牌阶段，-1杀-1体力，+3层${get.poptip('bts_glossary_abnormal_diyu_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

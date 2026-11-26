@@ -229,6 +229,12 @@ export const skill = {
     //（定夺 C-04：阈值由固定 2 改为取小伊卡当前体力 bts_pet_xiaoyika。）
     bts_sk_qingkong: {
         trigger: { global: ['damageEnd', 'loseHpEnd'] },
+        // frequent:'check'：扣减体力事件频发，qingkongWorth 成立（友方受伤且诅咒额度够）时
+        // 引擎自动确认，免去每次手点；不成立时照常弹询问。check 与 cost 内联 ai 共用 qingkongWorth。
+        check(trigger, player) {
+            return qingkongWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             // 其他角色扣减体力、存活、且你的诅咒<忆灵当前体力（源 GetPetHp 语义；移除忆灵=0 则完全禁发）
             return (
@@ -244,10 +250,12 @@ export const skill = {
             // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
             const target = trigger.player; // trigger=伤害/失血事件
             // 询问是否获得1层诅咒并治疗目标
-            event.result = await player
-                .chooseBool(
-                    `晴空：是否获得1层诅咒并令${get.translation(target)}回复1点体力？`,
-                )
+            const ask = player.chooseBool(
+                `晴空：是否获得1层诅咒并令${get.translation(target)}回复1点体力？`,
+            );
+            // frequent 型触发技的自动确认须由 cost 转发 frequentSkill（本体·狂骨范式）
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
                 .set(
                     'ai',
                     // AI 口径：仅救治友方，且自身体力扛得住诅咒+1（qingkongWorth；诅咒会在下次受伤时
@@ -325,21 +333,22 @@ export const translate = {
     bts_ch_xiaoyika: '小伊卡',
     bts_ch_fengjin_and_xiaoyika: '风堇&小伊卡',
     bts_sk_chenhun: '晨昏',
-    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你附加3层${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}。若你为${get.poptip('bts_glossary_xingqi_faq')}，你与这些角色各附加2层${get.poptip('bts_glossary_bless_maxhp_faq')}。然后你与这些角色各回复1点体力。`,
+    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `你附加3层${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}。若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `你与这些角色各附加2层${get.poptip('bts_glossary_bless_maxhp_faq')}。然后你与这些角色各回复1点体力。`,
     bts_sk_yuchen: '愈晨',
     bts_sk_yuchen_info: `锁定技，当你回复体力前，你附加1层${get.poptip('bts_glossary_bless_maxhp_faq')}；若你不处于${get.poptip('bts_glossary_abnormal_scary_faq')}，附加1层${get.poptip('bts_glossary_abnormal_scary_faq')}。`,
     bts_sk_hongguang: '虹光',
-    bts_sk_hongguang_info:
-        `准备阶段开始时，你可以弃置一张【杀】并选择一名受伤的其他角色，召唤${get.poptip('bts_ch_xiaoyika')}并令其回复1点体力；若你的体力值为场上最低，你可以选择任意名角色。`,
+    bts_sk_hongguang_info: `准备阶段开始时，你可以弃置一张【杀】并选择一名受伤的其他角色，召唤${get.poptip('bts_ch_xiaoyika')}并令其回复1点体力；若你的体力值为场上最低，你可以选择任意名角色。`,
     bts_sk_qingkong: '晴空',
-    bts_sk_qingkong_info:
-        '当其他角色扣减体力后，若你的诅咒层数少于忆灵当前体力，你可以获得1层诅咒并令其回复1点体力。',
+    bts_sk_qingkong_info: '当其他角色扣减体力后，若你的诅咒层数少于忆灵当前体力，你可以获得1层诅咒并令其回复1点体力。',
     bts_sk_zoukai: '走开',
     bts_sk_zoukai_info: `锁定技，结束阶段开始时，若你拥有${get.poptip('bts_glossary_bless_yuguotianqing_faq')}，对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害。`,
     bts_sk_zhanluo: '展落',
     bts_sk_zhanluo_info: `锁定技，当${get.poptip('bts_ch_xiaoyika')}被召唤时，你获得1点${get.poptip('bts_glossary_nuqi_faq')}；当${get.poptip('bts_ch_xiaoyika')}离场时，你摸一张牌。`,
     bts_bless_yuguotianqing: '雨过天晴祝福',
     bts_pet_xiaoyika: '小伊卡',
+    bts_pet_xiaoyika_info: `来源：${get.poptip('bts_sk_chenhun')}、${get.poptip('bts_sk_hongguang')}召唤；忆灵体力：本体受伤等量扣减、回复等量回补（封顶忆灵上限），归零后离场`,
 
     '$bts_sk_chenhun1': "愿这一抹微光……",
     '$bts_sk_chenhun2': "拨开阴翳与云雾，重见澄澈晴空！",
@@ -360,13 +369,13 @@ export const translate = {
     '$bts_sk_zhanluo1': "荧荧微光，也将汇成璀璨星河",
 };
 export const simpleTranslate = {
-    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}，${get.poptip('bts_glossary_xingqi_faq')}时加${get.poptip('bts_glossary_bless_maxhp_faq')}，治疗自己和目标`,
-    bts_sk_yuchen_info: `锁；回复前+${get.poptip('bts_glossary_bless_maxhp_faq')}，未${get.poptip('bts_glossary_abnormal_scary_faq')}则+${get.poptip('bts_glossary_abnormal_scary_faq')}`,
-    bts_sk_hongguang_info:
-        `准备阶段可弃杀召唤${get.poptip('bts_ch_xiaoyika')}并治疗受伤其他角色，最低体力时可多选`,
-    bts_sk_qingkong_info: `他人扣血且诅咒<忆灵体力时可+1诅咒并令其回复1`,
+    bts_sk_chenhun_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_yuguotianqing_faq')}并召唤${get.poptip('bts_ch_xiaoyika')}，`
+        + `${get.poptip('bts_glossary_xingqi_faq')}时你与目标各+2${get.poptip('bts_glossary_bless_maxhp_faq')}；然后你与目标各+1体力`,
+    bts_sk_yuchen_info: `锁；回复体力前+${get.poptip('bts_glossary_bless_maxhp_faq')}，未${get.poptip('bts_glossary_abnormal_scary_faq')}则+${get.poptip('bts_glossary_abnormal_scary_faq')}`,
+    bts_sk_hongguang_info: `准备阶段开始时，可-1杀选择1名受伤的其他角色，召唤${get.poptip('bts_ch_xiaoyika')}并令其+1体力；若你体力为全场最低，可选择任意名角色`,
+    bts_sk_qingkong_info: `他人-体力且诅咒<忆灵体力时可+1诅咒并令其+1体力`,
     bts_sk_zoukai_info: `锁；有${get.poptip('bts_glossary_bless_yuguotianqing_faq')}时结束阶段对上个伤你的角色造成1风伤`,
-    bts_sk_zhanluo_info: `锁；${get.poptip('bts_ch_xiaoyika')}登场+1${get.poptip('bts_glossary_nuqi_faq')}、离场摸1`
+    bts_sk_zhanluo_info: `锁；${get.poptip('bts_ch_xiaoyika')}登场+1${get.poptip('bts_glossary_nuqi_faq')}、离场+1牌`
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 

@@ -291,17 +291,24 @@ export const marks = {
 export const translate = {
     bts_ch_yinlang_lv999: '银狼LV999',
     bts_sk_wuqi: '无启',
-    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以消耗60${get.poptip('bts_glossary_fenshu_faq')}，结束出牌阶段；有 99.9%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率失去${get.poptip('bts_sk_wuqi')}与${get.poptip('bts_sk_baoshe_funny')}并获得${get.poptip('bts_sk_langzun_funny')}。此回合结束时，你执行一个额外回合。`,
+    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以消耗60${get.poptip('bts_glossary_fenshu_faq')}，结束出牌阶段；`
+        + `有 99.9%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率失去${get.poptip('bts_sk_wuqi')}与${get.poptip('bts_sk_baoshe_funny')}并获得${get.poptip('bts_sk_langzun_funny')}。`
+        + `此回合结束时，你执行一个额外回合。`,
     bts_sk_baoshe_funny: '爆射',
     bts_sk_baoshe_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段开始时，你可以弃置一张【杀】，获得5枚${get.poptip('bts_glossary_funnypoint_faq')}。欢愉行动：获得15枚${get.poptip('bts_glossary_fenshu_faq')}。`,
     bts_sk_zhenju: '真局',
-    bts_sk_zhenju_info: `锁定技，当你执行${get.poptip('bts_glossary_funny_act_faq')}后，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你获得20枚${get.poptip('bts_glossary_fenshu_faq')}；若此时为欢愉时刻且你拥有至少40枚${get.poptip('bts_glossary_funnypoint_faq')}，改为获得40枚。`,
+    bts_sk_zhenju_info: `锁定技，当你执行${get.poptip('bts_glossary_funny_act_faq')}后，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，`
+        + `你获得20枚${get.poptip('bts_glossary_fenshu_faq')}；若此时为欢愉时刻且你拥有至少40枚${get.poptip('bts_glossary_funnypoint_faq')}，`
+        + `改为获得40枚。`,
     bts_sk_jiaju: '假局',
     bts_sk_jiaju_info: `锁定技，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你的${get.poptip('bts_glossary_funny_act_faq')}执行数值+1。`,
     bts_sk_yincang: '隐藏',
     bts_sk_yincang_info: `锁定技，当你发动${get.poptip('bts_glossary_bisha_faq')}后，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你获得20枚${get.poptip('bts_glossary_fenshu_faq')}。`,
     bts_sk_langzun_funny: '狼尊',
-    bts_sk_langzun_funny_info: `锁定技，${get.poptip('bts_glossary_funny_skill_faq')}，你跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并获得1枚${get.poptip('bts_glossary_dianchi_faq')}；${get.poptip('bts_glossary_dianchi_faq')}超过 8（每失去一次${get.poptip('bts_glossary_fenshu_faq')}时若余量≥120 则上限+3）时，恢复${get.poptip('bts_sk_baoshe_funny')}与${get.poptip('bts_sk_wuqi')}、失去${get.poptip('bts_sk_langzun_funny')}、清空${get.poptip('bts_glossary_fenshu_faq')}与${get.poptip('bts_glossary_dianchi_faq')}。忙盒：随机摸两张牌、获得3枚${get.poptip('bts_glossary_funnypoint_faq')}、或令伤过你的角色各失去1点体力。`,
+    bts_sk_langzun_funny_info: `锁定技，${get.poptip('bts_glossary_funny_skill_faq')}，你跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并获得1枚${get.poptip('bts_glossary_dianchi_faq')}；`
+        + `${get.poptip('bts_glossary_dianchi_faq')}超过 8（每失去一次${get.poptip('bts_glossary_fenshu_faq')}时若余量≥120 则上限+3）时，`
+        + `恢复${get.poptip('bts_sk_baoshe_funny')}与${get.poptip('bts_sk_wuqi')}、失去${get.poptip('bts_sk_langzun_funny')}、清空${get.poptip('bts_glossary_fenshu_faq')}与${get.poptip('bts_glossary_dianchi_faq')}。`
+        + `忙盒：随机摸两张牌、获得3枚${get.poptip('bts_glossary_funnypoint_faq')}、或令伤过你的角色各失去1点体力。`,
     bts_sk_shunfeng: '顺风',
     bts_sk_shunfeng_info: `锁定技，当一名角色获得${get.poptip('bts_glossary_funnypoint_faq')}后，你获得等量的${get.poptip('bts_glossary_fenshu_faq')}。`,
     bts_mk_fenshu: '分数',
@@ -316,19 +323,21 @@ export const translate = {
     '$bts_sk_baoshe_funny2': "无限火力",
     '$bts_sk_shunfeng1': "一波带走",
     '$bts_sk_shunfeng2': "爽就完了",
-
     '$bts_sk_langzun_funny1': "Crazy!",
     '$bts_sk_langzun_funny2': "Bravo!",
     '$bts_sk_langzun_funny3': "Amazing!",
 };
 
 export const simpleTranslate = {
-    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；耗60${get.poptip('bts_glossary_fenshu_faq')}结束出牌，99.9%失${get.poptip('bts_sk_wuqi')}/${get.poptip('bts_sk_baoshe_funny')}转${get.poptip('bts_sk_langzun_funny')}；回合末额外回合`,
-    bts_sk_baoshe_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；出牌开始可弃杀+5${get.poptip('bts_glossary_funnypoint_faq')}；欢愉行动+15${get.poptip('bts_glossary_fenshu_faq')}`,
+    bts_sk_wuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；耗60${get.poptip('bts_glossary_fenshu_faq')}并结束出牌阶段，99.9%-${get.poptip('bts_sk_wuqi')}/${get.poptip('bts_sk_baoshe_funny')}，`
+        + `转为${get.poptip('bts_sk_langzun_funny')}；回合结束时执行额外回合`,
+    bts_sk_baoshe_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；出牌阶段开始时可-1杀+5${get.poptip('bts_glossary_funnypoint_faq')}；欢愉行动+15${get.poptip('bts_glossary_fenshu_faq')}`,
     bts_sk_zhenju_info: `锁；执行${get.poptip('bts_glossary_funny_act_faq')}后若有${get.poptip('bts_glossary_huanju_shengge_faq')}则+20${get.poptip('bts_glossary_fenshu_faq')}（欢愉时刻且笑点≥40改+40）`,
     bts_sk_jiaju_info: `锁；有${get.poptip('bts_glossary_huanju_shengge_faq')}时，${get.poptip('bts_glossary_funny_act_faq')}数值+1`,
     bts_sk_yincang_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若有${get.poptip('bts_glossary_huanju_shengge_faq')}则+20${get.poptip('bts_glossary_fenshu_faq')}`,
-    bts_sk_langzun_funny_info: `锁，${get.poptip('bts_glossary_funny_skill_faq')}；跳摸/出/弃阶段各忙盒+1${get.poptip('bts_glossary_dianchi_faq')}，${get.poptip('bts_glossary_dianchi_faq')}>8（每扩一次+3）恢复${get.poptip('bts_sk_baoshe_funny')}/${get.poptip('bts_sk_wuqi')}`,
+    bts_sk_langzun_funny_info: `锁；${get.poptip('bts_glossary_funny_skill_faq')}；跳过摸牌、出牌、弃牌阶段，每跳过一个阶段执行一次忙盒并+1${get.poptip('bts_glossary_dianchi_faq')}；`
+        + `${get.poptip('bts_glossary_dianchi_faq')}超过8（每次分数余量不少于120时上限+3）时，恢复${get.poptip('bts_sk_baoshe_funny')}与${get.poptip('bts_sk_wuqi')}、失去此技能并清空${get.poptip('bts_glossary_fenshu_faq')}与${get.poptip('bts_glossary_dianchi_faq')}（忙盒：随机+2牌、+3${get.poptip('bts_glossary_funnypoint_faq')}，`
+        + `或令伤过你的角色各-1体力）`,
     bts_sk_shunfeng_info: `锁；笑点获得时+等量${get.poptip('bts_glossary_fenshu_faq')}`,
 };
 

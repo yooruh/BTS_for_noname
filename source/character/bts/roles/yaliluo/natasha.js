@@ -173,12 +173,10 @@ export const translate = {
     'bts_ch_natasha_skin1': '皮肤1',
     bts_ch_natasha: '娜塔莎',
     bts_sk_xinsheng: '新生',
-    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各回复1点体力，若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加2层${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,
-
+    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `你与这些角色各回复1点体力，若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加2层${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,
     bts_sk_shengji: '生机',
-    bts_sk_shengji_info:
-        '锁定技，当你令一名体力值不大于1的角色回复体力时，其回复量+1。',
-
+    bts_sk_shengji_info: '锁定技，当你令一名体力值不大于1的角色回复体力时，其回复量+1。',
     bts_sk_jiuhu: '救护',
     bts_sk_jiuhu_info: `当一名角色受到伤害后，你可以弃置一张【杀】，令其附加1层${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,
 
@@ -192,9 +190,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各回复1体力（${get.poptip('bts_glossary_xingqi_faq')}则目标各+2${get.poptip('bts_glossary_bless_zhiyu_faq')}）`,
-    bts_sk_shengji_info: '锁；你令体力≤1的角色回复体力时回复量+1',
-    bts_sk_jiuhu_info: `角色受伤后，弃1张【杀】令其+1${get.poptip('bts_glossary_bless_zhiyu_faq')}`,
+    bts_sk_xinsheng_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各+1体力（${get.poptip('bts_glossary_xingqi_faq')}则目标各+2${get.poptip('bts_glossary_bless_zhiyu_faq')}）`,
+    bts_sk_shengji_info: '锁；你令体力≤1的角色回复体力时，回复量+1',
+    bts_sk_jiuhu_info: `角色受伤后，-1杀令其+1${get.poptip('bts_glossary_bless_zhiyu_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

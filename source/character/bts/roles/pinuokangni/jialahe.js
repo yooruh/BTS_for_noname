@@ -157,12 +157,13 @@ export const translate = {
     'bts_mk_xiangbin-sha': '香槟加持',
     bts_ch_jialahe: '加拉赫',
     bts_sk_xiangbin: '香槟',
-    bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各附加1层（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为2层）${get.poptip('bts_glossary_abnormal_mingding_faq')}；若如此做，当你使用下一张【杀】指定目标后，视为【决斗】且所有目标各附加1层${get.poptip('bts_glossary_abnormal_confuse_faq')}。`,
+    bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `这些角色各附加1层（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为2层）${get.poptip('bts_glossary_abnormal_mingding_faq')}；`
+        + `若如此做，当你使用下一张【杀】指定目标后，视为【决斗】且所有目标各附加1层${get.poptip('bts_glossary_abnormal_confuse_faq')}。`,
     bts_sk_aohan: '鏖酣',
     bts_sk_aohan_info: '锁定技，你的回合内，于出牌阶段外回复体力时，回复量+1。',
     bts_sk_tetiao: '特调',
-    bts_sk_tetiao_info:
-        '准备阶段开始时，你可以弃置一张【杀】，令一名受伤的其他角色回复1点体力。',
+    bts_sk_tetiao_info: '准备阶段开始时，你可以弃置一张【杀】，令一名受伤的其他角色回复1点体力。',
 
     '$bts_sk_xiangbin1': "生命醇美如佳酿",
     '$bts_sk_xiangbin2': "朋友们，尽情享用吧！",
@@ -174,9 +175,10 @@ export const translate = {
     bts_abnormal_mingding: '酩酊',
 };
 export const simpleTranslate = {
-    bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+1${get.poptip('bts_glossary_abnormal_mingding_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+2），下次杀视为决斗并令所有目标+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
+    bts_sk_xiangbin_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+1${get.poptip('bts_glossary_abnormal_mingding_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+2）；`
+        + `下一张杀视为决斗且所有目标各+1层${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
     bts_sk_aohan_info: '锁；你的回合内非出牌阶段回复量+1',
-    bts_sk_tetiao_info: '准备阶段可弃1杀令1名其他受伤角色回复1点体力',
+    bts_sk_tetiao_info: '准备阶段开始时，可-1杀令一名其他受伤角色+1体力',
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
@@ -195,6 +197,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                trigger.source,
+                `因【${get.translation('bts_abnormal_mingding')}】，回复1点体力`,
+            );
             await trigger.source.recover(player);
         },
     },

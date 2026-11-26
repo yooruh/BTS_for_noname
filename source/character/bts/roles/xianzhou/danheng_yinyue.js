@@ -161,7 +161,8 @@ export const translate = {
     bts_sk_zhuoshi: '濯世',
     bts_sk_zhuoshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并摸两张牌；若你为${get.poptip('bts_glossary_xingqi_faq')}，改为摸三张牌并执行一个额外回合。`,
     bts_sk_longli: '龙力',
-    bts_sk_longli_info: `出牌阶段，你可以弃置一至三张非装备牌，视为对至多一名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}【决斗】；若弃置两张及以上，改为对至多三名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}光属性【决斗】。每弃置一张非【杀】，你附加1层诅咒并结束出牌阶段。`,
+    bts_sk_longli_info: `出牌阶段，你可以弃置一至三张非装备牌，视为对至多一名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}【决斗】；若弃置两张及以上，改为对至多三名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}虚数属性【决斗】。`
+        + `每弃置一张非【杀】，你附加1层诅咒并结束出牌阶段。`,
     bts_sk_kangxin: '亢心',
     bts_sk_kangxin_info: '锁定技，当你移除诅咒后，摸等同于移除层数的牌。',
 
@@ -177,9 +178,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zhuoshi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}摸2（${get.poptip('bts_glossary_xingqi_faq')}3），${get.poptip('bts_glossary_xingqi_faq')}额外回合`,
-    bts_sk_longli_info: `出牌阶段弃至多3张非装备牌，对1名（≥2张3名）角色使用${get.poptip('bts_glossary_bless_fatal_faq')}光属性决斗；非杀牌转诅咒`,
-    bts_sk_kangxin_info: '移除诅咒时摸等量牌',
+    bts_sk_zhuoshi_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+2牌（${get.poptip('bts_glossary_xingqi_faq')}3牌），${get.poptip('bts_glossary_xingqi_faq')}额外回合`,
+    bts_sk_longli_info: `出牌阶段，-1~3张非装备牌，视为对至多1名其他角色使用${get.poptip('bts_glossary_bless_fatal_faq')}决斗；-2张及以上则改为对至多3名使用虚数属性${get.poptip('bts_glossary_bless_fatal_faq')}决斗；每-1非杀牌，其+1层诅咒并结束出牌阶段`,
+    bts_sk_kangxin_info: '移除诅咒时+等量牌',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

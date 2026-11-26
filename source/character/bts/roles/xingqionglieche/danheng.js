@@ -236,9 +236,12 @@ export const translate = {
     'bts_ch_danheng_skin9': '皮肤9',
     bts_ch_danheng: '丹恒',
     bts_sk_dongtian: '洞天',
-    bts_sk_dongtian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，对其造成1点${get.poptip('bts_glossary_bless_fatal_faq')}伤害（若其处于异常，伤害值+1），然后若其已死亡且你为${get.poptip('bts_glossary_xingqi_faq')}，此回合结束时，你执行一个额外的回合。`,
+    bts_sk_dongtian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，`
+        + `对其造成1点${get.poptip('bts_glossary_bless_fatal_faq')}伤害（若其处于异常，伤害值+1），然后若其已死亡且你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `此回合结束时，你执行一个额外的回合。`,
     bts_sk_cunqiang: '寸强',
-    bts_sk_cunqiang_info: `锁定技，当其他角色令你回复${get.poptip('bts_glossary_nuqi_faq')}或体力，或附加${get.poptip('bts_glossary_hudun_faq')}，或获得牌后，若你没有${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}，你附加1层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}。`,
+    bts_sk_cunqiang_info: `锁定技，当其他角色令你回复${get.poptip('bts_glossary_nuqi_faq')}或体力，或附加${get.poptip('bts_glossary_hudun_faq')}，或获得牌后，`
+        + `若你没有${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}，你附加1层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}。`,
     bts_sk_jiyu: '疾雨',
     bts_sk_jiyu_info: `出牌阶段，你可以弃置一张【杀】并选择攻击范围内的一名角色，对其造成1点伤害，若如此做，当你以此法对其造成特殊伤害时，令其附加1层${get.poptip('bts_glossary_abnormal_fossilize_faq')}。`,
 
@@ -252,9 +255,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_dongtian_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点${get.poptip('bts_glossary_bless_fatal_faq')}伤害（目标异常则+1），若击杀且${get.poptip('bts_glossary_xingqi_faq')}，回合结束后执行额外回合`,
-    bts_sk_cunqiang_info: `锁；其他角色令你回${get.poptip('bts_glossary_nuqi_faq')}/体力、加${get.poptip('bts_glossary_hudun_faq')}或获得牌后，若无${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}则+1层${get.poptip('bts_glossary_guantong_faq')}`,
-    bts_sk_jiyu_info: `出牌阶段，弃1张【杀】对攻击范围内1名角色造成1点伤害；若造成特殊伤害则使其+1层${get.poptip('bts_glossary_abnormal_fossilize_faq')}`,
+    bts_sk_dongtian_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点${get.poptip('bts_glossary_bless_fatal_faq')}伤害（目标异常则+1），`
+        + `若击杀且${get.poptip('bts_glossary_xingqi_faq')}，回合结束后执行额外回合`,
+    bts_sk_cunqiang_info: `锁；其他角色令你+${get.poptip('bts_glossary_nuqi_faq')}/体力、+${get.poptip('bts_glossary_hudun_faq')}或+牌后，若无${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}则+1层${get.poptip('bts_glossary_guantong_faq')}`,
+    bts_sk_jiyu_info: `出牌阶段，-1杀对攻击范围内1名角色造成1点伤害；若造成特殊伤害则使其+1层${get.poptip('bts_glossary_abnormal_fossilize_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

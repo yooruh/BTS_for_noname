@@ -185,10 +185,8 @@ export const translate = {
     bts_sk_kanren: '堪忍',
     bts_sk_kanren_info: '锁定技，其他角色失去最后一张手牌后，你摸一张牌。',
     bts_sk_guanche: '贯彻',
-    bts_sk_guanche_info:
-        '受到伤害后，你可以弃置一张【杀】，弃置所有伤害关联角色各一张手牌。',
-    bts_bless_jieyin_info:
-        `${get.poptip('bts_glossary_bless_jieyin_faq')}：你的手牌【杀】视为【决斗】；当你使用【决斗】对其他角色造成伤害时，若其手牌数大于1，防止此伤害并弃置其两张手牌，否则其弃置一张牌并失去1点体力。`,
+    bts_sk_guanche_info: '受到伤害后，你可以弃置一张【杀】，弃置所有伤害关联角色各一张手牌。',
+    bts_bless_jieyin_info: `${get.poptip('bts_glossary_bless_jieyin_faq')}：你的手牌【杀】视为【决斗】；当你使用【决斗】对其他角色造成伤害时，若其手牌数大于1，防止此伤害并弃置其两张手牌，否则其弃置一张牌并失去1点体力。`,
 
     '$bts_sk_tianliu1': "银河忍法，千变万化",
     '$bts_sk_tianliu2': "此乃——「忍法•奥义•缭乱灭破杀阵」！",
@@ -201,9 +199,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_tianliu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}结束出牌阶段，+3${get.poptip('bts_glossary_bless_jieyin_faq')}并额外回合`,
-    bts_sk_kanren_info: '锁；他人空城后摸1',
-    bts_sk_guanche_info: '受伤后可弃杀弃伤害关联角色手牌',
+    bts_sk_tianliu_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}结束出牌阶段，+3${get.poptip('bts_glossary_bless_jieyin_faq')}并执行额外回合`,
+    bts_sk_kanren_info: '锁；其他角色失去最后一张手牌后，你+1牌',
+    bts_sk_guanche_info: '受到伤害后，可-1杀，-伤害关联角色各1手牌',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -255,6 +253,11 @@ export const buffSkills = {
         },
         async content(event, trigger, player) {
             const target = trigger.player;
+            // 【决斗】伤害被整段替换为弃牌/失体力，不写日志只剩「伤害没结算」的空白。
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_jieyin')}】，防止此伤害并结算弃牌`,
+            );
             trigger.cancel();
             if (target.countCards('h') > 1) {
                 if (target.countCards('h'))

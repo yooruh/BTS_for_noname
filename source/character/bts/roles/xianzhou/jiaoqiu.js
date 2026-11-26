@@ -180,7 +180,8 @@ export const skill = {
 export const translate = {
     bts_ch_jiaoqiu: '椒丘',
     bts_sk_dingzhen: '鼎阵',
-    bts_sk_dingzhen_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，将其${get.poptip('bts_glossary_abnormal_burn_faq')}层数补至所选角色中的最高值，然后各附加1层${get.poptip('bts_glossary_abnormal_dingzhen_faq')}。`,
+    bts_sk_dingzhen_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `将其${get.poptip('bts_glossary_abnormal_burn_faq')}层数补至所选角色中的最高值，然后各附加1层${get.poptip('bts_glossary_abnormal_dingzhen_faq')}。`,
     bts_sk_fanliao: '燔燎',
     bts_sk_fanliao_info: `失去装备区里的牌后，你可以弃置一张【杀】，令一名其他角色附加1层${get.poptip('bts_glossary_abnormal_dingzhen_faq')}和1层${get.poptip('bts_glossary_abnormal_burn_faq')}。`,
     bts_sk_jingwei: '精味',
@@ -197,8 +198,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_dingzhen_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标${get.poptip('bts_glossary_abnormal_burn_faq')}对齐最高值并各+1${get.poptip('bts_glossary_abnormal_dingzhen_faq')}`,
-    bts_sk_fanliao_info: `失装备后可弃杀令1名其他角色+1${get.poptip('bts_glossary_abnormal_dingzhen_faq')}和1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
+    bts_sk_dingzhen_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令目标${get.poptip('bts_glossary_abnormal_burn_faq')}对齐最高值并各+1${get.poptip('bts_glossary_abnormal_dingzhen_faq')}`,
+    bts_sk_fanliao_info: `失装备后可-1杀令1名其他角色+1${get.poptip('bts_glossary_abnormal_dingzhen_faq')}和1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
     bts_sk_jingwei_info: `锁；${get.poptip('bts_glossary_bisha_faq')}/${get.poptip('bts_sk_fanliao')}/杀指定目标后+1${get.poptip('bts_glossary_abnormal_burn_faq')}`,
 };
 

@@ -99,6 +99,12 @@ export const skill = {
     // 直接摸一张——见迁移记录「简化」）。
     bts_sk_xinyan: {
         trigger: { global: 'damageEnd' },
+        // frequent:'check'：他人互伤频发，xinyanWorth 成立（受伤者为敌方且【杀】命中估值为正）时
+        // 引擎自动确认，免去每次手点；不成立时照常弹询问。check 与 cost 内联 ai 共用 xinyanWorth。
+        check(trigger, player) {
+            return xinyanWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             // 源 L9420：受伤者 ≠ 你、伤害来源存在且 ≠ 你（`damage.from and ...`——无来源伤害不触发）、
             // 且你有心眼
@@ -112,8 +118,12 @@ export const skill = {
         async cost(event, trigger, player) {
             // 源 L9779-9780：askForSkillInvoke——是否弃1枚心眼；cost 型触发技：引擎不询顶层 check，
             // 发动与否由此处内联 ai 定（xinyanWorth：仅对敌方、【杀】命中估值为正；源 L9412-9436）
-            event.result = await player
-                .chooseBool('心眼：是否弃1枚心眼，视为对其使用【杀】并摸1张牌？')
+            const ask = player.chooseBool(
+                '心眼：是否弃1枚心眼，视为对其使用【杀】并摸1张牌？',
+            );
+            // frequent 型触发技的自动确认须由 cost 转发 frequentSkill（本体·狂骨范式）
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
                 .set('ai', () => xinyanWorth(player, trigger.player))
                 .forResult();
         },
@@ -208,12 +218,13 @@ export const translate = {
     'bts_ch_archer_skin1': '皮肤1',
     bts_ch_archer: 'Archer',
     bts_sk_jianzhi: '剑制',
-    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害（${get.poptip('bts_glossary_xingqi_faq')}时为2点${get.poptip('bts_glossary_guantong_faq')}伤害），获得2枚${get.poptip('bts_sk_xinyan')}。`,
+    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害（${get.poptip('bts_glossary_xingqi_faq')}时为2点${get.poptip('bts_glossary_guantong_faq')}伤害），`
+        + `获得2枚${get.poptip('bts_sk_xinyan')}。`,
     bts_sk_xinyan: '心眼',
-    bts_sk_xinyan_info:
-        `其他角色受到不为你造成的伤害后，你可以弃置1枚${get.poptip('bts_sk_xinyan')}标记，视为对其使用【杀】，然后摸一张牌并展示之。`,
+    bts_sk_xinyan_info: `其他角色受到不为你造成的伤害后，你可以弃置1枚${get.poptip('bts_sk_xinyan')}标记，视为对其使用【杀】，然后摸一张牌并展示之。`,
     bts_sk_luoxuan: '螺旋',
-    bts_sk_luoxuan_info: `出牌阶段，你可以弃置两张【杀】，对一名其他角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害，你附加1层${get.poptip('bts_glossary_abnormal_luoxuan_faq')}；若你的手牌数小于2或${get.poptip('bts_glossary_abnormal_luoxuan_faq')}层数达到5，此出牌阶段结束。`,
+    bts_sk_luoxuan_info: `出牌阶段，你可以弃置两张【杀】，对一名其他角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害，你附加1层${get.poptip('bts_glossary_abnormal_luoxuan_faq')}；`
+        + `若你的手牌数小于2或${get.poptip('bts_glossary_abnormal_luoxuan_faq')}层数达到5，此出牌阶段结束。`,
 
     '$bts_sk_jianzhi1': "I am the bone of my sword",
     '$bts_sk_jianzhi2': "Unlimited Blade Works",
@@ -228,9 +239,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成暗伤，得2${get.poptip('bts_sk_xinyan')}`,
-    bts_sk_xinyan_info: `他人间伤害后可弃1${get.poptip('bts_sk_xinyan')}对其用杀并摸1展示`,
-    bts_sk_luoxuan_info: `出牌阶段弃2杀对1名其他角色造成${get.poptip('bts_glossary_bless_critical_faq')}伤害并+1${get.poptip('bts_glossary_abnormal_luoxuan_faq')}`,
+    bts_sk_jianzhi_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成量子属性伤害，得2${get.poptip('bts_sk_xinyan')}`,
+    bts_sk_xinyan_info: `其他角色受到非你伤害后，可-1${get.poptip('bts_sk_xinyan')}，视为对其用杀并+1牌展示`,
+    bts_sk_luoxuan_info: `出牌阶段-2杀对1名其他角色造成${get.poptip('bts_glossary_bless_critical_faq')}伤害并+1${get.poptip('bts_glossary_abnormal_luoxuan_faq')}`,
 };
 
 // 默认读音把拉丁名逐字符拆开（A r c h e r）：按叁岛式以整词覆盖。

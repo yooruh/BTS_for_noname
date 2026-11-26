@@ -1,6 +1,6 @@
 // 昔涟（源 animal.lua L9084-9247）—— 记忆、誓约、乐土与爱诗。
 // 技能：誓约（必杀技·记忆阈值后强化黄金裔/摸牌）、追忆（用杀/决斗得记忆）、众愿（他人回合后/弃杀得记忆）、
-//       乐土（手牌【杀】当【决斗】+ 独立牌堆引擎：伤害+爱诗→除外1牌+1记忆）、爱诗（空标记，授予黄金裔，
+//       乐土（手牌【杀】当【决斗】+ 独立牌堆引擎：伤害+爱诗→牌堆顶一张称为乐土置于武将牌上+1记忆）、爱诗（空标记，授予黄金裔，
 //       各黄金裔技能经 hasSkill 检测后自行结算"诗歌"加成，参照五虎将大旗范式）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 
@@ -407,7 +407,7 @@ export const skill = {
                 '<div class="skill">【律法】</div><div class="skillinfo">刻律德菈「军功」分摊时军功持有者额外+1升变</div>' +
                 '<div class="skill">【岁月】</div><div class="skillinfo">长夜月发动「昼离」后获得1枚忆质标记</div>' +
                 '<div class="skill">【大地】</div><div class="skillinfo">丹恒·腾荒「辟世」额外附加1层护盾</div>' +
-                '<div class="skill">【誓约】</div><div class="skillinfo">昔涟「乐土」除外牌后获得1枚记忆标记</div>' +
+                '<div class="skill">【誓约】</div><div class="skillinfo">昔涟将牌称为「乐土」置于武将牌上后，获得1枚记忆标记</div>' +
                 '<div class="skill">【开拓】</div><div class="skillinfo">开拓者发动「星尘」后回复1点怒气且下次使用【决斗】结算完毕后昔涟视为对相同角色使用【决斗】（无名杀未实现）</div>' +
                 '</div>',
         },
@@ -439,13 +439,17 @@ export const translate = {
     bts_mk_shiyue_used: '誓约已用',
     bts_ch_xilian: '昔涟',
     bts_sk_shiyue: '誓约',
-    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过此技能则改为12枚）并选择一名角色：若其为黄金裔，其获得${get.poptip('bts_sk_aishi')}；否则其摸三张牌。首次发动后你获得${get.poptip('bts_sk_letu')}，选择任意名角色使其下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各执行一个额外回合。`,
+    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以弃24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过此技能则改为12枚）并选择一名角色：若其为黄金裔，`
+        + `其获得${get.poptip('bts_sk_aishi')}；否则其摸三张牌。首次发动后你获得${get.poptip('bts_sk_letu')}，选择任意名角色使其下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各执行一个额外回合。`,
     bts_sk_zhuiyi: '追忆',
     bts_sk_zhuiyi_info: `锁定技，当你使用【杀】或【决斗】后，获得1枚${get.poptip('bts_glossary_jiyi_faq')}；【决斗】改为3枚。`,
     bts_sk_zhongyuan: '众愿',
-    bts_sk_zhongyuan_info: `一名角色的回合结束时，若其不为你，其可以令你获得1枚${get.poptip('bts_glossary_jiyi_faq')}；否则，若你没有${get.poptip('bts_sk_letu')}，你可以弃置一张【杀】获得3枚${get.poptip('bts_glossary_jiyi_faq')}，于下个回合的回合结束前拥有${get.poptip('bts_sk_letu')}。`,
+    bts_sk_zhongyuan_info: `一名角色的回合结束时，若其不为你，其可以令你获得1枚${get.poptip('bts_glossary_jiyi_faq')}；否则，若你没有${get.poptip('bts_sk_letu')}，`
+        + `你可以弃置一张【杀】获得3枚${get.poptip('bts_glossary_jiyi_faq')}，于下个回合的回合结束前拥有${get.poptip('bts_sk_letu')}。`,
     bts_sk_letu: '乐土',
-    bts_sk_letu_info: `你可以将手牌【杀】当【决斗】使用；任意角色造成伤害后，若你拥有${get.poptip('bts_sk_aishi')}，你将牌堆顶一张牌称为"${get.poptip('bts_sk_letu')}"（能当手牌使用或打出）置于武将牌上并获得1枚${get.poptip('bts_glossary_jiyi_faq')}，此${get.poptip('bts_sk_letu')}牌于你的下个出牌阶段开始时置入弃牌堆。`,
+    bts_sk_letu_info: `你可以将手牌【杀】当【决斗】使用；任意角色造成伤害后，若你拥有${get.poptip('bts_sk_aishi')}，你将牌堆顶一张牌称为"${get.poptip('bts_sk_letu')}"（能当手牌使用或打出）置于武将牌上并获得1枚${get.poptip('bts_glossary_jiyi_faq')}，`
+        + `此${get.poptip('bts_sk_letu')}牌于你的下个出牌阶段开始时置入弃牌堆。`,
     bts_sk_letu_use: '乐土',
     bts_sk_aishi: '爱诗',
     bts_sk_aishi_info: `昔涟授予黄金裔的标记。拥有${get.poptip('bts_sk_aishi')}时，各黄金裔技能获得额外的"诗歌"效果（见各技能详情）。`,
@@ -482,10 +486,13 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}；弃${get.poptip('bts_glossary_jiyi_faq')}让黄金裔拿${get.poptip('bts_sk_aishi')}，不然摸3；第一次发还送${get.poptip('bts_sk_letu')}和${get.poptip('bts_glossary_nuqi_faq')}豁免`,
-    bts_sk_zhuiyi_info: `锁；用杀记1、用决斗记3${get.poptip('bts_glossary_jiyi_faq')}`,
-    bts_sk_zhongyuan_info: `别人回合结束+1${get.poptip('bts_glossary_jiyi_faq')}；自己回合结束无${get.poptip('bts_sk_letu')}可弃杀+3重拿${get.poptip('bts_sk_letu')}（临时，下回合结束回收）`,
-    bts_sk_letu_info: `手牌杀当决斗；有${get.poptip('bts_sk_aishi')}时任意伤害后白嫖1张${get.poptip('bts_sk_letu')}牌（可当手牌）并+1${get.poptip('bts_glossary_jiyi_faq')}`,
+    bts_sk_shiyue_info: `${get.poptip('bts_glossary_bisha_faq')}；-24枚${get.poptip('bts_glossary_jiyi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}或已发动过则为12枚）选择一名角色：若其为黄金裔，`
+        + `其获得${get.poptip('bts_sk_aishi')}，否则+3牌；首次发动后你获得${get.poptip('bts_sk_letu')}，并令任意名角色下次发动${get.poptip('bts_glossary_bisha_faq')}无视${get.poptip('bts_glossary_nuqi_faq')}代价（若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `这些角色各执行一个额外回合）`,
+    bts_sk_zhuiyi_info: `锁；使用杀+1${get.poptip('bts_glossary_jiyi_faq')}，使用决斗改为3枚`,
+    bts_sk_zhongyuan_info: `其他角色的回合结束时，其可以令你+1${get.poptip('bts_glossary_jiyi_faq')}；你的回合结束时，若你没有${get.poptip('bts_sk_letu')}，可-1杀+3${get.poptip('bts_glossary_jiyi_faq')}，`
+        + `于下个回合结束前拥有${get.poptip('bts_sk_letu')}`,
+    bts_sk_letu_info: `手牌杀当决斗使用；有${get.poptip('bts_sk_aishi')}时，任意角色造成伤害后，你将牌堆顶一张牌称为${get.poptip('bts_sk_letu')}（可当手牌）并+1${get.poptip('bts_glossary_jiyi_faq')}`,
     bts_sk_aishi_info: '标记；给黄金裔的"诗歌"加成（见技能详情）',
 };
 
@@ -501,11 +508,11 @@ export const glossary = [
     {
         id: 'bts_glossary_jiyi_faq',
         name: '|记忆|',
-        info: `昔涟专属：${get.poptip('bts_sk_zhuiyi')}用杀/决斗、${get.poptip('bts_sk_zhongyuan')}获得；拥有${get.poptip('bts_sk_aishi')}时经${get.poptip('bts_sk_letu')}引擎（任意伤害后除外牌）获得；满12/24发动${get.poptip('bts_sk_shiyue')}。`,
+        info: `昔涟专属：${get.poptip('bts_sk_zhuiyi')}用杀/决斗、${get.poptip('bts_sk_zhongyuan')}获得；拥有${get.poptip('bts_sk_aishi')}时，任意角色造成伤害后，经${get.poptip('bts_sk_letu')}将牌堆顶一张牌称为「乐土」置于武将牌上，并获得1枚记忆；满12/24枚发动${get.poptip('bts_sk_shiyue')}。`,
     },
     {
         id: 'bts_glossary_st_letu_active_faq',
         name: '|乐土状态|',
-        info: `昔涟状态：由${get.poptip('bts_sk_shiyue')}（永久）、${get.poptip('bts_sk_zhongyuan')}（临时）获得；状态内可将手牌【杀】当【决斗】，且拥有${get.poptip('bts_sk_aishi')}时任意角色造成伤害后除外1张${get.poptip('bts_sk_letu')}牌（能当手牌使用或打出）并获1枚${get.poptip('bts_glossary_jiyi_faq')}。`,
+        info: `昔涟状态：由${get.poptip('bts_sk_shiyue')}（永久）、${get.poptip('bts_sk_zhongyuan')}（临时）获得；状态内可将手牌【杀】当【决斗】；拥有${get.poptip('bts_sk_aishi')}时，任意角色造成伤害后，将牌堆顶一张牌称为「乐土」置于武将牌上（能当手牌使用或打出），并获得1枚${get.poptip('bts_glossary_jiyi_faq')}。`,
     },
 ];

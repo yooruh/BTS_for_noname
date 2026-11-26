@@ -138,8 +138,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yigui_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}选至少1名其他角色，这些角色各回复1点${get.poptip('bts_glossary_nuqi_faq')}`,
-    bts_sk_lingfu_info: `准备阶段可弃杀+2${get.poptip('bts_glossary_bless_rangming_faq')}`,
+    bts_sk_yigui_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}选至少1名其他角色，这些角色各+1${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_lingfu_info: `准备阶段可-1杀+2${get.poptip('bts_glossary_bless_rangming_faq')}`,
     bts_sk_pingfu_info: '锁；其他角色至你的距离+2',
 };
 
@@ -175,6 +175,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                trigger.player,
+                `因【${get.translation('bts_bless_rangming')}】，回复1点体力并移除1层异常`,
+            );
             await trigger.player.recover(player);
             await lib.bts.api.removeAbnormalChoice(trigger.player);
         },

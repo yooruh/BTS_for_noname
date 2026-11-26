@@ -424,6 +424,24 @@ export const bts = {
         return game.players.filter((p) => p.isAlive()).length;
     },
 
+    /**
+     * 强制弃置一张手牌：可用手牌唯一时直接弃置，不向玩家呈现只有一个选项的选牌窗；
+     * 多张时仍由该角色自行选择（forced 弃牌）。
+     * @param {object} player 弃牌者
+     * @param {string} prompt 多张候选时的提示语
+     */
+    async forceDiscardOne(player, prompt) {
+        const cards = player.getCards('h', (card) =>
+            lib.filter.cardDiscardable(card, player),
+        );
+        if (!cards.length) return;
+        if (cards.length === 1) {
+            await player.discard(cards);
+            return;
+        }
+        await player.chooseToDiscard(prompt, 'h', 1, true);
+    },
+
     // 【阿哈！】发动代价（源 max_ahaVS V2.5：n = 4 或 8）。星启且本局尚未用过
     // 「首发优惠」时为 4，否则 8。storage 布尔 `bts_aha_discount_used` 记录是否已用。
     ahaCost(player) {
@@ -472,6 +490,11 @@ export const bts = {
         }
         player.addMark(mark, amount);
         if (mark === MARKS.abnormal('lieyang') && player.countMark(mark) >= 2) {
+            // 满 2 层引爆（源 @abnormal_lieyang）：伤害无来源，不写日志时玩家只看到莫名掉血。
+            game.log(
+                player,
+                `因【${get.translation(mark)}】达到2层，移除2层并受到1点无来源伤害`,
+            );
             player.removeMark(mark, 2);
             const damage = player.damage(1, 'nosource');
             damage.reason = 'bts_gamerule_bts_reason_fatal';
@@ -973,7 +996,7 @@ export const bts = {
         if (funny != null) {
             funnytime = true;
             if (funny === -1) {
-                // 欢愉时刻：消耗全部笑点换算层数；抛注已发动时把热意一并替换为欢愉（仪式）
+                // 欢愉时刻：消耗全部笑点换算层数；抛注已发动时把热意一并替换为欢愉（抛注的后续效果）
                 // 源 L1255-1256：银狼LV999 处于欢愉升格且拥有狼尊时，笑点按 ×5 计
                 let points = player.countMark('bts_mk_funnypoint');
                 if (

@@ -250,10 +250,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_haiqu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_haiqu_faq')}`,
-    bts_sk_haiyao_info: `你与未造成过伤害的角色出牌阶段各限一次：弃1牌摸1；后者发动前你可阻止`,
-    bts_sk_haiyao_ally_info: `同盟·弃1牌摸1；发动前海瑟音可阻止`,
-    bts_sk_fanyin_info: `任一角色出牌阶段弃【杀】后，可令其+1${get.poptip('bts_glossary_bless_haiyao_faq')}`,
+    bts_sk_haiqu_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_haiqu_faq')}`,
+    bts_sk_haiyao_info: `你和全场未造成过伤害的角色于各自的出牌阶段限一次，可-1牌，然后+1牌；未造成过伤害的角色发动前，你可以防止之`,
+    bts_sk_haiyao_ally_info: `（${get.poptip('bts_sk_haiyao')}·${get.poptip('bts_glossary_tongmeng_faq')}）出牌阶段限一次，可-1牌，然后+1牌；发动前海瑟音可以防止之`,
+    bts_sk_fanyin_info: `任一角色出牌阶段弃杀后，可令其+1${get.poptip('bts_glossary_bless_haiyao_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -272,6 +272,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_haiqu')}】，结算全场麻痹/烧伤/中毒`,
+            );
             for (const target of lib.bts.api.seatOrder(game.filterPlayer()))
                 await lib.skill['bts_sk_mosuo'].util.kafuka(target, player);
         },
@@ -291,6 +295,11 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            // 伤害被整段防止，只掉异常不出伤害数字，须写明原因。
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_haiyao')}】，防止了对${get.translation(trigger.player)}的伤害`,
+            );
             trigger.cancel();
             const abnormal =
                 ['numb', 'burn', 'poison'][Math.floor(Math.random() * 3)];

@@ -233,11 +233,14 @@ export const marks = {
 export const translate = {
     bts_ch_busitu: '不死途',
     bts_sk_xiangyan: '飨宴',
-    bts_sk_xiangyan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害，视为对其使用【杀】，然后弃置全部${get.poptip('bts_glossary_lanhan_faq')}标记。当其他角色因此技能而死亡时，你可以视为使用【杀】。`,
+    bts_sk_xiangyan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害，`
+        + `视为对其使用【杀】，然后弃置全部${get.poptip('bts_glossary_lanhan_faq')}标记。当其他角色因此技能而死亡时，你可以视为使用【杀】。`,
     bts_sk_bianshao: '鞭哨',
-    bts_sk_bianshao_info: `当你对其他角色造成无属性伤害时，你可以令此伤害视为${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害；若其不为${get.poptip('bts_glossary_nature_light_faq')}角色且不处于${get.poptip('bts_glossary_mabi_faq')}，你须弃置一张【杀】。`,
+    bts_sk_bianshao_info: `当你对其他角色造成无属性伤害时，你可以令此伤害视为${get.poptip('bts_glossary_nature_light_dmg_faq')}伤害；若其不为${get.poptip('bts_glossary_nature_light_faq')}角色且不处于${get.poptip('bts_glossary_mabi_faq')}，`
+        + `你须弃置一张【杀】。`,
     bts_sk_suyuan: '宿怨',
-    bts_sk_suyuan_info: `锁定技，当${get.poptip('bts_glossary_nature_light_faq')}或处于${get.poptip('bts_glossary_mabi_faq')}的其他角色受到不为你造成的伤害后，若你的${get.poptip('bts_glossary_lanhan_faq')}少于3枚，你获得1枚${get.poptip('bts_glossary_lanhan_faq')}、回复1点${get.poptip('bts_glossary_nuqi_faq')}并视为对其使用【杀】。`,
+    bts_sk_suyuan_info: `锁定技，当${get.poptip('bts_glossary_nature_light_faq')}或处于${get.poptip('bts_glossary_mabi_faq')}的其他角色受到不为你造成的伤害后，`
+        + `若你的${get.poptip('bts_glossary_lanhan_faq')}少于3枚，你获得1枚${get.poptip('bts_glossary_lanhan_faq')}、回复1点${get.poptip('bts_glossary_nuqi_faq')}并视为对其使用【杀】。`,
     bts_mk_lanhan: '婪酣',
 
     '$bts_sk_xiangyan1': "献出我血，吞没不义……",
@@ -251,9 +254,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xiangyan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}光伤+虚拟杀并清${get.poptip('bts_glossary_lanhan_faq')}；以此击杀可追击`,
-    bts_sk_bianshao_info: '无属性伤害可转光，条件不足弃杀',
-    bts_sk_suyuan_info: `锁；光/${get.poptip('bts_glossary_mabi_faq')}他人受非你伤害时，${get.poptip('bts_glossary_lanhan_faq')}<3则+${get.poptip('bts_glossary_lanhan_faq')}回怒并追杀`,
+    bts_sk_xiangyan_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，对1名其他角色造成1点虚数属性伤害、视为对其用杀，然后-全部${get.poptip('bts_glossary_lanhan_faq')}；其他角色因此死亡时，可视为用杀`,
+    bts_sk_bianshao_info: '造成无属性伤害时，可令此伤害视为虚数属性伤害；若目标不是虚数属性角色且不处于麻痹状态，你须-1杀',
+    bts_sk_suyuan_info: `锁；虚数属性或处于${get.poptip('bts_glossary_mabi_faq')}状态的其他角色受到不为你造成的伤害后，若你的${get.poptip('bts_glossary_lanhan_faq')}少于3枚，`
+        + `你+1枚${get.poptip('bts_glossary_lanhan_faq')}、+1${get.poptip('bts_glossary_nuqi_faq')}并视为对其用杀`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

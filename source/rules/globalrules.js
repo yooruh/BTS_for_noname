@@ -44,8 +44,10 @@ export const bts_gamerule_damage = {
             // 本处不做归一化（源 IsSpecial/AddNew L266 以 reason 含 "_critical" 识别；定夺 G-06）。
             // 星启必杀+1（源 ConfirmDamage L1100：God(player) 且 reason 含 "max_"，
             // 无 _common 排除）；无名杀以 isBishaReason 判定（勿用 includes('st_')）。
-            if (lib.bts.api.god(player) && lib.bts.api.isBishaReason(trigger.reason))
+            if (lib.bts.api.god(player) && lib.bts.api.isBishaReason(trigger.reason)) {
+                game.log(player, '因星启，此必杀技伤害+1');
                 trigger.num += 1;
+            }
             // 元素相克：伤害属性与目标附加属性不同 → 伤害+1、移除目标旧属性（源 L1103-1110）。
             // 仅排除 _nature（源 L1131）；_common/无 reason 照样参与相克（定夺回退源版）。
             const nature = lib.bts.api.getNature(trigger);
@@ -56,6 +58,11 @@ export const bts_gamerule_damage = {
                 nature !== attached &&
                 !trigger.reason?.includes('_bts_reason_nature')
             ) {
+                // 相克加伤与属性移除都无 UI 回显，须写日志（否则伤害数值变化无解释）。
+                game.log(
+                    player,
+                    `因元素相克（${get.translation(`nature_${nature}`)}伤害命中${get.translation(`bts_n_${attached}`)}），此伤害+1`,
+                );
                 trigger.num += 1;
                 lib.bts.api.markDamage(trigger, '_nature');
                 lib.bts.api.removeNature(trigger.player, attached);
@@ -226,6 +233,8 @@ export const bts_sk_funny_lock = {
         return player.countMark('bts_mk_huanju_shengge-clear') <= 0;
     },
     content(event, trigger, player) {
+        // 伤害被整段取消且本技能 silent/popup:false，不写日志玩家会以为「打不出伤害」是 bug。
+        game.log(player, '因【欢愉约束】，此伤害无效');
         trigger.cancel();
     },
     ai: {
@@ -255,12 +264,12 @@ export const glossary = [
     {
         id: 'bts_glossary_bisha_faq',
         name: '必杀技',
-        info: `角色的强力技能，消耗${get.poptip('bts_glossary_nuqi_faq')}或其他资源发动，无次数限制，仅受${get.poptip('bts_glossary_nuqi_faq')}门槛与${get.poptip('bts_glossary_nuqi_faq')}资源制约。`,
+        info: `角色的强力技能，消耗${get.poptip('bts_glossary_nuqi_faq')}或其他资源发动，无次数限制，仅受${get.poptip('bts_glossary_nuqi_faq')}门槛与${get.poptip('bts_glossary_nuqi_faq')}资源制约。处于${get.poptip('bts_glossary_xingqi_faq')}状态时，你发动必杀技造成的伤害+1。`,
     },
     {
         id: 'bts_glossary_xingqi_faq',
         name: '星启',
-        info: `角色的特殊状态（${get.poptip('bts_glossary_bless_god_faq')}）。处于${get.poptip('bts_glossary_xingqi_faq')}状态时，部分技能获得额外效果。`,
+        info: `角色的特殊状态，来源为${get.poptip('bts_glossary_bless_god_faq')}层数或主公星启。处于星启状态时：你发动${get.poptip('bts_glossary_bisha_faq')}造成的伤害+1；技能描述中标注「若你为星启」的效果生效。`,
     },
     {
         id: 'bts_glossary_hudun_faq',
@@ -300,7 +309,7 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_god_faq',
         name: '星启祝福',
-        info: `你视为处于${get.poptip('bts_glossary_xingqi_faq')}状态，部分技能获得额外效果。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
+        info: `你视为处于${get.poptip('bts_glossary_xingqi_faq')}状态：你发动${get.poptip('bts_glossary_bisha_faq')}造成的伤害+1；技能描述中标注「若你为星启」的效果生效。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_yingzi_faq',
@@ -320,7 +329,7 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_cifu_faq',
         name: '赐福祝福',
-        info: `当你使用【杀】造成无属性伤害时，视为${get.poptip('bts_glossary_nature_guang_faq')}伤害。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
+        info: `当你使用【杀】造成无属性伤害时，视为${get.poptip('bts_glossary_nature_light_faq')}伤害。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
     {
         id: 'bts_glossary_bless_funny_faq',
@@ -348,14 +357,9 @@ export const glossary = [
         info: `每次洗牌（牌堆重洗）时降临：全场角色各执行一次各自的${get.poptip('bts_glossary_funny_act_faq')}，并消耗全部${get.poptip('bts_glossary_funnypoint_faq')}换算${get.poptip('bts_glossary_bless_funny_faq')}（每10枚1层）。此外，【阿哈！】技能持有者的准备阶段开始时也会降临（阿哈时刻）。`,
     },
     {
-        id: 'bts_glossary_yishi_faq',
-        name: '仪式',
-        info: `技能描述中的结构标记（相当于「若如此做，下次」）：达成「仪式：」段之前的效果后，解锁一次「仪式：」段的效果，且可叠加。`,
-    },
-    {
         id: 'bts_glossary_yishi_shunfa_faq',
-        name: '仪式瞬发',
-        info: `立即结算对应技能的「仪式：」段效果、不等待其触发时机。如${get.poptip('bts_sk_nidong')}（${get.poptip('bts_glossary_xingqi_faq')}时）赋予：下次${get.poptip('bts_sk_duanjie')}发动时直接摸一张牌。`,
+        name: '立即摸牌',
+        info: `来源：${get.poptip('bts_sk_nidong')}（${get.poptip('bts_glossary_xingqi_faq')}时）赋予。你下次发动${get.poptip('bts_sk_duanjie')}时，移除1层并立即摸一张牌，本次不积累${get.poptip('bts_sk_duanjie')}层数。`,
     },
     {
         id: 'bts_glossary_tongmeng_faq',
@@ -477,7 +481,7 @@ export const glossary = [
         id: 'bts_glossary_nature_light_dmg_faq',
         // 伤害属性（与「虚数附加」状态区分）：技能造成虚数属性伤害时的修饰语。
         name: '虚数属性',
-        info: `作为${get.poptip('bts_glossary_nature_guang_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
+        info: `作为${get.poptip('bts_glossary_nature_light_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
     },
     {
         id: 'bts_glossary_nature_flame_dmg_faq',
@@ -489,7 +493,7 @@ export const glossary = [
         id: 'bts_glossary_nature_wind_dmg_faq',
         // 伤害属性（与「风附加」状态区分）：技能造成风属性伤害时的修饰语。
         name: '风属性',
-        info: `作为${get.poptip('bts_glossary_nature_feng_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
+        info: `作为${get.poptip('bts_glossary_nature_wind_faq')}伤害（技能造成对应属性伤害时使用，不附带属性状态）。`,
     },
     {
         id: 'bts_glossary_nature_frost_dmg_faq',

@@ -106,71 +106,53 @@ export const skill = {
     bts_sk_wanhuo: {
         trigger: { player: 'phaseZhunbeiBegin' },
         filter(event, player) {
+            // 需存在攻击范围内的其他存活角色，否则选目标处无合法候选（filterTarget 同款判据）。
             return (
                 player.countMark('bts_sk_feihuo') > 0 &&
-                player.getCards('h').some((c) => get.name(c) === 'sha')
+                player.getCards('h').some((c) => get.name(c) === 'sha') &&
+                game.hasPlayer(
+                    (target) =>
+                        target !== player &&
+                        target.isAlive() &&
+                        get.distance(player, target) <= player.getAttackRange(),
+                )
             );
         },
         async cost(event, trigger, player) {
             const n = player.countMark('bts_sk_feihuo');
-            // 本技为 cost 型触发技：发动与否由下方三段内联 AI 决定（全程最高分≤0→取消）。
-            // AI 口径：有可及敌方目标才发动；弃估值最低的【杀】；目标取敌方、低血线/未烧伤者优先
+            // 本技为 cost 型触发技：弃【杀】与选目标一体化（chooseCardTarget），取消即不发动；
+            // 发动与否由 ai1/ai2 决定（两侧最高分≤0→引擎自动取消）。
+            // AI 口径：弃估值最低的【杀】；目标取攻击范围内的敌方、低血线/未烧伤者优先
             //（源 st_wanhuo L3712-3753；源 AI StarRail-ai.lua @@st_wanhuo：Enemies_ThrowSlash_AI，
             // 目标数=飞火标记+1、须在攻击范围）
-            const r = await player
-                .chooseBool(
-                    '玩火：是否弃置一张【杀】令至多' + n + '名角色附加烧伤？',
-                )
-                .set('ai', () =>
-                    game.hasPlayer(
-                        (t) =>
-                            t.isAlive() &&
-                            t !== player &&
-                            get.attitude(player, t) < 0 &&
-                            get.distance(player, t) <= player.getAttackRange(),
-                    ),
-                )
-                .forResult();
-            if (!r.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) => get.name(card) === 'sha',
-                    '弃置一张【杀】',
-                )
-                .set('ai', (card) => 6 - get.value(card)) // 弃估值最低的【杀】
-                .forResult();
-            if (!cards.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const targets = await player
-                .chooseTarget(
-                    '玩火：选择攻击范围内至多' + n + '名角色',
-                    [1, n],
+            event.result = await player
+                .chooseCardTarget({
+                    prompt:
+                        '玩火：弃置一张【杀】，令至多' + n + '名角色附加烧伤',
+                    position: 'h',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                    selectCard: 1,
+                    selectTarget: [1, n],
                     // 源 L3892：目标须在攻击范围内（同飞火 filterTarget）
-                    (c, p, t) =>
-                        t !== p &&
-                        get.distance(p, t) <= p.getAttackRange(),
-                )
-                .set('ai', (t) => {
-                    let v = -get.attitude(player, t); // 敌方向正分、友方向负分（全非敌→取消）
-                    if (v > 0) {
-                        if (t.hp <= 2) v += 0.5; // 低血线：烧伤在其出牌阶段压血
-                        if (!lib.bts.api.getAbnor(t, 'burn')) v += 0.3; // 未烧伤者：铺开浇油暴击点
-                    }
-                    return v;
+                    filterTarget: (card, source, target) =>
+                        target !== source &&
+                        get.distance(source, target) <= source.getAttackRange(),
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1, // 弃估值最低的【杀】
+                    ai2: (target) => {
+                        let v = -get.attitude(player, target); // 敌方向正分、友方向负分（全非敌→取消）
+                        if (v > 0) {
+                            if (target.hp <= 2) v += 0.5; // 低血线：烧伤在其出牌阶段压血
+                            if (!lib.bts.api.getAbnor(target, 'burn')) v += 0.3; // 未烧伤者：铺开浇油暴击点
+                        }
+                        return v;
+                    },
                 })
                 .forResult();
-            if (!targets.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = targets;
-            event.result.cards = cards.cards; // 弃牌留待 content 结算
         },
         async content(event, t, player) {
             if (event.cards) await player.discard(event.cards); // cost 的弃牌移入结算
@@ -187,11 +169,10 @@ export const skill = {
 export const translate = {
     bts_ch_huke: '虎克',
     bts_sk_feihuo: '飞火',
-    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害，你获得1枚${get.poptip('bts_sk_feihuo')}标记。`,
-
+    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内的一名角色，`
+        + `对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害，你获得1枚${get.poptip('bts_sk_feihuo')}标记。`,
     bts_sk_jiaoyou: '浇油',
     bts_sk_jiaoyou_info: `锁定技，当你使用【杀】对处于${get.poptip('bts_glossary_abnormal_burn_faq')}的角色造成伤害时，此伤害视为${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
-
     bts_sk_wanhuo: '玩火',
     bts_sk_wanhuo_info: `准备阶段开始时，你可以弃置一张【杀】，令攻击范围内至多X名其他角色各附加1层${get.poptip('bts_glossary_abnormal_burn_faq')}（X为你拥有的${get.poptip('bts_sk_feihuo')}标记数），然后移除全部${get.poptip('bts_sk_feihuo')}标记。`,
 
@@ -205,9 +186,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点炎伤，+1${get.poptip('bts_sk_feihuo')}标记`,
+    bts_sk_feihuo_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内1名角色造成1点炎伤，+1${get.poptip('bts_sk_feihuo')}`,
     bts_sk_jiaoyou_info: `锁；用杀对${get.poptip('bts_glossary_abnormal_burn_faq')}角色造成伤害时视为${get.poptip('bts_glossary_bless_critical_faq')}`,
-    bts_sk_wanhuo_info: `准备阶段，弃1杀令攻击范围内至多X名其他角色各+1${get.poptip('bts_glossary_abnormal_burn_faq')}（X=${get.poptip('bts_sk_feihuo')}标记数），移除全部${get.poptip('bts_sk_feihuo')}`,
+    bts_sk_wanhuo_info: `准备阶段，-1杀令攻击范围内至多X名其他角色各+1${get.poptip('bts_glossary_abnormal_burn_faq')}（X=${get.poptip('bts_sk_feihuo')}标记数），移除全部${get.poptip('bts_sk_feihuo')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

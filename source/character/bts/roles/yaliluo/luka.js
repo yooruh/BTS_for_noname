@@ -160,17 +160,10 @@ export const translate = {
     bts_ch_luka: '卢卡',
     bts_sk_zhisheng: '制胜',
     bts_sk_zhisheng_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加1层诅咒，你附加3层${get.poptip('bts_glossary_bless_zhisheng_faq')}。`,
-
-
     bts_sk_sijian: '四溅',
     bts_sk_sijian_info: `锁定技，当你使用【杀】或弃置【杀】后，你附加2层${get.poptip('bts_glossary_bless_zhisheng_faq')}。`,
-
-
     bts_sk_liequan: '裂拳',
-    bts_sk_liequan_info:
-        '当你使用【决斗】造成伤害后，你可以弃置一张【杀】，令受到伤害的角色失去1点体力。',
-
-
+    bts_sk_liequan_info: '当你使用【决斗】造成伤害后，你可以弃置一张【杀】，令受到伤害的角色失去1点体力。',
 
     bts_bless_zhisheng: '制胜祝福',
     bts_bless_zhisheng_info: `来源：${get.poptip('bts_glossary_bless_zhisheng_faq')}、${get.poptip('bts_sk_sijian')}赋予；杀当决斗、锁目标手牌，发动移除3层；回合结束自然减少1层`,
@@ -186,9 +179,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zhisheng_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1诅咒，你+3${get.poptip('bts_glossary_bless_zhisheng_faq')}`,
+    bts_sk_zhisheng_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1诅咒，你+3${get.poptip('bts_glossary_bless_zhisheng_faq')}`,
     bts_sk_sijian_info: `锁；你使用或弃置杀后+2${get.poptip('bts_glossary_bless_zhisheng_faq')}`,
-    bts_sk_liequan_info: '决斗造成伤害后，弃1杀令目标失去1体力',
+    bts_sk_liequan_info: '决斗造成伤害后，-1杀令目标-1体力',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

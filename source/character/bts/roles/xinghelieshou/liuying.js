@@ -2,7 +2,7 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'xinghelieshou';
 export const title = '火·毁灭·格拉默铁骑'; // 属性·命途
 export const intro =
-    `${B('流萤')}是爆发核心：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_huoying'))}牺牲出牌阶段换来${get.poptip('bts_glossary_bless_fullburn_faq')}与额外回合，${B(get.poptip('bts_sk_zhongshu'))}在残血时减伤，${B(get.poptip('bts_sk_tianhuo'))}在有满燃时打出炎伤连锁、否则自损回怒。` +
+    `${B('流萤')}是爆发核心：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_huoying'))}牺牲出牌阶段换来${get.poptip('bts_glossary_bless_fullburn_faq')}与额外回合，${B(get.poptip('bts_sk_zhongshu'))}在残血时减伤，${B(get.poptip('bts_sk_tianhuo'))}在有满燃时令炎属性与${get.poptip('bts_glossary_abnormal_burn_faq')}角色各弃一张手牌并造成炎伤，否则失去体力并回复${get.poptip('bts_glossary_nuqi_faq')}。` +
     `<li>${get.poptip('bts_glossary_bless_fullburn_faq')}：对无手牌角色造成炎伤后其失去1体力`;
 
 export const character = {
@@ -13,6 +13,20 @@ export const character = {
         skills: ['bts_sk_huoying', 'bts_sk_tianhuo', 'bts_sk_zhongshu'],
     },
 };
+
+// ── 天火扣血分支的 AI 共用口径（顶层 check 与 cost 内联 ai 共用，防口径漂移）──
+// 代价为失去2点体力：支付后≤0 会直接进入濒死，AI 不押注；支付后仍有≥2点视为体力充足；
+// 只剩1点时须有回血资源兜底——手牌【桃】（出牌阶段受伤即可用）或生息祝福
+//（受伤后回复1点，见 xianzhou/bailu.js）。
+export function tianhuoLoseHpWorth(player) {
+    const after = player.hp - 2;
+    if (after <= 0) return false;
+    if (after >= 2) return true;
+    const heal =
+        player.countCards('h', 'tao') +
+        (Number(lib.bts.api.getBless(player, 'shengxi', -1)) || 0);
+    return heal > 0;
+}
 
 export const skill = {
     // ── 必杀技·火萤（源 st_huoying = ZeroCardViewAsSkill target_fixed + EventPhaseStart，L2643-2676）──
@@ -87,47 +101,67 @@ export const skill = {
             return player.getCards('h').some((card) => get.name(card) === 'sha');
         },
         async cost(event, trigger, player) {
-            // 源 L2687：askForCard(player, "Slash") —— 仅选择要弃置的【杀】（弃置移到 content）
+            // 源 L2687：askForCard(player, "Slash") —— 弃置移到 content
+            const filterCard = (card) =>
+                get.name(card) === 'sha' &&
+                lib.filter.cardDiscardable(card, player);
+            // 无完全燃烧时目标不存在（源只失体力回怒），仅选弃牌
+            if (!lib.bts.api.getBless(player, 'fullburn')) {
+                event.result = await player
+                    .chooseCard({
+                        position: 'h',
+                        filterCard,
+                        prompt: '天火：是否弃置一张【杀】发动「天火」？',
+                        // AI 口径：失2体力换3怒（火萤燃料）——体力不足且无回血兜底时弃选
+                        //（cost 型触发技的发动判断即此处；默认 AI 恒正会无条件扣血）
+                        ai: (card) => {
+                            if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                            return tianhuoLoseHpWorth(player)
+                                ? 6 - get.value(card)
+                                : -1;
+                        },
+                    })
+                    .forResult();
+                return;
+            }
+            // 有完全燃烧：弃【杀】与选目标一体化（chooseCardTarget），取消即不发动
             event.result = await player
-                .chooseCard(
-                    'h',
-                    (card) =>
-                        get.name(card) === 'sha' &&
-                        lib.filter.cardDiscardable(card, player),
-                    '天火：是否弃置一张【杀】发动「天火」？',
-                )
+                .chooseCardTarget({
+                    prompt: '天火：弃置一张【杀】，并选择一名角色',
+                    position: 'h',
+                    filterCard,
+                    // 源描述「选择一名角色」——自指允许（源 filter 无 ~=Self，见 S5/一刀先例）
+                    filterTarget: () => true,
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
+                    // AI 口径：优先敌方（1点炎伤+附加炎）；异属性目标吃元素相克+1，自指/友方不选
+                    ai2: (target) => {
+                        if (target === player) return -1;
+                        if (get.attitude(player, target) >= 0) return -1;
+                        let s = 2 - get.attitude(player, target) / 4;
+                        const nat = lib.bts.api.getNature(null, target);
+                        if (nat && nat !== 'flame') s += 0.5;
+                        return s;
+                    },
+                })
                 .forResult();
         },
         async content(event, trigger, player) {
             if (event.cards?.length) await player.discard(event.cards); // 弃置所选【杀】作为代价
             if (lib.bts.api.getBless(player, 'fullburn')) {
                 await player.recover(player, 1); // 源 recover 1
-                const r = await player
-                    .chooseTarget(
-                        '天火：选择一名角色',
-                        [1, 1], // 源描述「选择一名角色」——自指允许（源 filter 无 ~=Self，见 S5/一刀先例）
-                    )
-                    // AI 口径：优先敌方（1点炎伤+附加炎）；异属性目标吃元素相克+1，自指/友方不选
-                    .set('ai', (t) => {
-                        if (t === player) return -1;
-                        if (get.attitude(player, t) >= 0) return -1;
-                        let s = 2 - get.attitude(player, t) / 4;
-                        const nat = lib.bts.api.getNature(null, t);
-                        if (nat && nat !== 'flame') s += 0.5;
-                        return s;
-                    })
-                    .forResult();
-                if (!r.bool) return;
-                const target = r.targets[0];
+                // cost 已选定目标（有完全燃烧时必选），直接复用
+                const target = event.targets?.[0];
+                if (!target) return;
                 await lib.bts.api.addNature(target, 'flame'); // 源 AddNature(target, "fire")
                 // 源 L2697-2708：整段弃牌（目标 + 烧伤/炎角色）嵌套在「目标有手牌」内，
                 // 目标空手则全部不弃（勿把烧伤/炎角色弃牌移到判断外）
                 if (target.countCards('h') > 0) {
-                    await target.chooseToDiscard(
+                    await lib.bts.api.forceDiscardOne(
+                        target,
                         '天火：弃置一张手牌',
-                        'h',
-                        1,
-                        true,
                     );
                     for (const p of lib.bts.api.seatOrder(game.players)) {
                         if (
@@ -136,11 +170,9 @@ export const skill = {
                                 lib.bts.api.getNature(null, p) === 'flame') &&
                             p.countCards('h') > 0
                         ) {
-                            await p.chooseToDiscard(
+                            await lib.bts.api.forceDiscardOne(
+                                p,
                                 '天火：弃置一张手牌',
-                                'h',
-                                1,
-                                true,
                             );
                         }
                     }
@@ -154,17 +186,12 @@ export const skill = {
                 lib.bts.api.addAngry(player, 3); // 源 AddAngry 3
             }
         },
-        // AI 口径：有满燃→弃1杀换1回复+1炎伤+全场炎/烧伤者弃牌，场上有敌人即发动；
-        // 无满燃→失2体力回3怒（火萤燃料），血线≥3才承伤（源 animal.lua L2677-2715）
+        // AI 口径：有满燃→弃1杀换1回复+1炎伤+全场炎/烧伤者弃牌，场上有敌人即发动（不付体力）；
+        // 无满燃→失2体力回3怒（火萤燃料），仅 tianhuoLoseHpWorth 成立时发动（源 animal.lua L2677-2715）
         check(trigger, player, triggername) {
             if (lib.bts.api.getBless(player, 'fullburn'))
-                return game.hasPlayer(
-                    (t) =>
-                        t.isAlive() &&
-                        t !== player &&
-                        get.attitude(player, t) < 0,
-                );
-            return player.hp >= 3;
+                return lib.bts.aiHelpers.hasEnemy(player);
+            return tianhuoLoseHpWorth(player);
         },
         ai: { result: { player: 1 } },
     },
@@ -233,13 +260,14 @@ export const translate = {
     'bts_mk_huoying-time': '火萤次数',
     bts_ch_liuying: '流萤',
     bts_sk_huoying: '火萤',
-    bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，你可以失去3+X点${get.poptip('bts_glossary_nuqi_faq')}（X为你发动此技能结算完毕的次数且至多为2），结束此阶段，若如此做，此回合结束时，你附加2层${get.poptip('bts_glossary_bless_fullburn_faq')}，执行一个额外的回合。`,
-
+    bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，你可以失去3+X点${get.poptip('bts_glossary_nuqi_faq')}（X为你发动此技能结算完毕的次数且至多为2），`
+        + `结束此阶段，若如此做，此回合结束时，你附加2层${get.poptip('bts_glossary_bless_fullburn_faq')}，执行一个额外的回合。`,
     bts_sk_zhongshu: '中枢',
     bts_sk_zhongshu_info: `锁定技，当你受到不为${get.poptip('bts_glossary_bisha_faq')}的伤害时，若你的体力值不大于1，伤害值-1；锁定技，你的手牌上限为${get.poptip('bts_glossary_bless_maxhp_faq')}。`,
-
     bts_sk_tianhuo: '天火',
-    bts_sk_tianhuo_info: `出牌阶段开始时，你可以弃置一张【杀】，然后若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，失去2点体力，回复3点${get.poptip('bts_glossary_nuqi_faq')}，否则，你回复1点体力并选择一名角色，令其附加${get.poptip('bts_glossary_nature_flame_faq')}，弃置其一张手牌，然后弃置所有处于${get.poptip('bts_glossary_abnormal_burn_faq')}的角色和${get.poptip('bts_glossary_nature_flame_faq')}角色各一张手牌，对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害。`,
+    bts_sk_tianhuo_info: `出牌阶段开始时，你可以弃置一张【杀】，然后若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，失去2点体力，回复3点${get.poptip('bts_glossary_nuqi_faq')}，`
+        + `否则，你回复1点体力并选择一名角色，令其附加${get.poptip('bts_glossary_nature_flame_faq')}，弃置其一张手牌，然后弃置所有处于${get.poptip('bts_glossary_abnormal_burn_faq')}的角色和${get.poptip('bts_glossary_nature_flame_faq')}角色各一张手牌，`
+        + `对其造成1点${get.poptip('bts_glossary_nature_flame_dmg_faq')}伤害。`,
 
     '$bts_sk_huoying1': "飞萤扑火，向死而生",
     '$bts_sk_huoying2': "我为自我而战，直至一切…燃烧殆尽！",
@@ -253,9 +281,11 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，若无满燃，失3+X${get.poptip('bts_glossary_nuqi_faq')}结束出牌阶段，回合结束+2满燃并执行额外回合`,
+    bts_sk_huoying_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，可-（3+X）${get.poptip('bts_glossary_nuqi_faq')}（X为本技能结算过的次数，`
+        + `至多2）并结束此阶段；此回合结束时，你+2层${get.poptip('bts_glossary_bless_fullburn_faq')}并执行一个额外回合`,
     bts_sk_zhongshu_info: `锁；受不为${get.poptip('bts_glossary_bisha_faq')}的伤害时若体力≤1伤害-1；手牌上限=${get.poptip('bts_glossary_bless_maxhp_faq')}`,
-    bts_sk_tianhuo_info: `出牌阶段开始时，弃1张【杀】；无满燃则失2体力回3${get.poptip('bts_glossary_nuqi_faq')}，有满燃则回1体力令1名角色+炎并炎伤，且弃${get.poptip('bts_glossary_abnormal_burn_faq')}/炎角色各1手牌`,
+    bts_sk_tianhuo_info: `出牌阶段开始时，可-1杀：若你没有${get.poptip('bts_glossary_bless_fullburn_faq')}，-2体力、+3${get.poptip('bts_glossary_nuqi_faq')}；`
+        + `否则+1体力，令1名角色附加炎属性并-其1手牌，然后-处于${get.poptip('bts_glossary_abnormal_burn_faq')}或为炎属性的角色各1手牌，并对其造成1点炎属性伤害`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -277,6 +307,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                trigger.player,
+                `因【${get.translation('bts_bless_fullburn')}】，失去1点体力`,
+            );
             trigger.player.loseHp();
         },
     },

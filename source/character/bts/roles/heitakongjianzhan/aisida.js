@@ -154,7 +154,8 @@ export const translate = {
     'bts_mk_xingkong-clear': '星空已用',
     bts_ch_aisida: '艾丝妲',
     bts_sk_xingkong: '星空',
-    bts_sk_xingkong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你与这些角色各摸一张牌，若你为${get.poptip('bts_glossary_xingqi_faq')}，防止你于此回合内因${get.poptip('bts_glossary_bless_xuneng_faq')}的效果移除${get.poptip('bts_glossary_bless_faq')}。`,
+    bts_sk_xingkong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `你与这些角色各摸一张牌，若你为${get.poptip('bts_glossary_xingqi_faq')}，防止你于此回合内因${get.poptip('bts_glossary_bless_xuneng_faq')}的效果移除${get.poptip('bts_glossary_bless_faq')}。`,
     bts_sk_xingzuo: '星座',
     bts_sk_xingzuo_info: `锁定技，当你使用牌指定一个目标后，附加1层${get.poptip('bts_glossary_bless_xuneng_faq')}（若其处于${get.poptip('bts_glossary_abnormal_burn_faq')}或为${get.poptip('bts_glossary_nature_flame_faq')}角色则改为2层）。`,
     bts_sk_xingqun: '星群',
@@ -172,9 +173,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xingkong_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各摸1张牌；${get.poptip('bts_glossary_xingqi_faq')}则此回合${get.poptip('bts_glossary_bless_xuneng_faq')}不消耗`,
+    bts_sk_xingkong_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}与至少1名其他角色各+1牌；${get.poptip('bts_glossary_xingqi_faq')}则此回合${get.poptip('bts_glossary_bless_xuneng_faq')}不消耗`,
     bts_sk_xingzuo_info: `锁；你使用牌指定目标后，+1层${get.poptip('bts_glossary_bless_xuneng_faq')}（目标${get.poptip('bts_glossary_abnormal_burn_faq')}/炎则+2）`,
-    bts_sk_xingqun_info: `手牌最多时，弃1张【杀】视为使用五谷丰登，再令${get.poptip('bts_glossary_abnormal_burn_faq')}/炎角色各+炎`,
+    bts_sk_xingqun_info: `手牌最多时，-1杀视为用五谷丰登，然后令处于${get.poptip('bts_glossary_abnormal_burn_faq')}或为炎属性的目标各附加炎属性`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -191,8 +192,12 @@ export const buffSkills = {
         },
         async content(event, trigger, player) {
             if (!lib.bts.api.getBless(player, 'xuneng', 3)) return;
-            if (player.countMark('bts_mk_xingkong-clear') === 0)
-                await lib.bts.api.removeBless(player, 'xuneng', 3);
+            const keep = player.countMark('bts_mk_xingkong-clear') > 0;
+            if (!keep) await lib.bts.api.removeBless(player, 'xuneng', 3);
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_xuneng')}】${keep ? '（星启免消耗）' : '移除3层'}，令${get.translation(trigger.player)}附加${get.translation('nature_flame')}`,
+            );
             await lib.bts.api.addNature(trigger.player, 'flame');
         },
     },
@@ -203,6 +208,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_xuneng_faq',
         name: '蓄能祝福',
-        info: `当你对其他角色造成伤害后，若拥有至少3层此${get.poptip('bts_glossary_bless_faq')}，移除3层并令其附加${get.poptip('bts_glossary_nature_yan_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
+        info: `当你对其他角色造成伤害后，若拥有至少3层此${get.poptip('bts_glossary_bless_faq')}，移除3层并令其附加${get.poptip('bts_glossary_nature_flame_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

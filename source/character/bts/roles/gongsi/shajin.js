@@ -237,9 +237,12 @@ export const translate = {
     'bts_ch_shajin_skin9': '皮肤9',
     bts_ch_shajin: '砂金',
     bts_sk_xunjue: '勋爵',
-    bts_sk_xunjue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令攻击范围内一名有牌角色附加1层${get.poptip('bts_glossary_abnormal_scary_faq')}并判定，获得等同于判定点数一半（向上取整）的${get.poptip('bts_glossary_duzhu_faq')}标记，若你为${get.poptip('bts_glossary_xingqi_faq')}，令所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
+    bts_sk_xunjue_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令攻击范围内一名有牌角色附加1层${get.poptip('bts_glossary_abnormal_scary_faq')}并判定，`
+        + `获得等同于判定点数一半（向上取整）的${get.poptip('bts_glossary_duzhu_faq')}标记，若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `令所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
     bts_sk_qiangkou: '枪口',
-    bts_sk_qiangkou_info: `锁定技，拥有${get.poptip('bts_glossary_hudun_faq')}的角色受到伤害时，你获得1枚${get.poptip('bts_glossary_duzhu_faq')}；异常伤害额外令其获得等同伤害值的${get.poptip('bts_glossary_hudun_faq')}；${get.poptip('bts_glossary_duzhu_faq')}达到7枚时弃7枚，视为对本次伤害来源和所有对你或其造成过伤害的角色使用【杀】。`,
+    bts_sk_qiangkou_info: `锁定技，拥有${get.poptip('bts_glossary_hudun_faq')}的角色受到伤害时，你获得1枚${get.poptip('bts_glossary_duzhu_faq')}；异常伤害额外令其获得等同伤害值的${get.poptip('bts_glossary_hudun_faq')}；`
+        + `${get.poptip('bts_glossary_duzhu_faq')}达到7枚时弃7枚，视为对本次伤害来源和所有对你或其造成过伤害的角色使用【杀】。`,
     bts_sk_jishi: '基石',
     bts_sk_jishi_info: `准备阶段开始时，你可以弃置一张【杀】，你与一名角色各获得1点${get.poptip('bts_glossary_hudun_faq')}。`,
 
@@ -255,9 +258,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xunjue_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}施加${get.poptip('bts_glossary_abnormal_scary_faq')}并判定获得${get.poptip('bts_glossary_duzhu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}时全场+1${get.poptip('bts_glossary_hudun_faq')}）`,
-    bts_sk_qiangkou_info: `锁；${get.poptip('bts_glossary_hudun_faq')}角色受伤时+${get.poptip('bts_glossary_duzhu_faq')}，7枚后对来源与伤害关联者用杀`,
-    bts_sk_jishi_info: `准备阶段可弃杀，你与1名角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
+    bts_sk_xunjue_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}施加${get.poptip('bts_glossary_abnormal_scary_faq')}并判定获得${get.poptip('bts_glossary_duzhu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}时全场+1${get.poptip('bts_glossary_hudun_faq')}）`,
+    bts_sk_qiangkou_info: `锁；拥有${get.poptip('bts_glossary_hudun_faq')}的角色受到伤害时，你+1枚${get.poptip('bts_glossary_duzhu_faq')}；达到7枚时-7枚，视为对本次伤害来源和所有伤害关联角色使用杀`,
+    bts_sk_jishi_info: `准备阶段可-1杀，你与1名角色各+1${get.poptip('bts_glossary_hudun_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

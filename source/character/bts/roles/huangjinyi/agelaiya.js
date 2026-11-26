@@ -76,7 +76,7 @@ export const skill = {
             }
             // 源 L7362：addPlayerMark(player, "extra_turn") —— 额外回合
             lib.bts.api.extraTurn(player, 'bts_extra_turn');
-            // 源 L7363-7365：Global_PlayPhaseTerminated（结束本出牌阶段），GetXiLian(爱诗) 时除外
+            // 源 L7363-7365：Global_PlayPhaseTerminated（结束本出牌阶段），GetXiLian(爱诗) 时不结束
             if (!player.hasSkill('bts_sk_aishi'))
                 lib.bts.api.endPlayPhase(player);
         },
@@ -243,13 +243,14 @@ export const translate = {
     bts_ch_yijiang: '衣匠',
     bts_ch_agelaiya_and_yijiang: '阿格莱雅&衣匠',
     bts_pet_yijiang: '衣匠',
+    bts_pet_yijiang_info: `来源：${get.poptip('bts_sk_gongwu')}、${get.poptip('bts_sk_minghui')}召唤；忆灵体力：本体受伤等量扣减、回复等量回补（封顶忆灵上限），归零后离场并+1${get.poptip('bts_glossary_nuqi_faq')}`,
     bts_sk_gongwu: '共舞',
-    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加3层至高之姿${get.poptip('bts_glossary_bless_faq')}并召唤${get.poptip('bts_ch_yijiang')}；若${get.poptip('bts_ch_yijiang')}已存在，改为回复体力。然后执行一个额外回合。`,
+    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加3层至高之姿${get.poptip('bts_glossary_bless_faq')}并召唤${get.poptip('bts_ch_yijiang')}；`
+        + `若${get.poptip('bts_ch_yijiang')}已存在，改为回复体力。然后执行一个额外回合。`,
     bts_sk_jinmeiag: '金玫',
     bts_sk_jinmeiag_info: `锁定技，当你对${get.poptip('bts_glossary_nature_light_faq')}或处于${get.poptip('bts_glossary_mabi_faq')}的角色造成伤害后，若其有手牌，其弃置一张手牌。`,
     bts_sk_minghui: '名讳',
-    bts_sk_minghui_info:
-        `回合结束后，你可以弃置一张【杀】：若${get.poptip('bts_ch_yijiang')}已存在，你回复1点体力；否则召唤${get.poptip('bts_ch_yijiang')}并执行一个额外回合。`,
+    bts_sk_minghui_info: `回合结束后，你可以弃置一张【杀】：若${get.poptip('bts_ch_yijiang')}已存在，你回复1点体力；否则召唤${get.poptip('bts_ch_yijiang')}并执行一个额外回合。`,
     bts_sk_jiangqu: '匠躯',
     bts_sk_jiangqu_info: '锁定技，受到伤害后，弃置所有手牌。',
     bts_sk_feichi: '飞驰',
@@ -272,15 +273,15 @@ export const translate = {
     '~bts_ch_agelaiya': "作茧…自缚……",
     '~bts_ch_yijiang': "作茧…自缚……",
     bts_bless_zhigaozhizi: '至高之姿祝福',
-    bts_bless_zhigaozhizi_info: `来源：${get.poptip('bts_glossary_bless_gongwu_faq')}赋予；杀当决斗、光伤后+层；回合结束自然减少1层`,
+    bts_bless_zhigaozhizi_info: `来源：${get.poptip('bts_glossary_bless_gongwu_faq')}赋予；杀当决斗、造成虚数伤害后+1层；回合结束自然减少1层`,
 
     '~bts_ch_agelaiya_and_yijiang': "作茧…自缚……",
 };
 
 export const simpleTranslate = {
-    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3至高之姿，召唤${get.poptip('bts_ch_yijiang')}（已存在则回复），额外回合`,
-    bts_sk_jinmeiag_info: `锁；对${get.poptip('bts_glossary_nature_light_faq')}或${get.poptip('bts_glossary_mabi_faq')}角色造成伤害后其弃1手牌`,
-    bts_sk_minghui_info: `回合结束可弃杀：有${get.poptip('bts_ch_yijiang')}则回复，否则召唤并额外回合`,
+    bts_sk_gongwu_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+3至高之姿，召唤${get.poptip('bts_ch_yijiang')}（已存在则改为+体力），额外回合`,
+    bts_sk_jinmeiag_info: `锁；对${get.poptip('bts_glossary_nature_light_faq')}或${get.poptip('bts_glossary_mabi_faq')}角色造成伤害后其-1手牌`,
+    bts_sk_minghui_info: `回合结束后，可-1杀：有${get.poptip('bts_ch_yijiang')}则+1体力，否则召唤${get.poptip('bts_ch_yijiang')}并执行额外回合`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -337,6 +338,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_zhigaozhizi_faq',
         name: '至高之姿祝福',
-        info: `你的【杀】视为【决斗】；当你造成光属性伤害后，附加1层此${get.poptip('bts_glossary_bless_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
+        info: `你的【杀】视为【决斗】；当你造成虚数属性伤害后，附加1层此${get.poptip('bts_glossary_bless_faq')}。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

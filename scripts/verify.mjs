@@ -261,6 +261,7 @@ function staticStage() {
         ['invisible', 'BOM/零宽/控制字符', ['--invisible']],
         ['globals', '包级标识符引用', ['--globals']],
         ['logskill', 'logSkill/cost 约定', ['--logskill']],
+        ['bufflog', 'buff 生效日志', ['--bufflog']],
         ['choosetarget', 'active 选目标时机', ['--choosetarget']],
         ['skill-embed', '技能效果自注册', ['--skill-embed']],
         ['skins', '头像孤儿/缺失', ['--skins']],

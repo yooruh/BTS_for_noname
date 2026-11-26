@@ -101,67 +101,58 @@ export const skill = {
     bts_sk_zhuchan: {
         trigger: { player: 'phaseJieshuBegin' },
         filter(event, player) {
-            // 源 askForUseCard(Slash) 无【杀】自动取消；收紧为手牌有【杀】可弃（与其他弃杀技能同款）
-            return player
-                .getCards('h')
-                .some((card) => get.name(card) === 'sha');
+            // 源 askForUseCard(Slash) 无【杀】自动取消；收紧为手牌有【杀】可弃（与其他弃杀技能同款）。
+            // 另需存在「其他存活角色」这一合法目标，否则表面满足却无目标可选（filterTarget 要求 t!==p）。
+            return (
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
+            );
         },
         async cost(event, trigger, player) {
-            const r = await player
-                .chooseBool('助产：是否弃置一张【杀】并选择一名其他角色？')
-                .forResult();
-            if (!r.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) => get.name(card) === 'sha',
-                    '弃置一张【杀】',
-                )
-                .forResult();
-            if (!cards.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const target = await player
-                .chooseTarget(
-                    '助产：选择一名其他角色',
-                    [1, 1],
+            // 弃【杀】与选目标一体化：chooseCardTarget 在同一对话内完成选择并确认，
+            // 取消即视为不发动（不再有「是否发动」的独立弹窗）。
+            // ai1/ai2 兼作发动决策：最高分≤0 时引擎自动取消（cost 型触发技不询顶层 check）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '助产：弃置一张【杀】并选择一名其他角色',
+                    position: 'h',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
                     // 源 Card filter（L3193-3196）只 #targets==0 且 to_select~=Self，未限手牌；
-                    // 空手目标可被选中（跳过弃牌仍判定），按源放开（原实现要求目标有手牌，已改）
-                    (c, p, t) => t !== p,
+                    // 空手目标可被选中（跳过弃牌仍判定），按源放开
+                    filterTarget: (card, source, target) => target !== source,
+                    // AI 口径：弃估值最低的【杀】（同风堇·虹光 ai1 范式）
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
                     // AI 口径：收益=弃其1手牌（有则≈1）+判定命中视为【杀】（概率≈异常种类×3/13）；
                     // 期望≥1.5（约抵弃【杀】成本）的敌方才选，否则负分取消（源 L3216-3250）
-                    (t) => {
-                        if (t === player || get.attitude(player, t) >= 0)
+                    ai2: (target) => {
+                        if (target === player || get.attitude(player, target) >= 0)
                             return -1;
                         const p = Math.min(
                             1,
-                            (lib.bts.api.abnormalCount(t) * 3) / 13,
+                            (lib.bts.api.abnormalCount(target) * 3) / 13,
                         );
-                        const v = (t.countCards('h') > 0 ? 1 : 0) + p * 1.5;
+                        const v =
+                            (target.countCards('h') > 0 ? 1 : 0) + p * 1.5;
                         return v >= 1.5 ? v : -1;
                     },
-                )
+                })
                 .forResult();
-            if (!target.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = target;
-            event.result.cost_data = { cards: cards.cards };
         },
         async content(event, t, player) {
-            await player.discard(event.cost_data.cards); // 源：弃【杀】移入 content 结算
+            await player.discard(event.cards); // 源：弃【杀】移入 content 结算
             const x = event.targets[0]; // event=技能事件（自选弃牌/目标经 cost 拷入）
             // 目标可能在上一段结算（含弃置触发族）中阵亡：跨玩家操作前门控（死者不再弃牌/判定）。
             if (!x.isAlive()) return;
             // 源 askForCardChosen + throwCard（目标侧强制弃牌，保留在 content）；
-            // 目标无手牌则跳过弃牌仅判定（源 on_use 空手可判定，L3197-3200）
+            // 目标无手牌则跳过弃牌仅判定（源 on_use 空手可判定，L3197-3200）。
+            // 唯一手牌时直接弃置，不弹单选项窗。
             if (x.countCards('h'))
-                await x.chooseToDiscard('助产：弃置一张手牌', 'h', 1, true);
+                await lib.bts.api.forceDiscardOne(x, '助产：弃置一张手牌');
             // 判定：点数不大于其异常种类数的3倍
             const layers = lib.bts.api.abnormalCount(x);
             // 源 L3328：judge.who = targets[1]（判定牌归属目标）；无名杀以目标 x 发起判定等效
@@ -201,7 +192,9 @@ export const skill = {
 export const translate = {
     bts_ch_zhenliyisheng: '真理医生',
     bts_sk_beilun: '悖论',
-    bts_sk_beilun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加2层${get.poptip('bts_glossary_abnormal_duanjian_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为3层），对其造成1点伤害。`,
+    bts_sk_beilun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，`
+        + `令其附加2层${get.poptip('bts_glossary_abnormal_duanjian_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为3层），`
+        + `对其造成1点伤害。`,
     bts_sk_tuili: '推理',
     bts_sk_tuili_info: `锁定技，当处于${get.poptip('bts_glossary_abnormal_duanjian_faq')}的角色受到不为你造成的伤害时，移除其1层${get.poptip('bts_glossary_abnormal_duanjian_faq')}，你视为对其使用【杀】。`,
     bts_sk_zhuchan: '助产',
@@ -218,10 +211,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_beilun_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+2层${get.poptip('bts_glossary_abnormal_duanjian_faq')}并造成1点伤害（${get.poptip('bts_glossary_xingqi_faq')}改3）`,
+    bts_sk_beilun_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+2层${get.poptip('bts_glossary_abnormal_duanjian_faq')}并造成1点伤害（${get.poptip('bts_glossary_xingqi_faq')}改3）`,
     bts_sk_tuili_info: `锁；${get.poptip('bts_glossary_abnormal_duanjian_faq')}角色受到非你的伤害时，移除1层${get.poptip('bts_glossary_abnormal_duanjian_faq')}并视为对其用杀`,
-    bts_sk_zhuchan_info:
-        '结束阶段，弃1杀选1名其他角色弃其1手牌，判定点数≤其异常种类数×3则视为对其用杀',
+    bts_sk_zhuchan_info: '结束阶段，-1杀选1名其他角色弃其1手牌，判定点数≤其异常种类数×3则视为对其用杀',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -237,6 +229,10 @@ export const buffSkills = {
             return event.player === player && event.num > 0 && !!event.source;
         },
         async content(event, trigger, player) {
+            game.log(
+                trigger.source,
+                `因${get.translation(player)}的【${get.translation('bts_abnormal_duanjian')}】，摸1张牌`,
+            );
             trigger.source.draw(player, 1);
         },
     },

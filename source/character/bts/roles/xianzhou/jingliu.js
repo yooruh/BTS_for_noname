@@ -258,7 +258,9 @@ export const translate = {
     bts_mk_yingyue_active: '映月状态',
     bts_ch_jingliu: '镜流',
     bts_sk_tianhe: '天河',
-    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内一名其他角色，获得1枚${get.poptip('bts_glossary_shuowang_faq')}并对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，额外获得1枚${get.poptip('bts_glossary_bless_yingyue_faq')}并附加2层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
+    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内一名其他角色，`
+        + `获得1枚${get.poptip('bts_glossary_shuowang_faq')}并对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，额外获得1枚${get.poptip('bts_glossary_bless_yingyue_faq')}并附加2层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_sk_wuxia: '无罅',
     bts_sk_wuxia_info: `扣减体力后，你可以弃置一张【杀】，获得1枚${get.poptip('bts_glossary_shuowang_faq')}。`,
     bts_sk_zhuanpo: '转魄',
@@ -266,7 +268,9 @@ export const translate = {
     bts_sk_yingyue: '映月',
     // 源描述 L12847 含「锁定技，你造成的伤害视为暴击伤害」；源代码 L1137 持有 st_yingyue → AddNew("_critical")。
     // 无名杀代码已实现（resolver.js L79-80），原描述漏句，补齐。
-    bts_sk_yingyue_info: `锁定技，${get.poptip('bts_glossary_bless_yingyue_faq')}状态的出牌阶段开始时，你移除1枚${get.poptip('bts_glossary_shuowang_faq')}并选择一名其他角色，对其造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；其以外的未对你造成过伤害且体力值大于1的其他角色可选择失去1点体力令伤害+1，结算后你附加${get.poptip('bts_glossary_abnormal_sleep_faq')}；${get.poptip('bts_glossary_shuowang_faq')}耗尽时退出${get.poptip('bts_glossary_bless_yingyue_faq')}；锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
+    bts_sk_yingyue_info: `锁定技，${get.poptip('bts_glossary_bless_yingyue_faq')}状态的出牌阶段开始时，你移除1枚${get.poptip('bts_glossary_shuowang_faq')}并选择一名其他角色，`
+        + `对其造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害；其以外的未对你造成过伤害且体力值大于1的其他角色可选择失去1点体力令伤害+1，结算后你附加${get.poptip('bts_glossary_abnormal_sleep_faq')}；`
+        + `${get.poptip('bts_glossary_shuowang_faq')}耗尽时退出${get.poptip('bts_glossary_bless_yingyue_faq')}；锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}伤害。`,
 
     '$bts_sk_tianhe1': "就让这一轮月华…",
     '$bts_sk_tianhe2': "照彻万川！",
@@ -284,10 +288,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+1${get.poptip('bts_glossary_shuowang_faq')}，对范围内目标霜伤；${get.poptip('bts_glossary_xingqi_faq')}额外+1${get.poptip('bts_glossary_bless_yingyue_faq')}、+2${get.poptip('bts_glossary_bless_fatal_faq')}`,
-    bts_sk_wuxia_info: `扣减体力后可弃杀+1${get.poptip('bts_glossary_shuowang_faq')}`,
-    bts_sk_zhuanpo_info: `锁；任意角色回合结束${get.poptip('bts_glossary_shuowang_faq')}≥2时进入${get.poptip('bts_glossary_bless_yingyue_faq')}并额外回合`,
-    bts_sk_yingyue_info: `锁；${get.poptip('bts_glossary_bless_yingyue_faq')}出牌开始消耗${get.poptip('bts_glossary_shuowang_faq')}造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}（目标外未伤过你且体>1者可失体+1）并使自身${get.poptip('bts_glossary_abnormal_sleep_faq')}；你的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}`,
+    bts_sk_tianhe_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+1${get.poptip('bts_glossary_shuowang_faq')}，`
+        + `对范围内目标霜伤；${get.poptip('bts_glossary_xingqi_faq')}额外+1${get.poptip('bts_glossary_bless_yingyue_faq')}、+2${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_wuxia_info: `-体力后可-1杀+1${get.poptip('bts_glossary_shuowang_faq')}`,
+    bts_sk_zhuanpo_info: `锁；任意角色回合结束时，若${get.poptip('bts_glossary_shuowang_faq')}≥2，进入${get.poptip('bts_glossary_bless_yingyue_faq')}并执行额外回合`,
+    bts_sk_yingyue_info: `锁；${get.poptip('bts_glossary_bless_yingyue_faq')}出牌阶段开始时消耗${get.poptip('bts_glossary_shuowang_faq')}造成${get.poptip('bts_glossary_nature_frost_dmg_faq')}（目标外未伤过你且体力>1者可-1体力+1${get.poptip('bts_glossary_shuowang_faq')}）并使自身${get.poptip('bts_glossary_abnormal_sleep_faq')}；`
+        + `你的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

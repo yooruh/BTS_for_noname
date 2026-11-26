@@ -345,7 +345,9 @@ export const translate = {
     bts_sk_zhechi: '折翅',
     bts_sk_zhechi_info: '锁定技，你使用黑色【杀】的次数上限+3，使用红色【杀】的次数上限-1。',
     bts_sk_lvexi: '掠袭',
-    bts_sk_lvexi_info: `出牌阶段，当你对其他角色造成伤害后，若你没有${get.poptip('bts_glossary_bless_dark_faq')}，你可以弃置一张【杀】，发动${get.poptip('bts_sk_yueguan')}（你的锦囊牌视为风【杀】）并附加4层${get.poptip('bts_glossary_bless_dark_faq')}，若如此做，将此伤害角色标记为猎物；此回合结束时你进入潜行，不可被其他角色指定为目标，直到移除全部${get.poptip('bts_glossary_bless_dark_faq')}层数、你或猎物死亡、或仅剩1名存活角色。猎物受到其他角色【杀】伤害后，你移除1层${get.poptip('bts_glossary_bless_dark_faq')}并视为对其使用【杀】。若此伤害已使目标死亡，则无法发动。`,
+    bts_sk_lvexi_info: `出牌阶段，当你对其他角色造成伤害后，若你没有${get.poptip('bts_glossary_bless_dark_faq')}，你可以弃置一张【杀】，发动${get.poptip('bts_sk_yueguan')}（你的锦囊牌视为风【杀】）并附加4层${get.poptip('bts_glossary_bless_dark_faq')}，`
+        + `若如此做，将此伤害角色标记为猎物；此回合结束时你进入潜行，不可被其他角色指定为目标，直到移除全部${get.poptip('bts_glossary_bless_dark_faq')}层数、你或猎物死亡、或仅剩1名存活角色。`
+        + `猎物受到其他角色【杀】伤害后，你移除1层${get.poptip('bts_glossary_bless_dark_faq')}并视为对其使用【杀】。若此伤害已使目标死亡，则无法发动。`,
 
     '$bts_sk_fengying1': "该收割了",
     '$bts_sk_fengying2': "风声所到之处…你无所遁形！",
@@ -359,7 +361,7 @@ export const translate = {
     bts_bless_dark: '暗之祝福',
     bts_bless_dark_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；无属性伤害→量子；回合结束自然减少1层`,
     bts_mk_moze_dark_assault: '暗袭',
-    bts_mk_moze_dark_assault_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；${get.poptip('bts_sk_lvexi')}：猎物受杀后追击`,
+    bts_mk_moze_dark_assault_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；猎物受到【杀】伤害后，你视为对其使用【杀】`,
     bts_mk_moze_stealth: '潜行',
     bts_mk_moze_stealth_info: `来源：${get.poptip('bts_sk_lvexi')}赋予；不可被其他角色指定为目标，${get.poptip('bts_glossary_bless_dark_faq')}清空、你/猎物死亡或全场仅剩2人时解除`,
     bts_mk_liewu: '猎物',
@@ -367,9 +369,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_fengying_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}弃（${get.poptip('bts_glossary_xingqi_faq')}获得）目标1牌并对其使用杀`,
+    bts_sk_fengying_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}，-目标1牌（${get.poptip('bts_glossary_xingqi_faq')}时你+之）并视为对其用杀`,
     bts_sk_zhechi_info: '锁；黑杀次数+3，红杀次数-1',
-    bts_sk_lvexi_info: `出牌阶段对其他角色造成伤害后，无${get.poptip('bts_glossary_bless_dark_faq')}可弃1【杀】发动${get.poptip('bts_sk_yueguan')}（锦囊当风杀）+4层并标记猎物，回合结束潜行（不可被指定为目标）至${get.poptip('bts_glossary_bless_dark_faq')}清空或死亡或仅剩1人；猎物受他人杀伤耗1层追击；目标已被打死则无法发动`,
+    bts_sk_lvexi_info: `出牌阶段对其他角色造成伤害后，无${get.poptip('bts_glossary_bless_dark_faq')}可-1杀发动${get.poptip('bts_sk_yueguan')}（锦囊当风杀）+4层并标记猎物，`
+        + `回合结束时潜行（不可被指定为目标）至${get.poptip('bts_glossary_bless_dark_faq')}清空或死亡或仅剩1人；猎物受到其他角色杀伤害后，你移除1层并视为对其用杀；目标已被打死则无法发动`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

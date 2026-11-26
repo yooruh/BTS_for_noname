@@ -241,9 +241,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_wushen_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_shenjun_faq')}，给范围内至少1名其他角色各来一下${get.poptip('bts_glossary_nature_light_dmg_faq')}通常伤害`,
-    bts_sk_zhenyao_info: `伤害后可弃杀+2${get.poptip('bts_glossary_bless_shenjun_faq')}`,
-    bts_sk_shenjun_info: `出牌结束时${get.poptip('bts_glossary_bless_shenjun_faq')}≥5可扣5层：先对上一个被你伤过的角色用【杀】，再随机对本回合伤过的角色至多3次`,
+    bts_sk_wushen_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+3${get.poptip('bts_glossary_bless_shenjun_faq')}，`
+        + `对范围内至少1名其他角色各造成1点${get.poptip('bts_glossary_nature_light_dmg_faq')}通常伤害`,
+    bts_sk_zhenyao_info: `伤害后可-1杀+2${get.poptip('bts_glossary_bless_shenjun_faq')}`,
+    bts_sk_shenjun_info: `出牌阶段结束时${get.poptip('bts_glossary_bless_shenjun_faq')}≥5可-5层：先对上一个被你伤过的角色用杀，再随机对本回合伤过的角色至多3次`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

@@ -5,19 +5,22 @@
  *
  * ── 无参数默认打印用法；交互菜单需显式 `--interactive` ──────────────────────
  * ── 菜单顺序（--interactive 交互模式）──────────────────────────────────────
- *   [1] 本体打包    ①完全体/②丐版 → 是否包含崩铁杀扩展 → 是否包含电脑基座
+ *   [1] 本体打包    ①拓展包/②基础包/③更新包 → 是否包含崩铁杀扩展 → 是否包含电脑基座
  *   [2] APK 打包    从「本体打包」目录挑选不含基座的本体包 → 封装为安卓 APK
  *   [3] 安装器打包  从「本体打包」目录挑选任意本体包 → 生成 NSIS 安装向导 exe
  *
  * ── 功能说明 ────────────────────────────────────────────────────────────
  * [1] 本体打包（输出 zip 根＝游戏网页根；含引擎补丁）
- *     · 完全体 = 官方 8 扩展 + 全部媒体（完整发行内容）；
- *       丐版   = 无音频 / 无 src/docs/font；图像仅保留卡牌图（image/card）；
- *                扩展默认全去（可选保留崩铁杀）。
+ *     · 拓展包 = 官方 8 扩展 + 全部媒体（完整发行内容，无名杀与崩铁杀都能完整游玩）；
+ *       基础包 = 只保证崩铁杀完整可玩：崩铁杀扩展 + 卡牌图（image/card）+ 卡牌使用音效
+ *                （audio/card）+ 效果结算音效（audio/effect）+ 字体（font）；无角色语音、立绘、
+ *                BGM、src、docs 与官方其他扩展（可选保留崩铁杀之外的扩展时才放开）；
+ *       更新包 = 只含崩铁杀扩展与游戏程序文件（无 audio/image/font、无官方其他扩展），
+ *                供已经装过基础包/拓展包的玩家覆盖更新；必须有崩铁杀。
  *     · 包含崩铁杀 → 先把 `zip` 源同步进构建树 dist/extension/崩铁杀（按 Directory.json 清单逐字节
  *       比对，防包内扩展与项目不一致），再打入包内；并修改默认 config 预设启用
  *       （"extensions": ["崩铁杀"] + 3 个 enable 键；不注入 version，保持“正常首次安装”形态）。
- *     · 包内含本体扩展（完全体）→ 一并写入默认 config：`extensions` 追加其目录名
+ *     · 包内含本体扩展（拓展包）→ 一并写入默认 config：`extensions` 追加其目录名
  *       （不含 play 包 boss/cardpile/coin），且逐个显式 `extension_<名>_enable: false`
  *       （默认不开启；不可省略——引擎对缺失键会自动改写为开启）。
  *     · 包含电脑基座 → 与基座 zip 合体（游戏内容并入 <基座>/resources/app/；
@@ -42,6 +45,9 @@
  *       提供 SAF 文件系统桥接（entry.js 动态 import('/preload.js') 覆写文件 API）；
  *       与 dist 的桌面版 preload.js 同名，必须强制保留壳版本，丢失会导致手机启动崩溃
  *       （回退到需 noname_inited 的 cordova 文件实现 → path.join(null) 报错）。
+ *     · 版本号：把崩铁杀版本写进 APK 清单的 versionCode（主*1e6+次*1e4+修订*1e2+构建）与
+ *       versionName（形如 26.11.1.0）。外壳 gradle 里写死的是 1 / "1.0"，不写的话系统认不出升级，
+ *       玩家在系统应用信息里也看不出装的是哪版。改的是二进制清单，重签流程不变。
  *     随后 zipalign → java apksigner 重签（禁 v4）→ 校验证书。
  *     外壳 APK 缺失时：交互模式询问重建（pnpm run build:android --skip-web-build），
  *     CLI 加 --rebuild 自动重建。
@@ -49,6 +55,9 @@
  *     扫描「本体打包」目录中任意 zip，任选其一；若无电脑基座自动补基座 →
  *     解包为 NSIS 载荷（按组件分流：core / 崩铁杀 / 卡牌图像 / 音效 / 角色图像 /
  *     角色语音 / 本体扩展）→ 编译出带组件选择的安装 exe。
+ *     · 选中「更新包」时自动切更新模式（CLI 也可加 `--update`）：不补基座、不装启动器与快捷方式、
+ *       不覆盖 `resources/app/game/config.json`（保留玩家现有扩展名单与设置），只把崩铁杀扩展与
+ *       程序文件覆盖进已安装目录；找不到已安装的无名杀就提示先装基础包/拓展包并退出。
  *     · 安装目录默认 = 首个非系统盘固定盘符的 \noname（如 D:\noname）；没有
  *       其他固定盘才退回系统盘（C:\noname）。
  *     · 基座自带的官方卸载器（或旧流程合体包里的遗留）在解包阶段即剔除，不进安装载荷。
@@ -63,9 +72,9 @@
  *     · 编译完成后清理全部临时文件（安装器目录不残留 zip）。
  *
  * ── 用法（AI / 自动化）──────────────────────────────────────────────────
- *   node scripts/pack.mjs body --variant full|slim [--with-bts] [--base <基座zip>|--with-base] [--dry-run]
+ *   node scripts/pack.mjs body --variant full|slim|update [--with-bts] [--with-engine] [--base <基座zip>|--with-base] [--dry-run]
  *   node scripts/pack.mjs apk --from <本体包zip> [--rebuild] [--dry-run]
- *   node scripts/pack.mjs installer --from <zip> [--best] [--dry-run]
+ *   node scripts/pack.mjs installer --from <zip> [--update] [--best] [--dry-run]
  *   node scripts/pack.mjs bases                                 列出可用电脑基座包
  *   无参数运行（npm run pack）＝交互式菜单。
  *
@@ -79,9 +88,10 @@
  *     --dry-run            只检查与统计，不写任何文件
  *
  * ── 输出（默认 _others/打包目录/…）─────────────────────────────────────
- *   本体打包/   {崩铁杀版本}_完全体[_不含崩铁杀].zip ｜ {崩铁杀版本}_丐版[_不含崩铁杀].zip
- *               （版本 = release/releases.json 最新发布，如 26.10.3.4，无 v 前缀；
- *               含崩铁杀时不加后缀；仅不含崩铁杀时追加 _不含崩铁杀）
+ *   本体打包/   {崩铁杀版本}_拓展包[_不含崩铁杀].zip ｜ {崩铁杀版本}_基础包[_不含崩铁杀].zip
+ *               {崩铁杀版本}_更新包.zip
+ *               （版本 = release/releases.json 最新发布，如 26.11.1.0，无 v 前缀；
+ *               含崩铁杀时不加后缀；仅不含崩铁杀时追加 _不含崩铁杀，更新包必须有崩铁杀）
  *               {基座名}_合体_{本体包名}.zip
  *   APK打包/    {本体包名}.ApK
  *   安装器打包/ {本体包名}_电脑安装器.exe
@@ -114,7 +124,8 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import { crc32 } from './lib/crc32.mjs';
-import { PATHS, bodyZipName } from './lib/shared.mjs';
+import { PATHS, bodyVariantFromName, bodyVariantLabel, bodyZipName, stripV } from './lib/shared.mjs';
+import { apkVersionCode, patchManifestVersion, readManifestVersion } from './lib/apk-manifest.mjs';
 import { getCurrentReleaseVersion } from './lib/release.mjs';
 import { pack as PACK_CFG } from './lib/dev-config.mjs';
 import { menu, prompt, confirm, closeInteractive, wantsInteractive } from './lib/interactive.mjs';
@@ -425,7 +436,7 @@ function listStockExtensionNames() {
 //
 // 预设规则：`extensions` = 崩铁杀（如含）+ 本包内含的全体本体扩展；崩铁杀三键 = true（保持启用预设），
 // 本体扩展 `extension_<名>_enable` = false（显式关闭，不能省略——引擎 hasExtension() 对缺失/非布尔值
-// 会自动改写为 true）。stockExtensions 由调用方按「本包实际包含哪些扩展」传入（丐版为空）。
+// 会自动改写为 true）。stockExtensions 由调用方按「本包实际包含哪些扩展」传入（基础包/更新包为空）。
 function injectBtsConfig(text, { stockExtensions = [], withBts = true } = {}) {
     const wanted = [...(withBts ? ['崩铁杀'] : []), ...stockExtensions];
     const eol = text.includes('\r\n') ? '\r\n' : '\n';
@@ -693,13 +704,19 @@ function classifyZip(path) {
     try {
         let rootIndex = false;
         let wrappedIndex = false;
+        let btsExtension = false;
         const segs = new Set();
         for (const e of z.entries) {
             segs.add(e.name.split('/')[0]);
             if (e.name === 'index.html') rootIndex = true;
+            if (e.name.startsWith('extension/崩铁杀/')) btsExtension = true;
             if (/^[^/]+\/resources\/app\/index\.html$/.test(e.name)) wrappedIndex = true;
         }
         if (rootIndex) return { kind: 'body', wrapper: '' };
+        // 更新包默认不含引擎（没有 index.html），只有 extension/崩铁杀 —— 靠文件名变体 + 扩展目录认出来
+        if (btsExtension && bodyVariantFromName(basename(path)) === 'update') {
+            return { kind: 'body', wrapper: '', engineFree: true };
+        }
         if (segs.size === 1 && wrappedIndex) return { kind: 'merged', wrapper: [...segs][0] };
         return { kind: 'other', wrapper: '' };
     } finally {
@@ -973,60 +990,115 @@ async function runBaseMerge({ bodyZip, baseZip, dryRun }) {
 // ─────────────────────────────────────────────────────────────────────────
 // [1] 本体打包
 // ─────────────────────────────────────────────────────────────────────────
-async function runBodyBuild({ variant, withBts, dryRun }) {
+/**
+ * 各变体的内容裁剪规则。
+ * - 拓展包：除 preload.js 外全收（不含崩铁杀时剔掉扩展目录）。
+ * - 基础包：只保证崩铁杀完整可玩——卡牌图、卡牌使用音效、效果结算音效、字体；其余媒体与
+ *   官方其他扩展全剔（角色语音、立绘、BGM、src、docs 都不带）。
+ * - 更新包：默认**只打包崩铁杀扩展**（连引擎都不带，体积最小，只换扩展）；`--with-engine` 时
+ *   额外带上引擎程序文件（本体有修复时用）。素材与官方其他扩展始终不带——素材留在玩家已装好的
+ *   私有目录/安装目录里，引擎由整包安装时缓存在私有目录（手机壳 BundledContent.syncBundledEngine）。
+ */
+function bodyExcludes(variant, withBts, withEngine = false) {
+    const excludeDirs = new Set();
+    const excludeFiles = new Set(['preload.js']);
+    const subdirsOf = (rel) => {
+        const root = join(CFG.distDir, rel);
+        if (!existsSync(root)) return [];
+        return readdirSync(root, { withFileTypes: true })
+            .filter((d) => d.isDirectory())
+            .map((d) => d.name);
+    };
+    const keepOnly = (rel, keep) => {
+        for (const name of subdirsOf(rel)) if (!keep.includes(name)) excludeDirs.add(`${rel}/${name}`);
+    };
+    const dropStockExtensions = () => {
+        if (!withBts) {
+            excludeDirs.add('extension');
+            return;
+        }
+        for (const name of listStockExtensionNames()) excludeDirs.add(`extension/${name}`);
+    };
+
+    if (variant === 'full') {
+        if (!withBts) excludeDirs.add('extension/崩铁杀');
+        return { excludeDirs, excludeFiles, note: '官方扩展 + 全部媒体' };
+    }
+    if (variant === 'slim') {
+        keepOnly('audio', ['card', 'effect']);
+        // 背景图与启动画面是「界面和选将看得到」的观感素材，崩铁杀玩家也一直在用，因此留在基础包里；
+        // 其余 image 子目录（角色立绘、表情、模式、指针、阵法、flappybird）仍剔除
+        keepOnly('image', ['card', 'background', 'splash']);
+        excludeDirs.add('src');
+        excludeDirs.add('docs');
+        dropStockExtensions();
+        return {
+            excludeDirs,
+            excludeFiles,
+            note: '卡牌图 + 背景/启动画面 + 卡牌/结算音效 + 字体（无角色立绘、语音、BGM、src、docs）',
+        };
+    }
+    if (!withEngine) {
+        // 只留崩铁杀扩展：引擎也不带。装到没装过整包的手机上会显示「先装基础包/拓展包」引导页。
+        return {
+            excludeDirs,
+            excludeFiles,
+            allowPrefix: withBts ? 'extension/崩铁杀' : '',
+            note: '仅崩铁杀扩展（无引擎、无本体素材、无官方扩展）',
+        };
+    }
+    for (const d of ['audio', 'image', 'font']) excludeDirs.add(d);
+    dropStockExtensions();
+    return { excludeDirs, excludeFiles, note: '崩铁杀扩展 + 引擎程序文件（无本体素材、无官方扩展）' };
+}
+
+async function runBodyBuild({ variant, withBts, withEngine = false, dryRun }) {
     // 检测无名杀版本仅作构建树健全性检查（dist/game/update.js 缺失说明构建树不完整）
     const gameVer = detectGameVersion();
     if (!gameVer) throw new Error('无法从 dist 检测游戏版本（缺少 game/update.js）');
-    // 产物命名改用崩铁杀自身版本（release/releases.json 最新发布，如 26.10.3.4），便于按版本区分
+    // 产物命名改用崩铁杀自身版本（release/releases.json 最新发布，如 26.11.1.0），便于按版本区分
     const btsVer = getCurrentReleaseVersion();
-    const suffix = variant === 'full' ? '完全体' : '丐版';
+    const suffix = bodyVariantLabel(variant);
+    if (variant === 'update' && !withBts) throw new Error('更新包只含崩铁杀，必须加 --with-bts（不带崩铁杀的更新包没有意义）');
+    // 更新包默认不带引擎：没有引擎文件要覆盖，也不需要桌面补丁树与 config 预设
+    const engineFree = variant === 'update' && !withEngine;
     const out = join(CFG.bodyDir, bodyZipName({ version: btsVer, variant, withBts }));
-    const { idbPath, guardPath, cfgPath } = assertPatchedDesktopTree();
-    let cfgText = readFileSync(cfgPath, 'utf8');
+    let idbPath = null;
+    let guardPath = null;
+    let cfgText = null;
+    if (!engineFree) {
+        const patched = assertPatchedDesktopTree();
+        idbPath = patched.idbPath;
+        guardPath = patched.guardPath;
+        cfgText = readFileSync(patched.cfgPath, 'utf8');
+    }
     if (withBts) {
         syncBtsExtensionToDist({ dryRun });
     }
-    // 本体扩展预设：仅本包实际包含时写入（丐版只含崩铁杀 → 空；完全体 → 全体 extension 型）
-    const stockExtensions = variant === 'full' ? listStockExtensionNames() : [];
-    const presetNames = [...(withBts ? ['崩铁杀'] : []), ...stockExtensions];
-    if (presetNames.length) {
-        const injected = injectBtsConfig(cfgText, { stockExtensions, withBts });
-        cfgText = injected.text;
-        say(
-            `config 预设扩展：${presetNames.join('、')}` +
-                `${stockExtensions.length ? '（本体扩展默认不开启）' : ''}` +
-                `${injected.injected ? '' : '（与现状一致）'}`,
-        );
+    if (!engineFree) {
+        // 本体扩展预设：仅本包实际包含时写入（基础包/更新包只含崩铁杀 → 空；拓展包 → 全体 extension 型）
+        const stockExtensions = variant === 'full' ? listStockExtensionNames() : [];
+        const presetNames = [...(withBts ? ['崩铁杀'] : []), ...stockExtensions];
+        if (presetNames.length) {
+            const injected = injectBtsConfig(cfgText, { stockExtensions, withBts });
+            cfgText = injected.text;
+            say(
+                `config 预设扩展：${presetNames.join('、')}` +
+                    `${stockExtensions.length ? '（本体扩展默认不开启）' : ''}` +
+                    `${injected.injected ? '' : '（与现状一致）'}`,
+            );
+        }
     }
 
-    const excludeDirs = new Set();
-    const excludeFiles = new Set(['preload.js']);
-    if (variant === 'full') {
-        if (!withBts) excludeDirs.add('extension/崩铁杀');
-    } else {
-        // 丐版：去音频 / src / docs / font；图像仅保留卡牌图（image/card），其余图像子目录全剔
-        for (const d of ['audio', 'src', 'docs', 'font']) excludeDirs.add(d);
-        const imgRoot = join(CFG.distDir, 'image');
-        if (existsSync(imgRoot)) {
-            for (const sub of readdirSync(imgRoot, { withFileTypes: true })) {
-                if (sub.isDirectory() && sub.name !== 'card') excludeDirs.add(`image/${sub.name}`);
-            }
-        }
-        if (!withBts) {
-            excludeDirs.add('extension');
-        } else {
-            const extRoot = join(CFG.distDir, 'extension');
-            if (existsSync(extRoot)) {
-                for (const sub of readdirSync(extRoot, { withFileTypes: true })) {
-                    if (sub.isDirectory() && sub.name !== '崩铁杀') excludeDirs.add(`extension/${sub.name}`);
-                }
-            }
-        }
-    }
+    const { excludeDirs, excludeFiles, allowPrefix, note } = bodyExcludes(variant, withBts, withEngine);
     if (!existsSync(CFG.distDir)) throw new Error(`构建产物不存在：${CFG.distDir}（先在构建树执行 pnpm build）`);
-    const walk = walkFiles(CFG.distDir, excludeDirs, excludeFiles);
+    const walk = walkFiles(CFG.distDir, excludeDirs, excludeFiles).filter(
+        (x) => !allowPrefix || x.rel === allowPrefix || x.rel.startsWith(`${allowPrefix}/`),
+    );
     const fileCount = walk.filter((x) => !x.isDir).length;
-    say(`本体[${suffix}]（崩铁杀 ${btsVer}）：打包 ${fileCount} 个文件（排除 ${[...excludeDirs].join('、') || '（无）'} 与 preload.js）${withBts ? '；含崩铁杀扩展并预设启用' : ''}`);
+    const scope = allowPrefix ? `只收 ${allowPrefix}/` : `排除 ${[...excludeDirs].join('、') || '（无）'} 与 preload.js`;
+    const tail = engineFree ? '；不含引擎，首装会提示先装整包' : withBts ? '；含崩铁杀扩展并预设启用' : '';
+    say(`本体[${suffix}]（崩铁杀 ${btsVer}）：${note}；打包 ${fileCount} 个文件（${scope}）${tail}`);
     if (dryRun) {
         say(`[dry-run] 将输出：${out}`);
         return null;
@@ -1079,6 +1151,9 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
         const what = info.kind === 'merged' ? '含电脑基座的合体包' : '未知格式';
         throw new Error(`APK 打包需要「不含电脑基座」的本体包，但 ${basename(bodyZip)} 判定为：${what}`);
     }
+    if (info.engineFree) {
+        warn('该更新包不含引擎：装到没装过基础包/拓展包的手机上会显示「请先装基础包/拓展包」引导页（设计如此）');
+    }
     // 约定：APK 打包前先把 zip 源同步进构建树 dist 扩展（防包内扩展与项目不一致；
     // 同时保证壳层保留的对照基准 dist 与项目一致，重建外壳时也吃到最新扩展）
     syncBtsExtensionToDist({ dryRun });
@@ -1093,12 +1168,18 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
     }
     const stem = basename(bodyZip).replace(/\.zip$/i, '');
     const out = join(CFG.apkDir, `${stem}.ApK`);
+    // 版本号取本体包名里的崩铁杀版本（如 26.11.1.0_更新包）——产物与包内扩展保持同一版本口径
+    const btsVer = stripV((stem.match(/^v?(\d+\.\d+\.\d+(?:\.\d+)?)_/) || [])[1] || getCurrentReleaseVersion());
+    const versionCode = apkVersionCode(btsVer);
+    if (versionCode == null) warn(`崩铁杀版本无法解析为安卓 versionCode：${btsVer}（保留外壳原值）`);
 
     // 壳层独有文件 = APK assets/public 内、但构建树 dist 中不存在的文件（如 cordova.js、_pnpm/** 等）；
     // 并强制保留 preload.js —— 手机版 SAF 桥接：entry.js 动态 import('/preload.js') 成功时用它覆写
     // 文件 API（game.checkFile 等）；失败则回退到需 noname_inited 的 cordova 实现而启动崩溃。
     // 它与 dist 的桌面版 preload.js 同名，不强制保留会被误判丢弃（本体包按桌面约定排除 preload.js）。
-    const SHELL_ALWAYS_KEEP = new Set(['preload.js']);
+    // bootstrap.html 是壳层引导页（「没装本体/只装了更新包」时由 MainActivity 直接读它），
+    // 必须始终取外壳自身那份：更新包不含引擎时 payload 里也没有它，缺了会直接崩在 onInterceptRequest。
+    const SHELL_ALWAYS_KEEP = new Set(['preload.js', 'bootstrap.html']);
     const distSet = new Set(walkFiles(CFG.distDir, new Set(), new Set()).filter((x) => !x.isDir).map((x) => x.rel));
     const extras = [];
     {
@@ -1128,6 +1209,7 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
     if (bodyHasBts && !bodyCfgBts) warn('本体包含崩铁杀扩展但 config 未见预设（旧流程产物？）');
 
     say(`外壳：${basename(CFG.apkSrc)} ｜ 本体：${basename(bodyZip)}（含崩铁杀=${bodyHasBts ? '是' : '否'}）`);
+    say(`APK 版本：versionName=${btsVer}  versionCode=${versionCode ?? '（保留外壳原值）'}`);
     say(`壳层保留文件 ${extras.length} 个${extras.length ? `（如：${extras.slice(0, 6).map((x) => x.rel).join('、')}${extras.length > 6 ? ' …' : ''}）` : ''}`);
     if (dryRun) {
         say(`[dry-run] 将输出：${out}`);
@@ -1137,11 +1219,18 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
     const tmp = out + '.tmp';
     const zw = makeZipWriter(tmp, { onProgress: (n, off) => say(`  … ${n} 条（${mb(off)}）`) });
     try {
-        // 外壳（除 assets/public 外全部保留）
+        // 外壳（除 assets/public 外全部保留）；清单顺手写入崩铁杀版本号（见文件头 [2] 版本号）
         const az2 = openZip(CFG.apkSrc);
         try {
             for (const e of az2.entries) {
                 if (e.name.startsWith('assets/public/')) continue;
+                if (e.name === 'AndroidManifest.xml') {
+                    const res = patchManifestVersion(readEntryData(az2, e), { versionCode, versionName: btsVer });
+                    for (const n of res.notes) warn(`APK 清单：${n}`);
+                    zw.addBuffer(e.name, res.buffer);
+                    say(`APK 清单：写入 ${res.changed.join('、') || '（无需改动）'}`);
+                    continue;
+                }
                 zw.addRaw(e.nameRaw, e, readEntryRaw(az2, e));
             }
         } finally {
@@ -1151,6 +1240,8 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
         const bz2 = openZip(bodyZip);
         try {
             for (const e of bz2.entries) {
+                // 壳层保留文件一律用外壳那份，避免同名条目写两遍（zip 重复项会让 AssetManager 读错）
+                if (SHELL_ALWAYS_KEEP.has(e.name)) continue;
                 if (e.isDir) {
                     zw.addDir(`assets/public/${e.name}`);
                     continue;
@@ -1192,6 +1283,7 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
     let hasPreload = false;
     let mediaFiles = 0;
     let extFiles = 0;
+    let manifest = { error: '缺少 AndroidManifest.xml' };
     try {
         for (const e of v.entries) {
             if (e.name === 'assets/public/index.html') hasIndex = true;
@@ -1199,6 +1291,7 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
             if (e.name === 'assets/public/game/config.json') cfgMatched = readEntryData(v, e).toString('utf8').includes('崩铁杀') === bodyCfgBts;
             if (e.name.startsWith('assets/public/audio/') || e.name.startsWith('assets/public/image/')) mediaFiles++;
             if (e.name.startsWith('assets/public/extension/')) extFiles++;
+            if (e.name === 'AndroidManifest.xml') manifest = readManifestVersion(readEntryData(v, e));
         }
     } finally {
         v.close();
@@ -1206,6 +1299,10 @@ async function runApkFromBody({ bodyZip, dryRun, interactive }) {
     const cert = verifyApk(out);
     ok(`APK 输出：${out}（${mb(statSync(out).size)}）`);
     ok(`校验：index.html=${hasIndex ? '✓' : '✗'}  preload.js=${hasPreload ? '✓' : '✗（移动端启动必需）'}  config与本体一致=${cfgMatched ? '✓' : '✗'}  媒体文件=${mediaFiles}  扩展文件=${extFiles}`);
+    const versionOk = manifest.versionCode === versionCode && manifest.versionName === btsVer;
+    (versionOk ? ok : warn)(
+        `版本号复核：versionCode=${manifest.versionCode ?? manifest.error}  versionName=${manifest.versionName ?? '—'}（期望 ${versionCode} / ${btsVer}）`,
+    );
     ok(`签名验证：${cert}`);
     OUTPUTS.push(out);
     return out;
@@ -1263,7 +1360,7 @@ function routeGameRel(p) {
 }
 
 /**
- * 已压缩格式：再压几乎不缩（mp3/jpg/…），却占完全体载荷约八成体积，是 NSIS 编译耗时主因。
+ * 已压缩格式：再压几乎不缩（mp3/jpg/…），却占拓展包载荷约八成体积，是 NSIS 编译耗时主因。
  * 解包时把它们写入 `<段>.raw` 树，安装器对该树用 SetCompress off 直存。
  */
 const RAW_TREE_SUFFIX = '.raw';
@@ -1314,8 +1411,14 @@ function mergeCounts(target, src) {
     }
 }
 
+/**
+ * 更新模式跳过的文件：`game/config.json` 打底的是扩展名单与默认设置，更新包只换扩展与程序文件，
+ * 不动玩家现有配置（更新模式本就要求已有安装，config.json 一定在）。
+ */
+const UPDATE_SKIP_RELS = new Set(['resources/app/game/config.json']);
+
 /** 计划/统计：仅扫中央目录，不写盘。返回 { counts, hasLauncher, baseZip } */
-function planInstallerPayload({ info, zipPath, baseZip }) {
+function planInstallerPayload({ info, zipPath, baseZip, updateOnly = false }) {
     const counts = new Map();
     if (baseZip) {
         const z = openZip(baseZip);
@@ -1338,9 +1441,12 @@ function planInstallerPayload({ info, zipPath, baseZip }) {
                 if (!info.wrapper || !e.name.startsWith(info.wrapper + '/')) continue;
                 const dest = e.name.slice(info.wrapper.length + 1);
                 if (isOfficialUninstaller(dest)) continue;
-                bumpCount(counts, baseRef.has(dest) ? 'core' : routeGameRel(dest), e.usize);
+                if (updateOnly && UPDATE_SKIP_RELS.has(dest)) continue;
+                bumpCount(counts, updateOnly ? 'core' : baseRef.has(dest) ? 'core' : routeGameRel(dest), e.usize);
             } else {
-                bumpCount(counts, routeGameRel('resources/app/' + e.name), e.usize);
+                const dest = 'resources/app/' + e.name;
+                if (updateOnly && UPDATE_SKIP_RELS.has(dest)) continue;
+                bumpCount(counts, updateOnly ? 'core' : routeGameRel(dest), e.usize);
             }
         }
     } finally {
@@ -1411,13 +1517,13 @@ function extractZipToPayload({ zipPath, payloadRoot, mapEntry, shellPreset }) {
     return counts;
 }
 
-function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present, hasLauncher, compressor, totalBytes }) {
+function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present, hasLauncher, compressor, totalBytes, updateOnly = false }) {
     const viParts = ver.split('.').map((x) => String(Number(x) || 0));
     while (viParts.length < 4) viParts.push('0');
     const vi = viParts.slice(0, 4).join('.');
     const lit = (s) => '"' + String(s).split('$').join('$$') + '"'; // 仅用于外部数据（路径/名称）
     const L = [];
-    L.push('; 无名杀安装器脚本（由 pack.mjs 自动生成，请勿手改）');
+    L.push(`; ${updateOnly ? '无名杀更新包' : '无名杀安装器'}脚本（由 pack.mjs 自动生成，请勿手改）`);
     L.push('Unicode true');
     L.push('!include "MUI2.nsh"');
     L.push('!include "FileFunc.nsh"');
@@ -1432,12 +1538,12 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('ShowUninstDetails show');
     L.push(`VIProductVersion "${vi}"`);
     L.push('VIAddVersionKey /LANG=2052 "ProductName" "无名杀"');
-    L.push(`VIAddVersionKey /LANG=2052 "FileDescription" ${lit(displayName + ' 安装程序')}`);
+    L.push(`VIAddVersionKey /LANG=2052 "FileDescription" ${lit(displayName + (updateOnly ? ' 更新包' : ' 安装程序'))}`);
     L.push(`VIAddVersionKey /LANG=2052 "FileVersion" ${lit(ver)}`);
     L.push(`VIAddVersionKey /LANG=2052 "ProductVersion" ${lit(ver)}`);
     L.push('VIAddVersionKey /LANG=2052 "LegalCopyright" "GPL-3.0 · 崩铁杀（无名杀扩展）"');
     L.push('!define MUI_ABORTWARNING');
-    if (hasLauncher) {
+    if (hasLauncher && !updateOnly) {
         L.push('!define MUI_FINISHPAGE_RUN "$INSTDIR\\noname.exe"');
         L.push('!define MUI_FINISHPAGE_RUN_TEXT "运行：无名杀"');
         L.push('!define MUI_FINISHPAGE_RUN_NOTCHECKED');
@@ -1445,11 +1551,13 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('!insertmacro MUI_PAGE_WELCOME');
     L.push('!define MUI_PAGE_CUSTOMFUNCTION_PRE UpdateSkipDirPage'); // 更新模式跳过目录页
     L.push('!insertmacro MUI_PAGE_DIRECTORY');
-    L.push('!insertmacro MUI_PAGE_COMPONENTS');
+    if (!updateOnly) L.push('!insertmacro MUI_PAGE_COMPONENTS'); // 更新包只有一段载荷，不需要组件页
     L.push('!insertmacro MUI_PAGE_INSTFILES');
     L.push('!insertmacro MUI_PAGE_FINISH');
-    L.push('!insertmacro MUI_UNPAGE_CONFIRM');
-    L.push('!insertmacro MUI_UNPAGE_INSTFILES');
+    if (!updateOnly) {
+        L.push('!insertmacro MUI_UNPAGE_CONFIRM');
+        L.push('!insertmacro MUI_UNPAGE_INSTFILES');
+    }
     L.push('!insertmacro MUI_LANGUAGE "SimpChinese"');
     L.push('');
     L.push('Var UpdateMode ; 1=更新模式（沿用旧目录覆盖）');
@@ -1458,6 +1566,7 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('  StrCpy $UpdateMode "0"');
     L.push('  ; 命令行显式 /D=目录（$INSTDIR 非哨兵值）优先，直接沿用');
     L.push('  ${If} $INSTDIR != "C:\\__noname_install_unset__"');
+    if (updateOnly) L.push('    StrCpy $UpdateMode "1"');
     L.push('    Goto init_done');
     L.push('  ${EndIf}');
     L.push('  ; ——— 更新检测：注册表记录 + 旧目录存在非空 + 确认为无名杀目录 → 自动覆盖更新 ———');
@@ -1497,21 +1606,33 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('      StrCpy $UpdateMode "1"');
     L.push('    ${EndIf}');
     L.push('  ${EndIf}');
-    L.push('  ${If} $UpdateMode == "1"');
-    L.push('    IfSilent update_ready');
-    L.push('    MessageBox MB_OKCANCEL|MB_ICONINFORMATION "检测到已安装的无名杀：$\\r$\\n$INSTDIR$\\r$\\n$\\r$\\n将在此目录上覆盖更新（保留现有文件，不删除旧内容）。$\\r$\\n请先退出正在运行的无名杀；如需更换安装目录，请先卸载旧版本。$\\r$\\n$\\r$\\n继续？" IDOK update_ready');
-    L.push('    Quit');
-    L.push('    update_ready:');
-    L.push('  ${Else}');
-    L.push('    ; ——— 全新安装：默认首个非系统盘固定盘 \\noname ———');
-    L.push('    StrCpy $R0 ""');
-    L.push('    StrCpy $R6 "$WINDIR" 1 ; 系统盘符（如 C）');
-    L.push('    ${GetDrives} "HDD" "FindFixedDrive"');
-    L.push('    ${If} $R0 == ""');
-    L.push('      StrCpy $R0 "$WINDIR" 2 ; 无其他固定盘 → 系统盘');
-    L.push('    ${EndIf}');
-    L.push('    StrCpy $INSTDIR "$R0\\noname"');
-    L.push('  ${EndIf}');
+    if (updateOnly) {
+        // 更新包：只能覆盖在已安装的游戏上——找不到就说明玩家第一次装错了文件
+        L.push('  ${If} $UpdateMode != "1"');
+        L.push('    MessageBox MB_OK|MB_ICONSTOP "未检测到已安装的无名杀。$\\r$\\n$\\r$\\n这是崩铁杀的更新包，只能覆盖在已安装的游戏上使用。$\\r$\\n请先下载基础包（或拓展包）安装并启动一次，再运行更新包。"');
+        L.push('    Quit');
+        L.push('  ${EndIf}');
+        L.push('  IfSilent update_ready');
+        L.push('  MessageBox MB_OKCANCEL|MB_ICONINFORMATION "检测到已安装的无名杀：$\\r$\\n$INSTDIR$\\r$\\n$\\r$\\n将在此目录覆盖更新：只替换崩铁杀扩展与游戏程序文件，保留存档、个人设置与已装好的本体素材。$\\r$\\n请先退出正在运行的无名杀。$\\r$\\n$\\r$\\n继续？" IDOK update_ready');
+        L.push('  Quit');
+        L.push('  update_ready:');
+    } else {
+        L.push('  ${If} $UpdateMode == "1"');
+        L.push('    IfSilent update_ready');
+        L.push('    MessageBox MB_OKCANCEL|MB_ICONINFORMATION "检测到已安装的无名杀：$\\r$\\n$INSTDIR$\\r$\\n$\\r$\\n将在此目录上覆盖更新（保留现有文件，不删除旧内容）。$\\r$\\n请先退出正在运行的无名杀；如需更换安装目录，请先卸载旧版本。$\\r$\\n$\\r$\\n继续？" IDOK update_ready');
+        L.push('    Quit');
+        L.push('    update_ready:');
+        L.push('  ${Else}');
+        L.push('    ; ——— 全新安装：默认首个非系统盘固定盘 \\noname ———');
+        L.push('    StrCpy $R0 ""');
+        L.push('    StrCpy $R6 "$WINDIR" 1 ; 系统盘符（如 C）');
+        L.push('    ${GetDrives} "HDD" "FindFixedDrive"');
+        L.push('    ${If} $R0 == ""');
+        L.push('      StrCpy $R0 "$WINDIR" 2 ; 无其他固定盘 → 系统盘');
+        L.push('    ${EndIf}');
+        L.push('    StrCpy $INSTDIR "$R0\\noname"');
+        L.push('  ${EndIf}');
+    }
     L.push('  init_done:');
     L.push('FunctionEnd');
     L.push('');
@@ -1521,19 +1642,22 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     L.push('  ${EndIf}');
     L.push('FunctionEnd');
     L.push('');
-    L.push('Function FindFixedDrive');
-    L.push('  ; $9 = 盘符（如 D:\\）；GetDrives 回调必须 Push 一个值：空串继续 / StopGetDrives 结束');
-    L.push('  ${If} $R0 == ""');
-    L.push('    StrCpy $R7 "$9" 1');
-    L.push('    ${If} $R7 != "$R6"');
-    L.push('      StrCpy $R0 $9 -1 ; 去掉尾部反斜杠，得到 D: 形态');
-    L.push('      Push "StopGetDrives"');
-    L.push('      Return');
-    L.push('    ${EndIf}');
-    L.push('  ${EndIf}');
-    L.push('  Push ""');
-    L.push('FunctionEnd');
-    L.push('');
+    if (!updateOnly) {
+        // 更新包沿用注册表里的安装目录，不需要按盘符挑默认路径
+        L.push('Function FindFixedDrive');
+        L.push('  ; $9 = 盘符（如 D:\\）；GetDrives 回调必须 Push 一个值：空串继续 / StopGetDrives 结束');
+        L.push('  ${If} $R0 == ""');
+        L.push('    StrCpy $R7 "$9" 1');
+        L.push('    ${If} $R7 != "$R6"');
+        L.push('      StrCpy $R0 $9 -1 ; 去掉尾部反斜杠，得到 D: 形态');
+        L.push('      Push "StopGetDrives"');
+        L.push('      Return');
+        L.push('    ${EndIf}');
+        L.push('  ${EndIf}');
+        L.push('  Push ""');
+        L.push('FunctionEnd');
+        L.push('');
+    }
     L.push('; 更新=覆写模式：同名文件直接覆盖，不删除旧目录中的其他文件');
     L.push('SetOverwrite on');
     L.push('');
@@ -1547,7 +1671,7 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
             L.push('  File /r ' + lit(dir + '\\*.*'));
         }
     };
-    L.push('Section "无名杀本体（必需）" SecCore');
+    L.push(`Section "${updateOnly ? '崩铁杀更新（必需）' : '无名杀本体（必需）'}" SecCore`);
     L.push('  SectionIn RO');
     L.push('  SetOutPath "$INSTDIR"');
     emitPayloadTree('core');
@@ -1559,7 +1683,7 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
         emitPayloadTree(c.key);
         L.push('SectionEnd');
     }
-    if (hasLauncher) {
+    if (hasLauncher && !updateOnly) {
         L.push('');
         L.push('Section "桌面快捷方式" SecDesk');
         L.push('  CreateShortCut "$DESKTOP\\无名杀.lnk" "$INSTDIR\\noname.exe"');
@@ -1567,68 +1691,82 @@ function generateNsi({ tmpRoot, payloadRoot, exePath, displayName, ver, present,
     }
     L.push('');
     L.push('Section -post');
-    if (hasLauncher) {
+    if (hasLauncher && !updateOnly) {
         L.push('  CreateDirectory "$SMPROGRAMS\\无名杀"');
         L.push('  CreateShortCut "$SMPROGRAMS\\无名杀\\无名杀.lnk" "$INSTDIR\\noname.exe"');
     }
-    L.push('  WriteUninstaller "$INSTDIR\\uninst.exe"');
-    L.push('  CreateShortCut "$SMPROGRAMS\\无名杀\\卸载 无名杀.lnk" "$INSTDIR\\uninst.exe"');
+    if (!updateOnly) {
+        // 更新包不重写卸载器与快捷方式：卸载入口沿用已装好的那份
+        L.push('  WriteUninstaller "$INSTDIR\\uninst.exe"');
+        L.push('  CreateShortCut "$SMPROGRAMS\\无名杀\\卸载 无名杀.lnk" "$INSTDIR\\uninst.exe"');
+    }
     L.push('  WriteRegStr HKCU "Software\\无名杀" "InstallDir" "$INSTDIR"');
-    L.push(`  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "DisplayName" ${lit(displayName)}`);
-    if (hasLauncher) L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "DisplayIcon" "$INSTDIR\\noname.exe"');
-    L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "UninstallString" "$INSTDIR\\uninst.exe"');
+    if (!updateOnly) {
+        L.push(`  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "DisplayName" ${lit(displayName)}`);
+        if (hasLauncher) L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "DisplayIcon" "$INSTDIR\\noname.exe"');
+        L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "UninstallString" "$INSTDIR\\uninst.exe"');
+        L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "Publisher" "崩铁杀（无名杀扩展）"');
+    }
     L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "InstallLocation" "$INSTDIR"');
-    L.push('  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "Publisher" "崩铁杀（无名杀扩展）"');
     L.push(`  WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "DisplayVersion" ${lit(ver)}`);
-    L.push(`  WriteRegDWORD HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "EstimatedSize" ${Math.max(1, Math.round(totalBytes / 1024))}`);
+    // 已装体积由完整安装写入；更新包只覆盖一部分文件，不重算
+    if (!updateOnly) {
+        L.push(`  WriteRegDWORD HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀" "EstimatedSize" ${Math.max(1, Math.round(totalBytes / 1024))}`);
+    }
     L.push('SectionEnd');
-    L.push('');
-    L.push('Section "Uninstall"');
-    L.push('  Delete "$DESKTOP\\无名杀.lnk"');
-    L.push('  Delete "$SMPROGRAMS\\无名杀\\无名杀.lnk"');
-    L.push('  Delete "$SMPROGRAMS\\无名杀\\卸载 无名杀.lnk"');
-    L.push('  RMDir "$SMPROGRAMS\\无名杀"');
-    L.push('  DeleteRegKey HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀"');
-    L.push('  DeleteRegKey HKCU "Software\\无名杀"');
-    L.push('  RMDir /r "$INSTDIR"');
-    L.push('SectionEnd');
-    L.push('');
-    L.push('!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN');
-    for (const c of present) L.push(`  !insertmacro MUI_DESCRIPTION_TEXT \${${c.id}} ${lit(c.desc)}`);
-    if (hasLauncher) L.push('  !insertmacro MUI_DESCRIPTION_TEXT ${SecDesk} "在桌面创建 无名杀 的快捷方式"');
-    L.push('!insertmacro MUI_FUNCTION_DESCRIPTION_END');
+    if (!updateOnly) {
+        L.push('');
+        L.push('Section "Uninstall"');
+        L.push('  Delete "$DESKTOP\\无名杀.lnk"');
+        L.push('  Delete "$SMPROGRAMS\\无名杀\\无名杀.lnk"');
+        L.push('  Delete "$SMPROGRAMS\\无名杀\\卸载 无名杀.lnk"');
+        L.push('  RMDir "$SMPROGRAMS\\无名杀"');
+        L.push('  DeleteRegKey HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无名杀"');
+        L.push('  DeleteRegKey HKCU "Software\\无名杀"');
+        L.push('  RMDir /r "$INSTDIR"');
+        L.push('SectionEnd');
+        L.push('');
+        L.push('!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN');
+        for (const c of present) L.push(`  !insertmacro MUI_DESCRIPTION_TEXT \${${c.id}} ${lit(c.desc)}`);
+        if (hasLauncher) L.push('  !insertmacro MUI_DESCRIPTION_TEXT ${SecDesk} "在桌面创建 无名杀 的快捷方式"');
+        L.push('!insertmacro MUI_FUNCTION_DESCRIPTION_END');
+    }
     const nsiPath = join(tmpRoot, 'setup.nsi');
     writeFileSync(nsiPath, '\ufeff' + L.join('\r\n'), 'utf8');
     return nsiPath;
 }
 
-async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor }) {
+async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor, updateOnly = false }) {
     const info = classifyZip(zipPath);
     if (!['body', 'merged'].includes(info.kind)) throw new Error(`无法识别的本体包：${basename(zipPath)}（既无根 index.html，也非单层 wrapper 合体包）`);
     if (info.kind === 'merged' && baseZip) warn('所选为已合体包，--base 将被忽略');
-    let base = info.kind === 'body' ? (baseZip || pickDefaultBase()) : null;
-    if (info.kind === 'body') {
+    if (updateOnly && info.kind === 'merged') throw new Error('更新包必须是不含电脑基座的本体包（合体包已带基座，无法只更新扩展）');
+    // 更新模式不补基座：只把包内程序文件与扩展覆盖到已安装目录
+    let base = updateOnly ? null : info.kind === 'body' ? baseZip || pickDefaultBase() : null;
+    if (!updateOnly && info.kind === 'body') {
         if (!base || !existsSync(base)) throw new Error(`需要电脑基座但未找到可用基座（目录：${CFG.baseDir || '(未配置)'}），可用 --base 指定`);
     }
+    if (updateOnly && baseZip) warn('更新模式下 --base 不适用，已忽略');
     const stem = basename(zipPath).replace(/\.zip$/i, '');
-    const exeOut = join(CFG.setupDir, `${stem}_电脑安装器.exe`);
+    const exeOut = join(CFG.setupDir, `${stem}_${updateOnly ? '电脑更新器' : '电脑安装器'}.exe`);
     const verGuess = detectGameVersion() || ((stem.match(/(\d+\.\d+(?:\.\d+)*)/) || [])[1] || '0.0');
     const m = stem.match(/^v?(\d+\.\d+(?:\.\d+)*)_(.+)$/);
     const displayName = m ? `无名杀 ${m[1]}（${m[2].split('_').join(' · ')}）` : `无名杀（${stem}）`;
     const ver = m ? m[1] : verGuess;
 
-    const { counts, hasLauncher } = planInstallerPayload({ info, zipPath, baseZip: base });
+    const { counts, hasLauncher } = planInstallerPayload({ info, zipPath, baseZip: base, updateOnly });
     const totalBytes = [...counts.values()].reduce((sum, s) => sum + s.bytes, 0);
     const present = COMPONENTS.filter((c) => counts.has(c.key)).map((c) => ({ ...c, ...counts.get(c.key) }));
     const core = counts.get('core') || { files: 0, bytes: 0 };
 
-    say(`安装器计划：${displayName}`);
-    say(`  载体包：${basename(zipPath)}（${info.kind === 'merged' ? '含电脑基座' : '不含基座'}）${base ? ` ｜ 补基座：${basename(base)}` : ''}`);
+    say(`${updateOnly ? '更新器' : '安装器'}计划：${displayName}`);
+    say(`  载体包：${basename(zipPath)}（${info.kind === 'merged' ? '含电脑基座' : '不含基座'}）${base ? ` ｜ 补基座：${basename(base)}` : ''}${updateOnly ? ' ｜ 更新模式：覆盖到已安装目录，跳过 game/config.json' : ''}`);
     say(`  核心：${core.files} 文件（${mb(core.bytes)})；总解包 ${mb(totalBytes)}`);
     for (const c of present) say(`  组件[${c.label}]：${c.files} 文件（${mb(c.bytes)}）`);
     const missing = COMPONENTS.filter((c) => !counts.has(c.key)).map((c) => c.label);
-    if (missing.length) say(`  包中不存在（不显示）：${missing.join('、')}`);
-    if (!hasLauncher) warn('基座中未找到 noname.exe，安装器将不创建快捷方式/启动项');
+    if (!updateOnly && missing.length) say(`  包中不存在（不显示）：${missing.join('、')}`);
+    if (!updateOnly && !hasLauncher) warn('基座中未找到 noname.exe，安装器将不创建快捷方式/启动项');
+    if (updateOnly) say('  未检测到已安装的无名杀时，更新器会提示先装基础包/拓展包并退出');
 
     // 桌面壳要硬编码的预置名单 = 基座自带扩展 + 本包带的扩展；安装器按组件勾选安装，
     // 运行时由壳逐个用目录存在性过滤（没勾选的组件没有目录 → 不登记）
@@ -1707,6 +1845,23 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor }) {
                 },
             });
             mergeCounts(stats, c);
+        } else if (updateOnly) {
+            // 更新模式：整包进 core 一段，跳过 game/config.json（保留玩家现有扩展名单与设置）
+            let skippedCfg = false;
+            const c = extractZipToPayload({
+                zipPath,
+                payloadRoot,
+                mapEntry: (name) => {
+                    const dest = 'resources/app/' + name;
+                    if (UPDATE_SKIP_RELS.has(dest)) {
+                        skippedCfg = true;
+                        return null;
+                    }
+                    return { section: 'core', destRel: dest };
+                },
+            });
+            mergeCounts(stats, c);
+            if (skippedCfg) say('  已跳过 resources/app/game/config.json（保留玩家现有配置）');
         } else {
             const c = extractZipToPayload({
                 zipPath,
@@ -1744,6 +1899,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor }) {
             hasLauncher,
             compressor,
             totalBytes,
+            updateOnly,
         });
         const t1 = Date.now();
         let makensisOut = '';
@@ -1757,7 +1913,7 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor }) {
         const warnLines = makensisOut.split(/\r?\n/).filter((l) => /warning/i.test(l)).slice(0, 8);
         for (const w2 of warnLines) warn(`makensis: ${w2.trim()}`);
         if (!existsSync(exeOut)) throw new Error(`makensis 完成但未生成：${exeOut}`);
-        ok(`安装器输出：${exeOut}（${mb(statSync(exeOut).size)}；编译 ${compileSecs} 秒，压缩=${compressor}（已压缩媒体直存））`);
+        ok(`${updateOnly ? '更新器' : '安装器'}输出：${exeOut}（${mb(statSync(exeOut).size)}；编译 ${compileSecs} 秒，压缩=${compressor}（已压缩媒体直存））`);
         OUTPUTS.push(exeOut);
         return exeOut;
     } finally {
@@ -1771,12 +1927,18 @@ async function runInstallerBuild({ zipPath, baseZip, dryRun, compressor }) {
 // ─────────────────────────────────────────────────────────────────────────
 async function interactiveBody() {
     const v = await menu('本体打包\n请选择类型', [
-        { label: '① 完全体：官方扩展 + 全部媒体（发行完整内容）', value: 'full' },
-        { label: '② 丐版：无音频/扩展/src/docs/font（保留卡牌图像 image/card）', value: 'slim' },
+        { label: '① 拓展包：官方扩展 + 全部媒体（无名杀与崩铁杀都能完整游玩）', value: 'full' },
+        { label: '② 基础包：只保证崩铁杀完整可玩（卡牌图 + 卡牌/结算音效 + 字体）', value: 'slim' },
+        { label: '③ 更新包：只含崩铁杀扩展（默认连引擎都不带，给装过整包的人覆盖更新）', value: 'update' },
     ]);
     if (!v) return;
-    const withBts = await confirm('是否包含崩铁杀扩展？（将打入扩展并预设启用）', { defaultYes: false });
-    const withBase = await confirm('是否包含电脑基座？', { defaultYes: false });
+    const withBts =
+        v.value === 'update'
+            ? true
+            : await confirm('是否包含崩铁杀扩展？（将打入扩展并预设启用）', { defaultYes: false });
+    const withEngine =
+        v.value === 'update' ? await confirm('是否带引擎程序文件？（本体有修复时才需要；默认不带）', { defaultYes: false }) : false;
+    const withBase = v.value === 'update' ? false : await confirm('是否包含电脑基座？', { defaultYes: false });
     let baseZip = null;
     if (withBase) {
         const cands = listBaseCandidates();
@@ -1800,7 +1962,7 @@ async function interactiveBody() {
             baseZip = null;
         }
     }
-    const bodyZip = await runBodyBuild({ variant: v.value, withBts, dryRun: false });
+    const bodyZip = await runBodyBuild({ variant: v.value, withBts, withEngine, dryRun: false });
     if (baseZip && bodyZip) await runBaseMerge({ bodyZip, baseZip, dryRun: false });
 }
 
@@ -1825,11 +1987,12 @@ async function interactiveInstaller() {
         return;
     }
     const pick = await menu(
-        '安装器打包\n请选择本体包（无基座将自动补）',
+        '安装器打包\n请选择本体包（无基座将自动补；选更新包则生成电脑更新器）',
         cands.map((c) => ({ label: `${c.name}（${mb(c.size)}）${c.kind === 'merged' ? '（含电脑基座）' : ''}`, value: c.path })),
     );
     if (!pick) return;
-    await runInstallerBuild({ zipPath: pick.value, baseZip: null, dryRun: false, compressor: 'zlib' });
+    const updateOnly = bodyVariantFromName(basename(pick.value)) === 'update';
+    await runInstallerBuild({ zipPath: pick.value, baseZip: null, dryRun: false, compressor: 'zlib', updateOnly });
 }
 
 async function interactiveFlow() {
@@ -1852,13 +2015,15 @@ function printUsage() {
 用法：
   node scripts/pack.mjs                                       打印用法（非交互）
   node scripts/pack.mjs --interactive                         交互菜单（人类调试用）
-  node scripts/pack.mjs body --variant full|slim [--with-bts] [--base <基座zip>|--with-base] [--dry-run]
-        ① full=完全体 / slim=丐版；--with-bts 含崩铁杀（扩展+预设）；
+  node scripts/pack.mjs body --variant full|slim|update [--with-bts] [--with-engine] [--base <基座zip>|--with-base] [--dry-run]
+        ① full=拓展包 / slim=基础包 / update=更新包（更新包强制含崩铁杀，默认只收 extension/崩铁杀）；
+        --with-bts 含崩铁杀（扩展+预设）；--with-engine 更新包额外带引擎程序文件（默认不带）；
         --base 指定基座合体；--with-base 自动挑默认基座合体
   node scripts/pack.mjs apk --from <本体包zip> [--rebuild] [--dry-run]
-        将所选本体包封装为安卓 APK（--rebuild 先全量重建外壳）
-  node scripts/pack.mjs installer --from <zip> [--best] [--dry-run]
-        生成 NSIS 安装向导（默认 zlib：快；--best 换 lzma：更小、慢数倍。已压缩媒体两档都直存）
+        将所选本体包封装为安卓 APK（--rebuild 先全量重建外壳；版本号按崩铁杀版本写入清单）
+  node scripts/pack.mjs installer --from <zip> [--update] [--best] [--dry-run]
+        生成 NSIS 安装向导；--update 或选中更新包时生成「电脑更新器」（覆盖到已安装目录）
+        （默认 zlib：快；--best 换 lzma：更小、慢数倍。已压缩媒体两档都直存）
   node scripts/pack.mjs bases                                 列出可用电脑基座包
 可选：--out/--build-tree/--desktop-app/--base-dir/--apk-src/--ks-props 覆盖路径（见文件头注释）。
 输出：默认写入 <仓库>/_others/打包目录/{本体打包|APK打包|安装器打包}。`);
@@ -1887,15 +2052,17 @@ async function main() {
     }
     if (SUB === 'body') {
         const variant = opts['--variant'] || 'full';
-        if (!['full', 'slim'].includes(variant)) throw new Error(`未知 --variant：${variant}（full|slim）`);
-        const withBts = flags.has('--with-bts');
+        if (!['full', 'slim', 'update'].includes(variant)) throw new Error(`未知 --variant：${variant}（full|slim|update）`);
+        const withBts = flags.has('--with-bts') || variant === 'update';
+        const withEngine = flags.has('--with-engine');
+        if (withEngine && variant !== 'update') warn('--with-engine 只对更新包生效，已忽略');
         let baseZip = opts['--base'] ? resolve(opts['--base']) : null;
         if (flags.has('--with-base') && !baseZip) {
             baseZip = pickDefaultBase();
             if (!baseZip) throw new Error('未找到可用电脑基座包（--base-dir 或 dev-config 未配置）');
         }
         if (baseZip && !existsSync(baseZip)) throw new Error(`基座包不存在：${baseZip}`);
-        const bodyZip = await runBodyBuild({ variant, withBts, dryRun: DRY });
+        const bodyZip = await runBodyBuild({ variant, withBts, withEngine, dryRun: DRY });
         if (baseZip) {
             if (DRY) say(`[dry-run] 将合体：${basename(baseZip)} + ${bodyZip || '(drystub)'}`);
             else await runBaseMerge({ bodyZip, baseZip, dryRun: false });
@@ -1929,7 +2096,9 @@ async function main() {
         }
         const baseZip = opts['--base'] ? resolve(opts['--base']) : null;
         if (baseZip && !existsSync(baseZip)) throw new Error(`基座包不存在：${baseZip}`);
-        await runInstallerBuild({ zipPath: from, baseZip, dryRun: DRY, compressor: flags.has('--best') ? 'lzma' : 'zlib' });
+        // 更新包自动切更新模式；也允许显式 --update（例如包名被改过）
+        const updateOnly = flags.has('--update') || bodyVariantFromName(basename(from)) === 'update';
+        await runInstallerBuild({ zipPath: from, baseZip, dryRun: DRY, compressor: flags.has('--best') ? 'lzma' : 'zlib', updateOnly });
         return;
     }
     throw new Error(`未知子命令：${SUB}（可用：body | apk | installer | bases）`);

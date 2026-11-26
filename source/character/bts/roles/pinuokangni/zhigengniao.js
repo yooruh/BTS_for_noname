@@ -278,10 +278,10 @@ export const skill = {
 export const translate = {
     bts_ch_zhigengniao: '知更鸟',
     bts_sk_diezou: '迭奏',
-    bts_sk_diezou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并翻面、结束出牌阶段，令至少一名其他角色各执行一个额外回合，这些角色于你下回合开始前手牌上限+1（若你为${get.poptip('bts_glossary_xingqi_faq')}，其额定摸牌数+1）。`,
+    bts_sk_diezou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并翻面、结束出牌阶段，`
+        + `令至少一名其他角色各执行一个额外回合，这些角色于你下回合开始前手牌上限+1（若你为${get.poptip('bts_glossary_xingqi_faq')}，其额定摸牌数+1）。`,
     bts_sk_yongtan: '咏叹',
-    bts_sk_yongtan_info:
-        '当你成为其他角色使用牌的目标后，你可以弃置一张【杀】，摸两张牌，并将这些牌交给任意角色。',
+    bts_sk_yongtan_info: '当你成为其他角色使用牌的目标后，你可以弃置一张【杀】，摸两张牌，并将这些牌交给任意角色。',
     bts_sk_hesong: '合颂',
     bts_sk_hesong_info: `锁定技，翻面时，额外回合角色造成的伤害改为${get.poptip('bts_glossary_bless_fatal_faq')}伤害，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
 
@@ -295,9 +295,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_diezou_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}翻面并结束出牌阶段，令至少1名其他角色额外回合，其手牌上限+1（${get.poptip('bts_glossary_xingqi_faq')}额外摸牌+1）`,
-    bts_sk_yongtan_info: '成为他人牌目标后可弃杀摸2并可分配',
-    bts_sk_hesong_info: `锁；翻面时额外回合来源伤害为${get.poptip('bts_glossary_bless_fatal_faq')}，自己回1${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_diezou_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}翻面并结束出牌阶段，令至少1名其他角色各执行一个额外回合；`
+        + `其于你下回合开始前手牌上限+1（若你为${get.poptip('bts_glossary_xingqi_faq')}，其额定摸牌数+1）`,
+    bts_sk_yongtan_info: '当你成为其他角色使用牌的目标后，可-1杀+2牌，并将这些牌交给任意角色',
+    bts_sk_hesong_info: `锁；翻面时，额外回合角色造成的伤害改为${get.poptip('bts_glossary_bless_fatal_faq')}伤害，你+1${get.poptip('bts_glossary_nuqi_faq')}`,
 };
 
 // 默认读音有误（更→gēng）：按叁岛式写「中文名 → 带声调拼音数组」覆盖。

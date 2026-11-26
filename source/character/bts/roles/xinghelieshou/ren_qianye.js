@@ -332,17 +332,20 @@ export const translate = {
     'bts_ch_ren_qianye_skin1': '皮肤1',
     bts_ch_ren_qianye: '千冶·刃',
     bts_sk_xinrou: '薪肉',
-    bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}和1点体力，失去${get.poptip('bts_sk_xinrou')}，获得${get.poptip('bts_sk_qianye')}、${get.poptip('bts_sk_fennu')}、${get.poptip('bts_sk_jinchang')}、${get.poptip('bts_sk_renzang')}，所有其他角色各附加2层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
+    bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}和1点体力，失去${get.poptip('bts_sk_xinrou')}，`
+        + `获得${get.poptip('bts_sk_qianye')}、${get.poptip('bts_sk_fennu')}、${get.poptip('bts_sk_jinchang')}、${get.poptip('bts_sk_renzang')}，`
+        + `所有其他角色各附加2层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
     bts_sk_qianye: '千冶',
     bts_sk_qianye_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，对这些角色各造成1点通常伤害。`,
     bts_sk_fennu: '忿怒',
     bts_sk_fennu_info: `锁定技，你造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}伤害；进入濒死时回复至3点，失去本形态技能并重获${get.poptip('bts_sk_xinrou')}。`,
     bts_sk_jinchang: '尽偿',
-    bts_sk_jinchang_info: `锁定技，当你对其他角色造成伤害后，令其附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。${get.poptip('bts_glossary_tongmeng_faq')}：未对你造成过伤害的其他角色造成伤害后，可经你与其的同意，令其伤害目标附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
+    bts_sk_jinchang_info: `锁定技，当你对其他角色造成伤害后，令其附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。${get.poptip('bts_glossary_tongmeng_faq')}：未对你造成过伤害的其他角色造成伤害后，`
+        + `可经你与其的同意，令其伤害目标附加1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}。`,
     bts_sk_renzang: '刃葬',
-    bts_sk_renzang_info: `出牌阶段，你可以在${get.poptip('bts_glossary_abnormal_shahuo_faq')}总数达到9时吸收${get.poptip('bts_glossary_abnormal_shahuo_faq')}视为使用【杀】，或体力大于1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}并视为使用【决斗】。`,
+    bts_sk_renzang_info: `出牌阶段，你可以在${get.poptip('bts_glossary_abnormal_shahuo_faq')}总数达到9时吸收${get.poptip('bts_glossary_abnormal_shahuo_faq')}视为使用【杀】，`
+        + `或体力大于1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}并视为使用【决斗】。`,
     bts_abnormal_shahuo: '煞火',
-
     // ── 语音台词来源优先级见《语音音频规范》§一 ──
     // 尽偿#1/2 台词随素材；薪肉#2 暂注释（无对应音频）——声明键而无 mp3 会使 rebuild --audio --check 报错。
     '$bts_sk_xinrou1': "支离血肉，千冶成刃",
@@ -359,11 +362,13 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}和1体力变身，并令所有其他角色各+2${get.poptip('bts_glossary_abnormal_shahuo_faq')}`,
-    bts_sk_qianye_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}群体通常伤害`,
+    bts_sk_xinrou_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}与1体力并变身，并令所有其他角色各+2${get.poptip('bts_glossary_abnormal_shahuo_faq')}`,
+    bts_sk_qianye_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成1点通常伤害`,
     bts_sk_fennu_info: `锁；伤害${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}，濒死回复并还原`,
-    bts_sk_jinchang_info: `锁；造成伤害后目标+${get.poptip('bts_glossary_abnormal_shahuo_faq')}；${get.poptip('bts_glossary_tongmeng_faq')}：未伤过你的其他角色伤害后经双方同意代发`,
-    bts_sk_renzang_info: `${get.poptip('bts_glossary_abnormal_shahuo_faq')}≥9时吸收后群杀，或体力>1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}群决斗`,
+    bts_sk_jinchang_info: `锁；你造成伤害后，目标+1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}；${get.poptip('bts_glossary_tongmeng_faq')}：未伤过你的其他角色造成伤害后，`
+        + `经双方同意，令其目标+1层${get.poptip('bts_glossary_abnormal_shahuo_faq')}`,
+    bts_sk_renzang_info: `${get.poptip('bts_glossary_abnormal_shahuo_faq')}总数达到9时，可吸收${get.poptip('bts_glossary_abnormal_shahuo_faq')}并视为用杀；`
+        + `或体力大于1时附加${get.poptip('bts_glossary_abnormal_diyu_faq')}并视为用决斗`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -383,6 +388,11 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            // 伤害属性影响元素相克与后续结算，但不显示在伤害数字上，须留日志。
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_shahuo')}】，此伤害视为炎属性`,
+            );
             lib.bts.api.setDamageNature(trigger, 'flame');
         },
     },

@@ -26,6 +26,14 @@ export const character = {
     },
 };
 
+// ── 吞纳 AI 共用口径（cost 内联 chooseBool=发动决策；顶层 check 供 frequent 自动确认）──
+// 受伤者为友（含自己，attitude 对己为正值）才消耗欢愉祝福。源 AI ai_skill_invoke.st_tunna
+// = asFriend(受伤者)（StarRail-ai.lua L4167-4170；asFriend 无 mid 参即严格 isFriend，见 L1-8）。
+export function tunnaWorth(player, target) {
+    if (!target || !target.isAlive()) return false;
+    return get.attitude(player, target) > 0;
+}
+
 // ── 鉴映·赠礼回收（源 L12200-12201 赠 / L12214-12215 收，礼包包住四个额外阶段）──
 // 源 ExtraPhase 为同步嵌套，四个阶段跑完即回收赠礼；无名杀阶段只能入队（不可嵌套），故赠礼先记，
 // 回收步骤排进伪回合同队 FIFO 之后再执行（白厄·燔世 pushFanshiEvent 范式，勿依赖阶段结束事件——
@@ -245,23 +253,25 @@ export const skill = {
         // 受方减免槽（源 DamageInflicted = damageBegin4，见流萤·中枢注；damageBegin2 为造成方减免槽，勿互换）
         trigger: { global: 'damageBegin4' },
         logTarget: 'player',
+        // frequent:'check'：每次伤害都会触发，tunnaWorth 成立（受伤者为友方）时引擎自动确认，
+        // 免去每次手点；不成立时照常弹询问。check 与 cost 内联 ai 共用 tunnaWorth。
+        check(trigger, player) {
+            return tunnaWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             // 源 L12264-12265：持有者拥有欢愉祝福（层数>0）即可应答
             return event.num > 0 && lib.bts.api.getBless(player, 'funny');
         },
         async cost(event, trigger, player) {
-            event.result = await player
-                .chooseBool(
-                    `吞纳：是否移除1层欢愉祝福，令${get.translation(trigger.player)}受到的伤害-1？`,
-                )
-                // AI 口径：受伤者为友（含自己，attitude 对己为正值）才消耗祝福。源 AI ai_skill_invoke.st_tunna
-                // = asFriend(受伤者)（StarRail-ai.lua L4167-4170；asFriend 无 mid 参即严格 isFriend，见 L1-8），
-                // 即 attitude>0——不替中立角色白耗祝福（原 >=0 会替中立掏层）。
-                .set('ai', () => {
-                    const target = trigger.player;
-                    if (!target || !target.isAlive()) return false;
-                    return get.attitude(player, target) > 0;
-                })
+            const ask = player.chooseBool(
+                `吞纳：是否移除1层欢愉祝福，令${get.translation(trigger.player)}受到的伤害-1？`,
+            );
+            // frequent 型触发技的自动确认须由 cost 转发 frequentSkill（本体·狂骨范式）
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
+                // AI 口径：受伤者为友（含自己）才消耗祝福，即 attitude>0——不替中立角色白耗祝福
+                .set('ai', () => tunnaWorth(player, trigger.player))
                 .forResult();
         },
         async content(event, trigger, player) {
@@ -356,9 +366,16 @@ export const skill = {
 export const translate = {
     bts_ch_zhenzhu: '真珠',
     bts_sk_jianying: '鉴映',
-    bts_sk_jianying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，你附加2层${get.poptip('bts_glossary_bless_funny_faq')}，若拥有欢愉行动的角色数不小于4/3/2/1，其执行一个额外的准备/摸牌/出牌/弃牌阶段（若不小于4，其先获得60枚${get.poptip('bts_glossary_funnypoint_faq')}并附加3层${get.poptip('bts_glossary_bless_funny_faq')}再执行这些阶段且阶段执行完毕后均移除）。若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法获得的${get.poptip('bts_glossary_funnypoint_faq')}和${get.poptip('bts_glossary_bless_funny_faq')}翻倍，此技能能额外选任意名其他拥有欢愉行动的角色为目标。`,
+    bts_sk_jianying_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，`
+        + `你附加2层${get.poptip('bts_glossary_bless_funny_faq')}，若拥有欢愉行动的角色数不小于4/3/2/1，其执行一个额外的准备/摸牌/出牌/弃牌阶段（若不小于4，`
+        + `其先获得60枚${get.poptip('bts_glossary_funnypoint_faq')}并附加3层${get.poptip('bts_glossary_bless_funny_faq')}再执行这些阶段且阶段执行完毕后均移除）。`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法获得的${get.poptip('bts_glossary_funnypoint_faq')}和${get.poptip('bts_glossary_bless_funny_faq')}翻倍，`
+        + `此技能能额外选任意名其他拥有欢愉行动的角色为目标。`,
     bts_sk_buzhui_funny: '补缀',
-    bts_sk_buzhui_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，当其他角色受到伤害后，你可以弃置一张【杀】，附加1层${get.poptip('bts_glossary_bless_funny_faq')}，其执行你的${get.poptip('bts_glossary_funny_act_faq')}；若其拥有${get.poptip('bts_glossary_huanju_shengge_faq')}，其附加2层${get.poptip('bts_glossary_bless_busi_faq')}。你回复体力后，获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。欢愉行动：回复1点体力。`,
+    bts_sk_buzhui_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，当其他角色受到伤害后，你可以弃置一张【杀】，附加1层${get.poptip('bts_glossary_bless_funny_faq')}，`
+        + `其执行你的${get.poptip('bts_glossary_funny_act_faq')}；若其拥有${get.poptip('bts_glossary_huanju_shengge_faq')}，`
+        + `其附加2层${get.poptip('bts_glossary_bless_busi_faq')}。你回复体力后，获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。`
+        + `欢愉行动：回复1点体力。`,
     bts_sk_tunna: '吞纳',
     bts_sk_tunna_info: `当一名角色受到伤害时，你可以移除1层${get.poptip('bts_glossary_bless_funny_faq')}，伤害值-1。`,
     bts_sk_yilei: '艺垒',
@@ -367,9 +384,7 @@ export const translate = {
     bts_sk_rongcha_info: `锁定技，若你拥有至少5层${get.poptip('bts_glossary_bless_funny_faq')}且拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你令其他角色回复的体力值+1。`,
     bts_sk_dongcha: '洞察',
     bts_sk_dongcha_info: `锁定技，欢愉角色准备阶段开始时，若你拥有${get.poptip('bts_glossary_huanju_shengge_faq')}标记，你附加1层${get.poptip('bts_glossary_bless_funny_faq')}。`,
-
     // ── 语音台词按素材文件名定稿，键格式见《语音音频规范》§二 ──
-
     '$bts_sk_jianying1': "我欲入深海，打捞遗珠——",
     '$bts_sk_jianying2': "解析，描摹，复原…重塑完美",
     '$bts_sk_buzhui_funny1': "信笔由疆，点染星月",
@@ -380,10 +395,13 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_jianying_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}：自身+2层${get.poptip('bts_glossary_bless_funny_faq')}，欢愉角色数≥4/3/2/1时令目标执行额外准备/摸牌/出牌/弃牌阶段，≥4另赠60${get.poptip('bts_glossary_funnypoint_faq')}与3层祝福（阶段完毕回收）；${get.poptip('bts_glossary_xingqi_faq')}翻倍且可追加欢愉角色`,
-    bts_sk_buzhui_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；其他角色受伤后，你可弃1杀并+1层${get.poptip('bts_glossary_bless_funny_faq')}，其回复1点体力（其有${get.poptip('bts_glossary_huanju_shengge_faq')}则再+2层${get.poptip('bts_glossary_bless_busi_faq')}）；你回复体力后+1枚${get.poptip('bts_glossary_funnypoint_faq')}`,
+    bts_sk_jianying_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}：自身+2层${get.poptip('bts_glossary_bless_funny_faq')}，`
+        + `欢愉角色数≥4/3/2/1时令目标执行额外准备/摸牌/出牌/弃牌阶段，≥4另+60${get.poptip('bts_glossary_funnypoint_faq')}与3层祝福（阶段完毕回收）；${get.poptip('bts_glossary_xingqi_faq')}翻倍且可追加欢愉角色`,
+    bts_sk_buzhui_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；其他角色受伤后，你可-1杀并+1层${get.poptip('bts_glossary_bless_funny_faq')}，`
+        + `其+1体力（其有${get.poptip('bts_glossary_huanju_shengge_faq')}则再+2层${get.poptip('bts_glossary_bless_busi_faq')}）；`
+        + `你回复体力后+1枚${get.poptip('bts_glossary_funnypoint_faq')}`,
     bts_sk_tunna_info: `任意角色受伤时可移除1层${get.poptip('bts_glossary_bless_funny_faq')}，令伤害-1`,
-    bts_sk_yilei_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若拥有${get.poptip('bts_glossary_huanju_shengge_faq')}，回复2点${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_yilei_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若拥有${get.poptip('bts_glossary_huanju_shengge_faq')}，+2${get.poptip('bts_glossary_nuqi_faq')}`,
     bts_sk_rongcha_info: `锁；≥5层${get.poptip('bts_glossary_bless_funny_faq')}且拥有${get.poptip('bts_glossary_huanju_shengge_faq')}时，你令其他角色回复的体力值+1`,
     bts_sk_dongcha_info: `锁；欢愉角色准备阶段开始时，若拥有${get.poptip('bts_glossary_huanju_shengge_faq')}则+1层${get.poptip('bts_glossary_bless_funny_faq')}`,
 };

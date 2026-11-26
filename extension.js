@@ -11,9 +11,12 @@ export let type = 'extension';
 // 结构框架借鉴"叁岛世界"（Legend of Island Three）扩展。
 export default async function () {
 	// 特别提醒+最低版本限制
-	const btsVersion = "26.11.1.0", minGameVersion = "1.10.0".split('.').slice(), gameVersion = lib.version.split('.').slice();
+	const btsVersion = "26.11.26.0", minGameVersion = "1.10.0".split('.').slice(), gameVersion = lib.version.split('.').slice();
 	// 版本号写入后的「最多自动重载一次」标记，防止写盘异常时无限重载
 	const versionReloadLock = 'bts_version_reload_lock';
+	// 注意：这里不做「本体素材/引擎是否完整」的检测。只装了更新包时游戏根本起不来，
+	// 壳层会直接显示引导页（apps/mobile/src/bootstrap.html）提示去装基础包或拓展包，
+	// 扩展层无需（也无法）再重复判断。
 	const alertsConfig = [
 		{
 			id: 'gameVersion',

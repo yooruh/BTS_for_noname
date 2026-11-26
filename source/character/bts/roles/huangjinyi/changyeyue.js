@@ -244,21 +244,24 @@ export const translate = {
     bts_ch_changye: '长夜',
     bts_ch_changyeyue_and_changye: '长夜月&长夜',
     bts_sk_wumian: '无眠',
-    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加2层${get.poptip('bts_glossary_bless_zhianzhimi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为4层），并召唤${get.poptip('bts_ch_changye')}。`,
+    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，附加2层${get.poptip('bts_glossary_bless_zhianzhimi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为4层），`
+        + `并召唤${get.poptip('bts_ch_changye')}。`,
     bts_sk_tongxing: '同行',
-    bts_sk_tongxing_info: `锁定技，扣减体力后，获得1枚${get.poptip('bts_glossary_yizhi_faq')}；若你拥有${get.poptip('bts_glossary_bless_zhianzhimi_faq')}，改为7枚。然后若没有${get.poptip('bts_glossary_bless_fatal_faq')}，附加1层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
+    bts_sk_tongxing_info: `锁定技，扣减体力后，获得1枚${get.poptip('bts_glossary_yizhi_faq')}；若你拥有${get.poptip('bts_glossary_bless_zhianzhimi_faq')}，`
+        + `改为7枚。然后若没有${get.poptip('bts_glossary_bless_fatal_faq')}，附加1层${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_sk_zhouli: '昼离',
     bts_sk_zhouli_info: `结束阶段开始时，你可以失去1点体力，召唤${get.poptip('bts_ch_changye')}。`,
     bts_sk_qihei: '漆黑',
     bts_sk_qihei_info: `锁定技，当${get.poptip('bts_ch_changye')}被重复召唤时，你回复1点体力。`,
     bts_sk_yulu: '雨露',
-    bts_sk_yulu_info: `锁定技，${get.poptip('bts_glossary_yizhi_faq')}不少于8枚时，移除全部${get.poptip('bts_glossary_yizhi_faq')}与${get.poptip('bts_ch_changye')}，对伤害关联角色造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
+    bts_sk_yulu_info: `锁定技，${get.poptip('bts_glossary_yizhi_faq')}不少于8枚时，移除全部${get.poptip('bts_glossary_yizhi_faq')}与${get.poptip('bts_ch_changye')}，`
+        + `对伤害关联角色造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
     bts_sk_yeying: '夜影',
-    bts_sk_yeying_info:
-        '锁定技，拥有此技能的角色距离极近；其他角色计算距离时+1。',
+    bts_sk_yeying_info: '锁定技，拥有此技能的角色距离极近；其他角色计算距离时+1。',
     bts_bless_zhianzhimi: '至暗之谜祝福',
     bts_mk_yizhi: '忆质',
     bts_pet_changye: '长夜',
+    bts_pet_changye_info: `来源：${get.poptip('bts_sk_wumian')}、${get.poptip('bts_sk_zhouli')}召唤；忆灵体力：本体受伤等量扣减、回复等量回补（封顶忆灵上限），归零后离场`,
 
     '$bts_sk_wumian1': "别担心，闭上双眼……",
     '$bts_sk_wumian2': "夜色将要落幕…嘘，晚安",
@@ -279,10 +282,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+${get.poptip('bts_glossary_bless_zhianzhimi_faq')}并召唤${get.poptip('bts_ch_changye')}`,
-    bts_sk_tongxing_info: `锁；扣血+${get.poptip('bts_glossary_yizhi_faq')}，${get.poptip('bts_glossary_bless_zhianzhimi_faq')}时改+7并确保${get.poptip('bts_glossary_bless_fatal_faq')}`,
-    bts_sk_zhouli_info: `结束阶段可失1体力召唤${get.poptip('bts_ch_changye')}`,
-    bts_sk_yulu_info: `锁；${get.poptip('bts_glossary_yizhi_faq')}≥8时移除${get.poptip('bts_ch_changye')}并造成霜伤`,
+    bts_sk_wumian_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+${get.poptip('bts_glossary_bless_zhianzhimi_faq')}并召唤${get.poptip('bts_ch_changye')}`,
+    bts_sk_tongxing_info: `锁；-体力后+1${get.poptip('bts_glossary_yizhi_faq')}；若你拥有${get.poptip('bts_glossary_bless_zhianzhimi_faq')}，改为7枚，然后确保拥有${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_zhouli_info: `结束阶段可-1体力召唤${get.poptip('bts_ch_changye')}`,
+    bts_sk_yulu_info: `锁；${get.poptip('bts_glossary_yizhi_faq')}不少于8枚时，移除全部${get.poptip('bts_glossary_yizhi_faq')}与${get.poptip('bts_ch_changye')}，对伤害关联角色造成1点霜属性伤害`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

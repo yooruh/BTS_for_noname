@@ -119,42 +119,47 @@ export const skill = {
             return player.getCards('h').some((card) => get.name(card) === 'sha');
         },
         async cost(event, trigger, player) {
-            // 源 L8823：askForCard(player, "Slash") —— 仅选择弃【杀】，弃牌移入 content 结算
+            // 源 L8823：askForCard(player, "Slash") —— 弃【杀】移入 content 结算
+            // AI 口径：弃1张【杀】换1枚升变；弃分值最低者，垫底也≥6分则放弃（同风堇·虹光 ai1 范式）
+            const ai1 = (card) =>
+                typeof card === 'object' && card ? 6 - get.value(card) : -1;
+            const hasJungong = !!game
+                .filterPlayer((target) => target.hasSkill('bts_sk_jungong'))
+                .at(0);
+            if (hasJungong) {
+                // 场上已有军功持有者：只需选弃牌
+                event.result = await player
+                    .chooseCard({
+                        position: 'h',
+                        filterCard: (card) =>
+                            get.name(card) === 'sha' &&
+                            lib.filter.cardDiscardable(card, player),
+                        prompt: '升变：是否弃置一张【杀】？',
+                        ai: ai1,
+                    })
+                    .forResult();
+                return;
+            }
+            // 无军功角色：弃【杀】与授予军功的目标一并选择并确认（chooseCardTarget 一体化）
             event.result = await player
-                .chooseCard(
-                    'h',
-                    (card) =>
+                .chooseCardTarget({
+                    prompt: '升变：弃置一张【杀】，并选择一名角色获得军功',
+                    position: 'h',
+                    filterCard: (card) =>
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
-                    '升变：是否弃置一张【杀】？',
-                )
-                // AI 口径：弃1张【杀】换1枚升变；弃分值最低者，垫底也≥6分则放弃（同风堇·虹光 ai1 范式）
-                .set('ai', (card) =>
-                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
-                )
-                .forResult();
-            if (!event.result.bool) return;
-            // 无军功角色时，授予军功的目标选择也并入 cost（取消则仅弃杀+1升变）
-            if (
-                !game.filterPlayer((target) => target.hasSkill('bts_sk_jungong')).at(0)
-            ) {
-                const target = await player
-                    .chooseTarget(
-                        '升变：选择一名角色获得军功',
-                        [1, 1],
-                        () => true,
-                    )
+                    filterTarget: () => true,
+                    ai1,
                     // AI 口径：只给友方（军功=用杀/决斗攒升变并在出牌阶段结束分摊伤害，敌方持有反成
                     // 威胁）；自己保底（世棋为非伤害必杀，不受「防止你必杀技伤害」副作用影响）；
                     // 全负→引擎取消（源 AI 优先持「身炬」的友方、其次任意友方，StarRail-ai.lua L1396-1407）
-                    .set('ai', (t) => {
-                        if (t === player) return 0.5;
-                        const att = get.attitude(player, t);
+                    ai2: (target) => {
+                        if (target === player) return 0.5;
+                        const att = get.attitude(player, target);
                         return att > 0 ? att + 1 : -1;
-                    })
-                    .forResult();
-                if (target.bool) event.result.targets = target.targets;
-            }
+                    },
+                })
+                .forResult();
         },
         async content(event, trigger, player) {
             // cost 所选弃牌/目标在技能事件 event.cards/event.targets（标准约定）
@@ -285,13 +290,16 @@ export const translate = {
     'bts_ch_kelvdela_skin6': '皮肤6',
     bts_ch_kelvdela: '刻律德菈',
     bts_sk_shiqi: '世棋',
-    bts_sk_shiqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，获得2枚${get.poptip('bts_glossary_shengbian_faq')}标记；若你为${get.poptip('bts_glossary_xingqi_faq')}，将手牌补至五张。`,
+    bts_sk_shiqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，获得2枚${get.poptip('bts_glossary_shengbian_faq')}标记；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，将手牌补至五张。`,
     bts_sk_kaisa: '凯撒',
-    bts_sk_kaisa_info: `锁定技，当其他角色获得${get.poptip('bts_glossary_shengbian_faq')}标记后，你获得其一张牌，然后交给其一张牌；当你获得${get.poptip('bts_glossary_shengbian_faq')}标记后，若有其他角色拥有「${get.poptip('bts_sk_jungong')}」，你将全部${get.poptip('bts_glossary_shengbian_faq')}转移给其。`,
+    bts_sk_kaisa_info: `锁定技，当其他角色获得${get.poptip('bts_glossary_shengbian_faq')}标记后，你获得其一张牌，然后交给其一张牌；当你获得${get.poptip('bts_glossary_shengbian_faq')}标记后，`
+        + `若有其他角色拥有「${get.poptip('bts_sk_jungong')}」，你将全部${get.poptip('bts_glossary_shengbian_faq')}转移给其。`,
     bts_sk_shengbian: '升变',
     bts_sk_shengbian_info: `结束阶段开始时，你可以弃置一张【杀】获得1枚${get.poptip('bts_glossary_shengbian_faq')}；若没有角色拥有${get.poptip('bts_sk_jungong')}，你选择一名角色获得${get.poptip('bts_sk_jungong')}。`,
     bts_sk_jungong: '军功',
-    bts_sk_jungong_info: `锁定技，使用【杀】或【决斗】、弃置【杀】后获得${get.poptip('bts_glossary_shengbian_faq')}；出牌阶段结束时，${get.poptip('bts_glossary_shengbian_faq')}不少于6枚则弃6枚，对本阶段受到过你伤害的角色造成分摊伤害；防止你${get.poptip('bts_glossary_bisha_faq')}造成的伤害。`,
+    bts_sk_jungong_info: `锁定技，使用【杀】或【决斗】、弃置【杀】后获得${get.poptip('bts_glossary_shengbian_faq')}；出牌阶段结束时，${get.poptip('bts_glossary_shengbian_faq')}不少于6枚则弃6枚，`
+        + `对本阶段受到过你伤害的角色各造成（本阶段总伤害÷目标数，向下取整且至少1）点伤害；防止你${get.poptip('bts_glossary_bisha_faq')}造成的伤害。`,
     bts_mk_shengbian: '升变',
 
     '$bts_sk_shiqi1': "败者成灰，胜者为王……",
@@ -305,10 +313,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_shiqi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_shengbian_faq')}，${get.poptip('bts_glossary_xingqi_faq')}补满5张手牌`,
-    bts_sk_kaisa_info: `锁；他人获得${get.poptip('bts_glossary_shengbian_faq')}时你与其换一张牌；你获得${get.poptip('bts_glossary_shengbian_faq')}时全转给${get.poptip('bts_sk_jungong')}角色`,
-    bts_sk_shengbian_info: `出牌结束可弃杀+1${get.poptip('bts_glossary_shengbian_faq')}；没人拿${get.poptip('bts_sk_jungong')}时你得${get.poptip('bts_sk_jungong')}`,
-    bts_sk_jungong_info: `锁；用/弃杀攒${get.poptip('bts_glossary_shengbian_faq')}，攒到6层就把伤害摊出去；自己${get.poptip('bts_glossary_bisha_faq')}伤害被防止`,
+    bts_sk_shiqi_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_shengbian_faq')}，${get.poptip('bts_glossary_xingqi_faq')}补满5张手牌`,
+    bts_sk_kaisa_info: `锁；其他角色获得${get.poptip('bts_glossary_shengbian_faq')}后，你+其1牌，然后给其1牌；你获得${get.poptip('bts_glossary_shengbian_faq')}后，`
+        + `若有人拥有${get.poptip('bts_sk_jungong')}，你将全部${get.poptip('bts_glossary_shengbian_faq')}转移给其`,
+    bts_sk_shengbian_info: `结束阶段，可-1杀+1${get.poptip('bts_glossary_shengbian_faq')}；若没有角色拥有${get.poptip('bts_sk_jungong')}，你选择一名角色获得之`,
+    bts_sk_jungong_info: `锁；使用杀或决斗、弃置杀后，你获得${get.poptip('bts_glossary_shengbian_faq')}；出牌阶段结束时，若${get.poptip('bts_glossary_shengbian_faq')}不少于6枚，`
+        + `-6枚并对本阶段受到过你伤害的角色各造成（本阶段总伤害÷目标数，向下取整且至少1）点伤害；防止你${get.poptip('bts_glossary_bisha_faq')}造成的伤害`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

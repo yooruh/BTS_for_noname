@@ -74,14 +74,41 @@ export function releaseTag(version) {
 }
 
 /**
+ * 本体包三档（pack.mjs body 的 --variant）：
+ * - full   拓展包：官方 8 扩展 + 全部媒体，无名杀与崩铁杀都能完整游玩。
+ * - slim   基础包：只保证崩铁杀完整可玩——仅崩铁杀扩展、卡牌图、卡牌音效、结算音效与字体。
+ * - update 更新包：默认只含崩铁杀扩展（连引擎都不带，无本体素材、无官方其他扩展），
+ *                  供已装过基础包/拓展包的玩家覆盖更新；`--with-engine` 可额外带引擎程序文件。
+ */
+export const BODY_VARIANTS = {
+    full: { label: '拓展包', desc: '完整无名杀内容：官方扩展 + 全部媒体' },
+    slim: { label: '基础包', desc: '保证崩铁杀完整可玩：卡牌图、背景/启动画面、卡牌音效、结算音效、字体' },
+    update: { label: '更新包', desc: '只含崩铁杀扩展（默认不带引擎），供装过整包的玩家覆盖更新' },
+};
+
+/** 变体 → 中文产物名；未知变体直接报错，避免产物命名漂移 */
+export function bodyVariantLabel(variant) {
+    const item = BODY_VARIANTS[variant];
+    if (!item) throw new Error(`未知本体包变体：${variant}（可用：${Object.keys(BODY_VARIANTS).join('|')}）`);
+    return item.label;
+}
+
+/** 从产物文件名反查变体（供 installer 自动识别更新包）；识别不到返回 null */
+export function bodyVariantFromName(name) {
+    const hit = Object.entries(BODY_VARIANTS).find(([, item]) => String(name).includes(`_${item.label}`));
+    return hit ? hit[0] : null;
+}
+
+/**
  * 本体包文件名（含扩展名）。
- * 命名约定：`{崩铁杀版本}_{完全体|丐版}[_不含崩铁杀].zip`——版本由调用方传入，
- * 取自 release/releases.json 的当前发布版本（如 `26.10.3.4`），便于按版本区分产物。
- * —— 「包含崩铁杀」不写后缀（视为默认形态）；仅「不含崩铁杀」时追加 `_不含崩铁杀`。
- * @param {{ version: string, variant: 'full'|'slim', withBts: boolean }} o
+ * 命名约定：`{崩铁杀版本}_{拓展包|基础包|更新包}[_不含崩铁杀].zip`——版本由调用方传入，
+ * 取自 release/releases.json 的当前发布版本（如 `26.11.1.0`），便于按版本区分产物。
+ * —— 「包含崩铁杀」不写后缀（视为默认形态）；仅「不含崩铁杀」时追加 `_不含崩铁杀`
+ *    （更新包天然只含崩铁杀，不含崩铁杀时由调用方直接报错）。
+ * @param {{ version: string, variant: 'full'|'slim'|'update', withBts: boolean }} o
  */
 export function bodyZipName({ version, variant, withBts }) {
-    const suffix = variant === 'full' ? '完全体' : '丐版';
+    const suffix = bodyVariantLabel(variant);
     return `${stripV(version)}_${suffix}${withBts ? '' : '_不含崩铁杀'}.zip`;
 }
 

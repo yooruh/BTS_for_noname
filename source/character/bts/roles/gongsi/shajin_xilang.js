@@ -215,16 +215,19 @@ export const marks = {
 export const translate = {
     bts_ch_shajin_xilang: '砂金·戏浪',
     bts_sk_shengju: '胜局',
-    bts_sk_shengju_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你附加8层${get.poptip('bts_glossary_bless_reyi_faq')}和4层${get.poptip('bts_glossary_bless_yingzi_faq')}，这些角色各附加${get.poptip('bts_glossary_nature_dark_faq')}，然后各以 15.6%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）失去1点体力；若均成功，你移除一半${get.poptip('bts_glossary_bless_funny_faq')}并重复此流程。`,
+    bts_sk_shengju_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `你附加8层${get.poptip('bts_glossary_bless_reyi_faq')}和4层${get.poptip('bts_glossary_bless_yingzi_faq')}，这些角色各附加${get.poptip('bts_glossary_nature_dark_faq')}，`
+        + `然后各以 15.6%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）失去1点体力；若均成功，你移除一半${get.poptip('bts_glossary_bless_funny_faq')}并重复此流程。`,
     bts_sk_resha: '热砂',
-    bts_sk_resha_info: `受到伤害时，你可以弃置一张【杀】，伤害来源和所有${get.poptip('bts_glossary_nature_dark_faq')}或${get.poptip('bts_glossary_abnormal_sleep_faq')}角色各附加${get.poptip('bts_glossary_nature_dark_faq')}，你附加4层${get.poptip('bts_glossary_bless_reyi_faq')}。`,
+    bts_sk_resha_info: `受到伤害时，你可以弃置一张【杀】，伤害来源和所有${get.poptip('bts_glossary_nature_dark_faq')}或${get.poptip('bts_glossary_abnormal_sleep_faq')}角色各附加${get.poptip('bts_glossary_nature_dark_faq')}，`
+        + `你附加4层${get.poptip('bts_glossary_bless_reyi_faq')}。`,
     bts_sk_paozhu_funny: '抛注',
-    bts_sk_paozhu_funny_info: `锁定技，限定技，${get.poptip('bts_glossary_funny_skill_faq')}，当你拥有至少10层${get.poptip('bts_glossary_bless_reyi_faq')}后，执行${get.poptip('bts_glossary_funny_act_faq')}。欢愉行动：将手牌补至5张。${get.poptip('bts_glossary_yishi_faq')}：${get.poptip('bts_glossary_funny_time_faq')}开始时，你拥有的${get.poptip('bts_glossary_bless_reyi_faq')}全部替换为${get.poptip('bts_glossary_bless_funny_faq')}，令此技能视为未发动过。`,
+    bts_sk_paozhu_funny_info: `锁定技，限定技，${get.poptip('bts_glossary_funny_skill_faq')}，当你拥有至少10层${get.poptip('bts_glossary_bless_reyi_faq')}后，`
+        + `执行${get.poptip('bts_glossary_funny_act_faq')}：将手牌补至5张。此后，你下次${get.poptip('bts_glossary_funny_time_faq')}开始时，`
+        + `将你拥有的${get.poptip('bts_glossary_bless_reyi_faq')}全部替换为${get.poptip('bts_glossary_bless_funny_faq')}，并令此技能视为未发动过。`,
     bts_bless_reyi: '热意祝福',
-
-
-
-    bts_bless_reyi_info: `来源：${get.poptip('bts_sk_shengju')}、${get.poptip('bts_sk_resha')}赋予；非暗/${get.poptip('bts_glossary_abnormal_sleep_faq')}造伤时全体+层；回合结束自然减少1层`,
+    bts_bless_reyi_info: `来源：${get.poptip('bts_sk_shengju')}、${get.poptip('bts_sk_resha')}赋予；不为${get.poptip('bts_glossary_nature_dark_faq')}且不处于${get.poptip('bts_glossary_abnormal_sleep_faq')}的角色造成伤害后，`
+        + `全体持有者各+1层；回合结束自然减少1层`,
     bts_mk_paozhu_funny_used: '抛注已用',
 
     '$bts_sk_shengju1': "准备好迎接大洗牌了么？",
@@ -238,9 +241,11 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_shengju_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标+暗、自身+${get.poptip('bts_glossary_bless_reyi_faq')}和${get.poptip('bts_glossary_bless_yingzi_faq')}，目标各15.6%失1体力可连击`,
-    bts_sk_resha_info: `受伤可弃杀令伤害来源和暗/${get.poptip('bts_glossary_abnormal_sleep_faq')}角色各+暗并+${get.poptip('bts_glossary_bless_reyi_faq')}`,
-    bts_sk_paozhu_funny_info: `锁，${get.poptip('bts_glossary_funny_skill_faq')}；${get.poptip('bts_glossary_bless_reyi_faq')}≥10执行${get.poptip('bts_glossary_funny_act_faq')}：手牌补至5张；${get.poptip('bts_glossary_yishi_faq')}换${get.poptip('bts_glossary_bless_funny_faq')}`,
+    bts_sk_shengju_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各附加量子，你+8层${get.poptip('bts_glossary_bless_reyi_faq')}和4层${get.poptip('bts_glossary_bless_yingzi_faq')}；`
+        + `目标各以15.6%+${get.poptip('bts_glossary_bless_funny_faq')}每层10%的概率-1体力，全部成功则移除一半${get.poptip('bts_glossary_bless_funny_faq')}并重复`,
+    bts_sk_resha_info: `受到伤害时，可-1杀，令伤害来源和所有量子属性或${get.poptip('bts_glossary_abnormal_sleep_faq')}角色各附加量子，你+4层${get.poptip('bts_glossary_bless_reyi_faq')}`,
+    bts_sk_paozhu_funny_info: `锁；${get.poptip('bts_glossary_funny_skill_faq')}；${get.poptip('bts_glossary_bless_reyi_faq')}≥10执行${get.poptip('bts_glossary_funny_act_faq')}：手牌补至5张；`
+        + `此后下次${get.poptip('bts_glossary_funny_time_faq')}，${get.poptip('bts_glossary_bless_reyi_faq')}全部换为${get.poptip('bts_glossary_bless_funny_faq')}（技能视为未发动）`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -271,6 +276,6 @@ export const glossary = [
     {
         id: 'bts_glossary_bless_reyi_faq',
         name: '热意祝福',
-        info: `当不为暗属性且不处于${get.poptip('bts_glossary_abnormal_sleep_faq')}的角色造成伤害后，所有${get.poptip('bts_glossary_bless_reyi_faq')}持有者各附加1层。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
+        info: `当不为${get.poptip('bts_glossary_nature_dark_faq')}且不处于${get.poptip('bts_glossary_abnormal_sleep_faq')}的角色造成伤害后，所有${get.poptip('bts_glossary_bless_reyi_faq')}持有者各附加1层。你的结束阶段开始时，此${get.poptip('bts_glossary_bless_faq')}减少1层。`,
     },
 ];

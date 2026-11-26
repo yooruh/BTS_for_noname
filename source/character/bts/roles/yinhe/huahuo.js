@@ -168,7 +168,8 @@ export const skill = {
 export const translate = {
     bts_ch_huahuo: '花火',
     bts_sk_qianyi: '千役',
-    bts_sk_qianyi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，摸四张牌并展示之（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为五张），然后将这些牌逐张交给任意角色（可留给自己）；这些牌在任意角色的手牌中均视为【杀】。`,
+    bts_sk_qianyi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，摸四张牌并展示之（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为五张），`
+        + `然后将这些牌逐张交给任意角色（可留给自己）；这些牌在任意角色的手牌中均视为【杀】。`,
     bts_sk_guiji: '诡计',
     bts_sk_guiji_info: '锁定技，你的手牌上限+2。',
     bts_sk_youyu: '游鱼',
@@ -181,8 +182,8 @@ export const translate = {
     '~bts_ch_huahuo': "玩大了……",
 };
 export const simpleTranslate = {
-    bts_sk_qianyi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}摸4牌展示（${get.poptip('bts_glossary_xingqi_faq')}5）并逐张分配，这些牌均视为【杀】`,
+    bts_sk_qianyi_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}+4牌展示（${get.poptip('bts_glossary_xingqi_faq')}5）并逐张分配，这些牌均视为杀`,
     bts_sk_guiji_info: '锁；手牌上限+2',
-    bts_sk_youyu_info: `回合结束可弃2杀翻面，令1名其他角色+1${get.poptip('bts_glossary_bless_fatal_faq')}并额外回合`,
+    bts_sk_youyu_info: `回合结束时可-2杀翻面，令1名其他角色+1${get.poptip('bts_glossary_bless_fatal_faq')}并执行额外回合`,
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

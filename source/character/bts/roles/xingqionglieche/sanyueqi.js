@@ -180,11 +180,11 @@ export const translate = {
     'bts_ch_sanyueqi_skin9': '皮肤9',
     bts_ch_sanyueqi: '三月七',
     bts_sk_bingjian: '冰箭',
-    bts_sk_bingjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}，然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
-
+    bts_sk_bingjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `这些角色各附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}，然后若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_tequan: '特权',
     bts_sk_tequan_info: `锁定技，当一名角色因受到伤害而移除${get.poptip('bts_glossary_hudun_faq')}后，你可以视为对来源使用【杀】。`,
-
     bts_sk_keai: '可爱',
     bts_sk_keai_info: `出牌阶段，你可以弃置一张【杀】并选择一名角色，令其附加1层${get.poptip('bts_glossary_hudun_faq')}。`,
 
@@ -198,9 +198,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_bingjian_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1层${get.poptip('bts_glossary_abnormal_freeze_faq')}；若${get.poptip('bts_glossary_xingqi_faq')}则回复1点${get.poptip('bts_glossary_nuqi_faq')}`,
-    bts_sk_tequan_info: '锁；角色因伤失盾后可视为对来源用【杀】',
-    bts_sk_keai_info: `出牌阶段，弃1张【杀】令1名角色（含自己）+1层${get.poptip('bts_glossary_hudun_faq')}`,
+    bts_sk_bingjian_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1层${get.poptip('bts_glossary_abnormal_freeze_faq')}；`
+        + `若${get.poptip('bts_glossary_xingqi_faq')}则+1${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_tequan_info: '锁；一名角色因受到伤害而移除护盾后，可视为对来源使用杀',
+    bts_sk_keai_info: `出牌阶段，-1杀令1名角色（含自己）+1层${get.poptip('bts_glossary_hudun_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

@@ -231,10 +231,8 @@ export const translate = {
     bts_ch_lingke: '玲可',
     bts_sk_fangan: '方案',
     bts_sk_fangan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一至两名角色，这些角色各回复1点体力并移除1层异常（由你选择移除哪种）。`,
-
     bts_sk_jingyan: '经验',
     bts_sk_jingyan_info: `锁定技，当你令一名不处于濒死的其他角色回复体力时，防止之，其改为附加等同于回复量的${get.poptip('bts_glossary_bless_zhiyu_faq')}。`,
-
     bts_sk_guantou: '罐头',
     bts_sk_guantou_info: `当你受到伤害时，你可以弃置一张【杀】并选择一名受伤或拥有${get.poptip('bts_glossary_hudun_faq')}的其他角色，其摸1张牌并回复1点体力；于其下回合结束前，当你受到伤害时，其可以为你承受。`,
 
@@ -248,9 +246,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_fangan_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令1-2名角色各回复1体力并移除1层异常（由你选）`,
+    bts_sk_fangan_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}令1-2名角色各+1体力并移除1层异常（由你选）`,
     bts_sk_jingyan_info: `锁；你令不濒死的其他角色回复时防止之，其改+等量${get.poptip('bts_glossary_bless_zhiyu_faq')}`,
-    bts_sk_guantou_info: `受伤时弃1杀补给1名受伤/有${get.poptip('bts_glossary_hudun_faq')}角色；其下回合结束前可代你承伤`,
+    bts_sk_guantou_info: `受伤时-1杀补给1名受伤/有${get.poptip('bts_glossary_hudun_faq')}角色；其下回合结束前可代你承伤`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

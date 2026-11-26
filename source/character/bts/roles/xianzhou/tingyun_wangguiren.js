@@ -40,8 +40,10 @@ export const skill = {
             // 源 L7275-7282：目标各失去1点怒气、弃1手牌、附加火属性
             for (const target of selected) {
                 lib.bts.api.loseAngry(target, 1); // 源 L7276：LoseAngry(p, 1, player, false)
-                if (target.countCards('h'))
-                    await target.chooseToDiscard('照世：弃置一张手牌', 'h', 1, true); // 源 L7278
+                await lib.bts.api.forceDiscardOne(
+                    target,
+                    '照世：弃置一张手牌',
+                ); // 源 L7278（唯一手牌直接弃置，不再弹单选项窗）
                 await lib.bts.api.addNature(target, 'flame'); // 源 L7280：AddNature(p, "fire")
             }
             // 源 L7283-7287（God 分支 L7633-7637）：星启时未被选择者各获得额外出牌阶段。源以标记在
@@ -250,12 +252,13 @@ export const translate = {
     'bts_mk_liubu-clear': '流布标记',
     bts_ch_tingyun_wangguiren: '忘归人',
     bts_sk_zhaoshi: '照世',
-    bts_sk_zhaoshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，各失去1点${get.poptip('bts_glossary_nuqi_faq')}、弃置一张手牌并附加${get.poptip('bts_glossary_nature_flame_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，未被选择的其他角色各获得一个额外出牌阶段。`,
+    bts_sk_zhaoshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `各失去1点${get.poptip('bts_glossary_nuqi_faq')}、弃置一张手牌并附加${get.poptip('bts_glossary_nature_flame_faq')}；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，未被选择的其他角色各获得一个额外出牌阶段。`,
     bts_sk_yaofeng: '摇风',
     bts_sk_yaofeng_info: `其他角色准备阶段开始时，若没有角色拥有${get.poptip('bts_glossary_bless_huqi_faq')}，你可以弃置一张【杀】，令其附加3层${get.poptip('bts_glossary_bless_huqi_faq')}。`,
     bts_sk_liubu: '流布',
-    bts_sk_liubu_info:
-        '当一名角色因弃置而失去所有手牌后，你可以令其摸一张牌并展示之。当其于此回合内受到伤害时，若其手牌区内存在此牌，你获得之，其失去1点体力。',
+    bts_sk_liubu_info: '当一名角色因弃置而失去所有手牌后，你可以令其摸一张牌并展示之。当其于此回合内受到伤害时，若其手牌区内存在此牌，你获得之，其失去1点体力。',
     bts_bless_huqi: '狐祈祝福',
     bts_bless_huqi_info: `来源：${get.poptip('bts_sk_yaofeng')}赋予；属性伤害前受伤者自弃一张手牌；回合结束自然减少1层`,
 
@@ -270,10 +273,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zhaoshi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}，让至少1名其他人掉${get.poptip('bts_glossary_nuqi_faq')}、弃手牌、着火；${get.poptip('bts_glossary_xingqi_faq')}再给剩下的人多一轮出牌`,
-    bts_sk_yaofeng_info: `别人准备阶段若没${get.poptip('bts_glossary_bless_huqi_faq')}，你可弃杀给他+3`,
-    bts_sk_liubu_info:
-        '别人弃到空手可让他摸1张并展示；他这回合内受伤时，若此牌还在手牌区，你拿走并使其失去1体',
+    bts_sk_zhaoshi_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，令至少1名其他角色各-1${get.poptip('bts_glossary_nuqi_faq')}、-1手牌并附加炎属性；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，未被选择的其他角色各执行一个额外出牌阶段`,
+    bts_sk_yaofeng_info: `其他角色准备阶段开始时，若没有角色拥有${get.poptip('bts_glossary_bless_huqi_faq')}，你可-1杀令其+3层${get.poptip('bts_glossary_bless_huqi_faq')}`,
+    bts_sk_liubu_info: '其他角色因弃置-所有手牌后，可令其+1牌并展示；其于此回合内受到伤害时，若此牌仍在其手牌区，你获得之，其-1体力',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -304,11 +307,9 @@ export const buffSkills = {
             // V2.5 描述改为「其弃置一张手牌」：由受伤角色**自行**选择弃置（源 V2.5 代码仍是来源
             // 指定 `askForCardChosen(player, damage.to, "h", …)`，属描述先行的未同步实现；
             // 按裁定「先跟描述」执行，同时把选择权交还受伤者）。
-            await trigger.player.chooseToDiscard(
+            await lib.bts.api.forceDiscardOne(
+                trigger.player,
                 '狐祈祝福：弃置一张手牌',
-                'h',
-                1,
-                true,
             );
         },
     },

@@ -203,14 +203,12 @@ export const translate = {
     'bts_ch_yinlang_skin3': '皮肤3',
     bts_ch_yinlang: '银狼',
     bts_sk_fenghao: '封号',
-    bts_sk_fenghao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加2层诅咒，若你为${get.poptip('bts_glossary_xingqi_faq')}，额外附加1层，若其拥有的异常种类数大于2/4，你回复1/2点${get.poptip('bts_glossary_nuqi_faq')}。`,
-
+    bts_sk_fenghao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，`
+        + `令其附加2层诅咒，若你为${get.poptip('bts_glossary_xingqi_faq')}，额外附加1层，若其拥有的异常种类数大于2/4，你回复1/2点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_chengxu: '程序',
     bts_sk_chengxu_info: `锁定技，当你发动${get.poptip('bts_sk_fenghao')}、${get.poptip('bts_sk_genggai')}或使用【杀】指定一个目标后，或当其他角色于你的回合内获得附加后，令其附加一种随机${get.poptip('bts_glossary_jichu_abnormal_faq')}。`,
-
     bts_sk_genggai: '更改',
-    bts_sk_genggai_info:
-        '出牌阶段开始时，若场上有属性，你可以弃置一张【杀】并选择一名其他角色，其附加场上有的一种随机属性（若其拥有属性则附加该属性）。',
+    bts_sk_genggai_info: '出牌阶段开始时，若场上有属性，你可以弃置一张【杀】并选择一名其他角色，其附加场上有的一种随机属性（若其拥有属性则附加该属性）。',
 
     '$bts_sk_fenghao1': "战斗体验该优化了",
     '$bts_sk_fenghao2': "哼，就这速度？太慢了！",
@@ -222,10 +220,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_fenghao_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+2层诅咒（${get.poptip('bts_glossary_xingqi_faq')}+3），其异常种类>2/4则你回1/2${get.poptip('bts_glossary_nuqi_faq')}`,
-    bts_sk_chengxu_info: `锁；你发动${get.poptip('bts_sk_fenghao')}/${get.poptip('bts_sk_genggai')}/用杀指定目标后，或他人于你回合内获得附加后，令其+1种随机${get.poptip('bts_glossary_jichu_abnormal_faq')}`,
-    bts_sk_genggai_info:
-        '出牌阶段，弃1张【杀】选1名有附加角色和1名其他角色，后者获得前者的附加',
+    bts_sk_fenghao_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+2层诅咒（${get.poptip('bts_glossary_xingqi_faq')}+3），`
+        + `其异常种类>2/4则你+1/2${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_chengxu_info: `锁；你发动${get.poptip('bts_sk_fenghao')}/${get.poptip('bts_sk_genggai')}/用杀指定目标后，或他人于你回合内被附加后，令其+1种随机${get.poptip('bts_glossary_jichu_abnormal_faq')}`,
+    bts_sk_genggai_info: '出牌阶段开始时，若场上有属性，可-1杀选择1名其他角色，其附加场上有的一种随机属性（若其已有属性则附加该属性）',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

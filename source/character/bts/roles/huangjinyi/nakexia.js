@@ -232,7 +232,8 @@ export const translate = {
     bts_sk_jielu: '揭露',
     bts_sk_jielu_info: `锁定技，当其他角色附加异常后，若其拥有至少2种异常且不处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}，其附加1层${get.poptip('bts_glossary_abnormal_shenghua_faq')}。`,
     bts_sk_quxu: '驱虚',
-    bts_sk_quxu_info: `结束阶段开始时，你可以弃置一张【杀】并选择至少一名其他角色，这些角色各有25%受到1点随机${get.poptip('bts_glossary_yuansu_faq')}通常伤害；失败则下次以双倍概率判定。若有角色处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}或以此法受到伤害，所有目标角色重复此流程（每阶段限一次）。`,
+    bts_sk_quxu_info: `结束阶段开始时，你可以弃置一张【杀】并选择至少一名其他角色，这些角色各有25%受到1点随机${get.poptip('bts_glossary_yuansu_faq')}通常伤害；失败则下次以双倍概率判定。`
+        + `若有角色处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}或以此法受到伤害，所有目标角色重复此流程（每阶段限一次）。`,
     bts_abnormal_shenghua: '升华',
 
     '$bts_sk_shisu1': "看呐，表演开始了……",
@@ -245,10 +246,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_shisu_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1${get.poptip('bts_glossary_abnormal_shenghua_faq')}`,
+    bts_sk_shisu_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1${get.poptip('bts_glossary_abnormal_shenghua_faq')}`,
     bts_sk_jielu_info: `锁；他人附加异常后若其有≥2种异常且未${get.poptip('bts_glossary_abnormal_shenghua_faq')}，令其+1${get.poptip('bts_glossary_abnormal_shenghua_faq')}`,
-    bts_sk_quxu_info:
-        `结束阶段可弃杀选其他角色，25%随机${get.poptip('bts_glossary_yuansu_faq')}通常伤害，失败下次概率翻倍`,
+    bts_sk_quxu_info: `结束阶段开始时，可-1杀选择至少1名其他角色：这些角色各有25%受到1点随机${get.poptip('bts_glossary_yuansu_faq')}通常伤害，失败则下次概率翻倍；若有角色处于${get.poptip('bts_glossary_abnormal_shenghua_faq')}或以此法受到伤害，`
+        + `所有目标重复此流程（每阶段限一次）`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

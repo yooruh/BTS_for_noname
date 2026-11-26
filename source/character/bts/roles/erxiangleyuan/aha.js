@@ -114,8 +114,10 @@ export const skill = {
         enable: 'phaseUse',
         usable: Infinity, // 「每回合无限制」（显式声明；不写 usable 时本就不限次）
         filter(event, player) {
+            // 须有【杀】可弃，且存在其他存活角色（filterTarget 要求 t!==p），否则无目标可选
             return (
-                player.countCards('he', (card) => get.name(card) === 'sha') > 0
+                player.countCards('he', (card) => get.name(card) === 'sha') > 0 &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
             );
         },
         filterCard(card, player) {
@@ -153,24 +155,32 @@ export const skill = {
             // 无名杀把「视为使用」的合法性统一按 canUse 处理（更严格，避免出现非法【杀】）。
             if (!target.isAlive()) return;
             const vsha = { name: 'sha', isCard: true };
-            if (
-                !game.hasPlayer(
-                    (p) => p.isAlive() && p !== player && p !== target && target.canUse(vsha, p, true),
-                )
-            )
-                return; // 源 others:isEmpty() → 不使用
-            const chosen = await player
-                .chooseTarget(
-                    `愉使：选择令使${get.translation(target)}视为对其使用【杀】的角色`,
-                    [1, 1],
-                    (card, p, t) =>
-                        t !== p && t !== target && target.canUse(vsha, t, true),
-                )
-                // AI 口径：由阿哈选目标，取「对阿哈的收益」= get.effect(目标, 杀, 令使, 阿哈)（对敌为正）
-                .set('ai', (t) => get.effect(t, vsha, target, player))
-                .forResult();
-            const to = chosen.targets?.[0];
-            if (!to) return;
+            const candidates = game.filterPlayer(
+                (p) =>
+                    p.isAlive() &&
+                    p !== player &&
+                    p !== target &&
+                    target.canUse(vsha, p, true),
+            );
+            if (!candidates.length) return; // 源 others:isEmpty() → 不使用
+            // 候选唯一（如残局只剩三人）时直接指定，不再弹一次「选谁挨这一刀」的窗口。
+            let to = candidates[0];
+            if (candidates.length > 1) {
+                const chosen = await player
+                    .chooseTarget(
+                        `愉使：选择令使${get.translation(target)}视为对其使用【杀】的角色`,
+                        [1, 1],
+                        (card, p, t) =>
+                            t !== p &&
+                            t !== target &&
+                            target.canUse(vsha, t, true),
+                    )
+                    // AI 口径：由阿哈选目标，取「对阿哈的收益」= get.effect(目标, 杀, 令使, 阿哈)（对敌为正）
+                    .set('ai', (t) => get.effect(t, vsha, target, player))
+                    .forResult();
+                to = chosen.targets?.[0];
+                if (!to) return;
+            }
             await target.useCard(vsha, to, 'bts_sk_yushi');
         },
         group: ['bts_sk_yushi_lingshi'],
@@ -306,23 +316,25 @@ export const glossary = [
 export const translate = {
     bts_ch_aha: '阿哈',
     bts_sk_aha: '阿哈！',
-    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}，${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段，你可以弃8枚${get.poptip('bts_glossary_yuanli_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则首次只需4枚），此刻以及之后的两个出牌阶段开始时，你视为使用【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
+    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}，${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段，你可以弃8枚${get.poptip('bts_glossary_yuanli_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}则首次只需4枚），`
+        + `此刻以及之后的两个出牌阶段开始时，你视为使用【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
     bts_sk_yushi: '愉使',
     bts_sk_yushi_info: `出牌阶段（不限次），你可以弃置一张【杀】并选择一名其他角色，其于你下次发动此技能前视为${get.poptip('bts_glossary_huanju_lingshi_faq')}：其回合开始时，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。然后其视为对你选择的另一名其他角色使用【杀】。`,
     bts_sk_gongyan: '公演',
-    bts_sk_gongyan_info: `锁定技，当你使用或弃置【杀】，或执行${get.poptip('bts_glossary_funny_act_faq')}后，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。欢愉行动：使用或视为使用【无中生有】或【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
+    bts_sk_gongyan_info: `锁定技，当你使用或弃置【杀】，或执行${get.poptip('bts_glossary_funny_act_faq')}后，你获得1枚${get.poptip('bts_glossary_yuanli_faq')}。`
+        + `欢愉行动：使用或视为使用【无中生有】或【${get.poptip('bts_glossary_huanju_wanxiang_faq')}】。`,
     bts_mk_yuanli: '愿力',
     bts_mk_huanju_lingshi: '欢愉令使',
     'bts_mk_huanju_shengge-clear': '欢愉升格',
     bts_mk_aha_pending: '万相待放',
-    bts_mk_aha_pending_info:
-        '阿哈还能在之后的出牌阶段开始时视为使用【欢愉万相】（数字为剩余次数）。',
+    bts_mk_aha_pending_info: '阿哈还能在之后的出牌阶段开始时视为使用【欢愉万相】（数字为剩余次数）。',
 };
 
 export const simpleTranslate = {
-    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}，${get.poptip('bts_glossary_funny_skill_faq')}；弃8${get.poptip('bts_glossary_yuanli_faq')}（${get.poptip('bts_glossary_xingqi_faq')}首发4），此刻与之后2个出牌阶段开始时视为使用【欢愉万相】`,
-    bts_sk_yushi_info: `不限次；弃1【杀】选一名其他角色为${get.poptip('bts_glossary_huanju_lingshi_faq')}（唯一）；其回合开始你+1愿力；然后其视为对你选的另一名其他角色用【杀】`,
-    bts_sk_gongyan_info: `锁；使用/弃置【杀】或执行${get.poptip('bts_glossary_funny_act_faq')}后+1${get.poptip('bts_glossary_yuanli_faq')}`,
+    bts_sk_aha_info: `${get.poptip('bts_glossary_bisha_faq')}；${get.poptip('bts_glossary_funny_skill_faq')}；-8${get.poptip('bts_glossary_yuanli_faq')}（${get.poptip('bts_glossary_xingqi_faq')}首发4），`
+        + `此刻与之后2个出牌阶段开始时视为用欢愉万相`,
+    bts_sk_yushi_info: `不限次；-1杀选一名其他角色为${get.poptip('bts_glossary_huanju_lingshi_faq')}（唯一）；其回合开始时你+1愿力；然后其视为对你选的另一名其他角色用杀`,
+    bts_sk_gongyan_info: `锁；使用/弃置杀或执行${get.poptip('bts_glossary_funny_act_faq')}后+1${get.poptip('bts_glossary_yuanli_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

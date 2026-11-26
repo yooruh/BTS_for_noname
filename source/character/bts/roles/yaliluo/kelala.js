@@ -243,7 +243,7 @@ export const translate = {
 
 export const simpleTranslate = {
     bts_sk_yueding_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-4${get.poptip('bts_glossary_nuqi_faq')}，后2次用杀不能被响应（${get.poptip('bts_glossary_xingqi_faq')}3次）`,
-    bts_sk_fuchou_info: `准备阶段，弃1杀令≥1名其他角色选择：①-1牌；②受1伤，-1${get.poptip('bts_glossary_abnormal_scary_faq')}`,
+    bts_sk_fuchou_info: `准备阶段，-1杀令≥1名其他角色选择：①-1牌；②受1点伤害，-1${get.poptip('bts_glossary_abnormal_scary_faq')}`,
     bts_sk_jiaren_info: `锁；受伤时，对来源用杀并令其+1${get.poptip('bts_glossary_abnormal_scary_faq')}`,
     bts_sk_quzhu_info: `锁；用杀指定目标后令其+1${get.poptip('bts_glossary_abnormal_scary_faq')}`,
 };

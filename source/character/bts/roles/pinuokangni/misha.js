@@ -190,7 +190,9 @@ export const translate = {
     'bts_mk_misha_frozen-turn': '冻结回合',
     bts_ch_misha: '米沙',
     bts_sk_mengchong: '传冲',
-    bts_sk_mengchong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至多三名攻击范围内的其他角色，随机进行3次（每枚${get.poptip('bts_glossary_st_mengchong_faq')}标记额外1次冲击，若你为${get.poptip('bts_glossary_xingqi_faq')}则改为7次）冲击：目标附加${get.poptip('bts_glossary_abnormal_freeze_faq')}，或受到1点伤害。`,
+    bts_sk_mengchong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至多三名攻击范围内的其他角色，`
+        + `随机进行3次（每枚${get.poptip('bts_glossary_st_mengchong_faq')}标记额外1次冲击，若你为${get.poptip('bts_glossary_xingqi_faq')}则改为7次）冲击：目标附加${get.poptip('bts_glossary_abnormal_freeze_faq')}，`
+        + `或受到1点伤害。`,
     bts_sk_jizong: '机纵',
     bts_sk_jizong_info: `锁定技，当角色弃置【杀】后，你获得1枚${get.poptip('bts_glossary_st_mengchong_faq')}标记。`,
     bts_sk_fuwu: '服务',
@@ -205,8 +207,8 @@ export const translate = {
     '~bts_ch_misha': "招待…不周……",
 };
 export const simpleTranslate = {
-    bts_sk_jizong_info: `锁；有人弃【杀】就+1${get.poptip('bts_glossary_st_mengchong_faq')}`,
-    bts_sk_fuwu_info: `锁；拿到牌后可弃杀换+1${get.poptip('bts_glossary_st_mengchong_faq')}`,
+    bts_sk_jizong_info: `锁；有人弃杀就+1${get.poptip('bts_glossary_st_mengchong_faq')}`,
+    bts_sk_fuwu_info: `锁；拿到牌后可-1杀换+1${get.poptip('bts_glossary_st_mengchong_faq')}`,
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 

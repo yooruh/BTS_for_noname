@@ -152,9 +152,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zunxing_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色补牌至与你手牌相同`,
+    bts_sk_zunxing_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色补牌至与你手牌相同`,
     bts_sk_xifu_info: '准备阶段可将1杀交给1名其他角色',
-    bts_sk_fae_info: `锁；出牌阶段开始把手牌补至上限`,
+    bts_sk_fae_info: `锁；出牌阶段开始时，将手牌补至上限`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

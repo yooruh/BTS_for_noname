@@ -1,6 +1,6 @@
 // 翡翠（源 animal.lua L4797-4899）—— BOSS/高数值示例
 // 狱契必杀技消耗怒气打量子属性通常伤害并积累狱契；肆保给无契约者附加契约祝福；
-// 烁牙在你或契约者造成伤害后累计烁牙，攒满8枚对全部受害者挥出暗【杀】。
+// 烁牙在你或契约者造成伤害后累计烁牙，攒满8枚对全部受害者挥出量子【杀】。
 import {
     lib,
     game,
@@ -21,7 +21,7 @@ export const sort = 'gongsi';
 export const title = '量子·智识·慈玉女士'; // 属性·命途
 export const intro =
     `${B('翡翠')}是${get.poptip('bts_glossary_hudun_faq')}/${get.poptip('bts_glossary_bless_yingzi_faq')}流BOSS：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_yuqi'))}以${get.poptip('bts_glossary_nuqi_faq')}换取群体${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害并积攒${get.poptip('bts_sk_yuqi')}标记，` +
-    `${B(get.poptip('bts_sk_sibao'))}为无${get.poptip('bts_glossary_bless_yingzi_faq')}角色附加${get.poptip('bts_glossary_bless_yingzi_faq')}，${B(get.poptip('bts_sk_shuoya'))}随伤害积累层数，攒满后对全体受害者挥出暗【杀】。` +
+    `${B(get.poptip('bts_sk_sibao'))}为无${get.poptip('bts_glossary_bless_yingzi_faq')}角色附加${get.poptip('bts_glossary_bless_yingzi_faq')}，${B(get.poptip('bts_sk_shuoya'))}随伤害积累层数，攒满后对全体受害者挥出量子【杀】。` +
     `<li>适合作为单机BOSS局主公开局（配合 customScenes 起始${get.poptip('bts_glossary_hudun_faq')}/${get.poptip('bts_glossary_nuqi_faq')}）`;
 
 export const character = {
@@ -63,7 +63,7 @@ export const skill = {
         },
         ai: {
             // AI 口径：怒气≥5（filter 同门）；失5怒对每名敌人1点暗伤（星启：全局必杀基数+1→2点；
-            // 元素相克再+1）并自得2枚狱契（烁牙满8时弃1枚令暗杀不可响应）；怒≥7（留一发余量）时更积极
+            // 元素相克再+1）并自得2枚狱契（烁牙满8时弃1枚令量子【杀】不可响应）；怒≥7（留一发余量）时更积极
             //（源 animal.lua L4799-4818；可选链守卫写法保留）
             order(item, player) {
                 if (lib.bts?.aiGuard?.blocked(player, 'bts_sk_yuqi'))
@@ -91,49 +91,43 @@ export const skill = {
         trigger: { player: 'phaseUseBegin' },
         filter(event, player) {
             // 若没有角色拥有契约祝福；且手牌有【杀】可弃（源 askForUseCard 的 Slash 限定——
-            // 无杀时不可发动，否则空跑一轮询问后取消）
+            // 无杀时不可发动，否则空跑一轮询问后取消）；另需存在其他存活角色（filterTarget 要求 t!==p）
             return (
                 !game.hasPlayer(
                     (p) => p.isAlive() && lib.bts.api.getBless(p, 'yingzi'),
                 ) &&
-                player.getCards('h').some((card) => get.name(card) === 'sha')
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
             );
         },
         async cost(event, trigger, player) {
-            const r = await player
-                .chooseTarget(
-                    '肆保：选择一名其他角色，弃置一张【杀】令其附加3层契约祝福',
-                    [1, 1],
-                    (card, p, target) => target !== p,
-                )
-                // AI 口径：契约祝福=额定摸牌+1（3层≈3回合）且其造成伤害助烁牙累积 → 只给友军，
-                // 属性型盟友更优；敌方/中立不给分（全员非友军→整体取消发动）（源 animal.lua L4820-4852）
-                .set('ai', (target) => {
-                    const attitude = get.attitude(player, target);
-                    if (attitude <= 0) return -1;
-                    let v = 2 + attitude / 2;
-                    if (lib.bts.api.naturePlayer(target)) v += 1;
-                    return v;
-                })
-                .forResult();
-            if (!r.bool) return;
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) =>
+            // 选目标与弃【杀】一体化：chooseCardTarget 一次对话完成选择并确认，取消即不发动。
+            // 发动决策由 ai1/ai2 承担（两侧最高分≤0→引擎自动取消）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '肆保：选择一名其他角色，弃置一张【杀】令其附加3层契约祝福',
+                    position: 'h',
+                    filterCard: (card) =>
                         get.name(card) === 'sha' &&
                         lib.filter.cardDiscardable(card, player),
-                    '弃置一张【杀】',
-                )
-                // AI 口径：代价=献出价值最低的【杀】；分值≤0（杀太珍贵）则整体取消发动
-                .set('ai', (card) => 6 - get.value(card))
+                    filterTarget: (card, source, target) =>
+                        target !== source,
+                    // AI 口径：代价=献出价值最低的【杀】；分值≤0（杀太珍贵）则整体取消发动
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
+                    // AI 口径：契约祝福=额定摸牌+1（3层≈3回合）且其造成伤害助烁牙累积 → 只给友军，
+                    // 属性型盟友更优；敌方/中立不给分（全部非友军→取消）（源 animal.lua L4820-4852）
+                    ai2: (target) => {
+                        const attitude = get.attitude(player, target);
+                        if (attitude <= 0) return -1;
+                        let v = 2 + attitude / 2;
+                        if (lib.bts.api.naturePlayer(target)) v += 1;
+                        return v;
+                    },
+                })
                 .forResult();
-            if (!cards.bool) return;
-            event.result = {
-                bool: true,
-                targets: r.targets,
-                cards: cards.cards,
-            };
         },
         async content(event, trigger, player) {
             lib.bts.aiGuard.record(player, 'bts_sk_sibao');
@@ -168,9 +162,9 @@ export const skill = {
             }
             player.addMark('bts_sk_shuoya', 1); // 获得1枚烁牙标记（源 L4869）
             if (player.countMark('bts_sk_shuoya') < 8) return;
-            // 攒满8枚：弃8枚烁牙，视为对所有受到过由你造成的伤害的角色使用暗【杀】
+            // 攒满8枚：弃8枚烁牙，视为对所有受到过由你造成的伤害的角色使用量子【杀】
             player.removeMark('bts_sk_shuoya', 8);
-            // 源 L5406：暗【杀】目标须在你的攻击范围内（canSlash 范围判定）
+            // 源 L5406：量子【杀】目标须在你的攻击范围内（canSlash 范围判定）
             const targets = (player.storage.bts_damagedBy || []).filter(
                 (p) => p.isAlive() && player.inRange(p),
             );
@@ -195,7 +189,7 @@ export const skill = {
         intro: {
             name: '烁牙',
             content: (storage) =>
-                `当前有${storage}枚烁牙；达到8枚时弃8枚，视为对所有受到过由你造成的伤害的角色使用暗【杀】。`,
+                `当前有${storage}枚烁牙；达到8枚时弃8枚，视为对所有受到过由你造成的伤害的角色使用量子【杀】。`,
         },
         markimage: `${extensionPath}/image/mark/bts_sk_shuoya.png`,
     },
@@ -204,13 +198,14 @@ export const skill = {
 export const translate = {
     bts_ch_feicui: '翡翠',
     bts_sk_yuqi: '狱契',
-    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并对至少一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，获得2枚${get.poptip('bts_sk_yuqi')}标记。`,
-
+    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并对至少一名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，`
+        + `获得2枚${get.poptip('bts_sk_yuqi')}标记。`,
     bts_sk_sibao: '肆保',
     bts_sk_sibao_info: `出牌阶段开始时，若没有角色拥有${get.poptip('bts_glossary_bless_yingzi_faq')}，你可以弃置一张【杀】并选择一名其他角色，令其附加3层${get.poptip('bts_glossary_bless_yingzi_faq')}。`,
-
     bts_sk_shuoya: '烁牙',
-    bts_sk_shuoya_info: `锁定技，当你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你获得1枚${get.poptip('bts_sk_shuoya')}标记，若你拥有至少8枚${get.poptip('bts_sk_shuoya')}标记，你弃8枚${get.poptip('bts_sk_shuoya')}标记，视为对所有受到过由你造成的伤害的角色使用暗【杀】，若你拥有${get.poptip('bts_sk_yuqi')}标记，你弃1枚${get.poptip('bts_sk_yuqi')}标记，令此【杀】不能被响应。`,
+    bts_sk_shuoya_info: `锁定技，当你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你获得1枚${get.poptip('bts_sk_shuoya')}标记，`
+        + `若你拥有至少8枚${get.poptip('bts_sk_shuoya')}标记，你弃8枚${get.poptip('bts_sk_shuoya')}标记，视为对所有受到过由你造成的伤害的角色使用量子【杀】，`
+        + `若你拥有${get.poptip('bts_sk_yuqi')}标记，你弃1枚${get.poptip('bts_sk_yuqi')}标记，令此【杀】不能被响应。`,
 
     '$bts_sk_yuqi1': "协定已成",
     '$bts_sk_yuqi2': "以此为据，也就再无反悔的余地…你我都是",
@@ -222,9 +217,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，获得2枚${get.poptip('bts_sk_yuqi')}`,
-    bts_sk_sibao_info: `出牌阶段开始时，若无人拥有${get.poptip('bts_glossary_bless_yingzi_faq')}，可弃1张【杀】令1名其他角色+3层${get.poptip('bts_glossary_bless_yingzi_faq')}`,
-    bts_sk_shuoya_info: `锁；你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你+1枚${get.poptip('bts_sk_shuoya')}；≥8枚时弃8枚，对所有受到过你伤害的角色使用暗杀；有${get.poptip('bts_sk_yuqi')}则弃1枚使其不可响应`,
+    bts_sk_yuqi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}通常伤害，`
+        + `+2${get.poptip('bts_sk_yuqi')}`,
+    bts_sk_sibao_info: `出牌阶段开始时，若无人拥有${get.poptip('bts_glossary_bless_yingzi_faq')}，可-1杀令1名其他角色+3层${get.poptip('bts_glossary_bless_yingzi_faq')}`,
+    bts_sk_shuoya_info: `锁；你或拥有${get.poptip('bts_glossary_bless_yingzi_faq')}的角色造成伤害后，你+1枚${get.poptip('bts_sk_shuoya')}；达到8枚时-8枚，视为对所有受到过你伤害的角色使用量子杀；若你有${get.poptip('bts_sk_yuqi')}，可-1枚令此杀不能被响应`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

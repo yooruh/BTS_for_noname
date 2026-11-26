@@ -179,9 +179,11 @@ export const skill = {
 export const translate = {
     bts_ch_yanqing: '彦卿',
     bts_sk_kuaiyu: '快雨',
-    bts_sk_kuaiyu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害；若你拥有${get.poptip('bts_glossary_hudun_faq')}，此伤害额外视为${get.poptip('bts_glossary_bless_fatal_faq')}伤害。`,
+    bts_sk_kuaiyu_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点${get.poptip('bts_glossary_bless_critical_faq')}伤害；`
+        + `若你拥有${get.poptip('bts_glossary_hudun_faq')}，此伤害额外视为${get.poptip('bts_glossary_bless_fatal_faq')}伤害。`,
     bts_sk_hujian: '呼剑',
-    bts_sk_hujian_info: `锁定技，若你拥有${get.poptip('bts_glossary_hudun_faq')}，你不是其他角色使用黑色【杀】的合法目标；你使用【杀】造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}伤害，伤害后视为对目标使用【杀】，此【杀】造成伤害时改为令其附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}。`,
+    bts_sk_hujian_info: `锁定技，若你拥有${get.poptip('bts_glossary_hudun_faq')}，你不是其他角色使用黑色【杀】的合法目标；你使用【杀】造成的伤害视为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}伤害，`
+        + `伤害后视为对目标使用【杀】，此【杀】造成伤害时改为令其附加1层${get.poptip('bts_glossary_abnormal_freeze_faq')}。`,
     bts_sk_sanchi: '三尺',
     bts_sk_sanchi_info: `出牌阶段结束时，你可以弃置一张【杀】，获得1点${get.poptip('bts_glossary_hudun_faq')}。`,
 
@@ -195,9 +197,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_kuaiyu_info: `${get.poptip('bts_glossary_bisha_faq')}；失4${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成${get.poptip('bts_glossary_bless_critical_faq')}伤害，有${get.poptip('bts_glossary_hudun_faq')}时额外${get.poptip('bts_glossary_bless_fatal_faq')}`,
+    bts_sk_kuaiyu_info: `${get.poptip('bts_glossary_bisha_faq')}；-4${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成${get.poptip('bts_glossary_bless_critical_faq')}伤害，`
+        + `有${get.poptip('bts_glossary_hudun_faq')}时额外${get.poptip('bts_glossary_bless_fatal_faq')}`,
     bts_sk_hujian_info: `锁；有${get.poptip('bts_glossary_hudun_faq')}时免疫他人黑杀，自己的杀为${get.poptip('bts_glossary_bless_critical_faq')}${get.poptip('bts_glossary_bless_fatal_faq')}并${get.poptip('bts_glossary_abnormal_freeze_faq')}追击`,
-    bts_sk_sanchi_info: `出牌阶段结束可弃杀+1${get.poptip('bts_glossary_hudun_faq')}`,
+    bts_sk_sanchi_info: `出牌阶段结束时可-1杀+1${get.poptip('bts_glossary_hudun_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

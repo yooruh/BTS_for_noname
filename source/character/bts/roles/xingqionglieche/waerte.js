@@ -1,11 +1,11 @@
-// 瓦尔特（源 animal.lua L2117-2222）—— 拟洞必杀技令目标跳过回合、扭曲强弃牌、断界拼点翻面+仪式摸牌。
+// 瓦尔特（源 animal.lua L2117-2222）—— 拟洞必杀技令目标跳过回合、扭曲强弃牌、断界拼点翻面+累计层数摸牌。
 import { lib, game, ui, get, ai, _status, styleText, B, O } from '../../shared.js';import { extensionPath } from '../../../../tool/utils/paths.js';
 
 export const sort = 'xingqionglieche';
 export const title = '虚数·虚无·名的传承'; // 属性·命途
 export const intro =
-    `${B('瓦尔特')}是控制型：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_nidong'))}令一名角色跳过下个回合，你回复${get.poptip('bts_glossary_nuqi_faq')}，${B(get.poptip('bts_sk_niuqu'))}在造成伤害后强制对方弃牌，${B(get.poptip('bts_sk_duanjie'))}拼点翻面并叠${get.poptip('bts_glossary_yishi_faq')}摸牌。` +
-    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_nidong')}附加「${get.poptip('bts_glossary_yishi_shunfa_faq')}」，令下次${get.poptip('bts_sk_duanjie')}直接摸牌`;
+    `${B('瓦尔特')}是控制型：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_nidong'))}令一名角色跳过下个回合，你回复${get.poptip('bts_glossary_nuqi_faq')}，${B(get.poptip('bts_sk_niuqu'))}在造成伤害后强制对方弃牌，${B(get.poptip('bts_sk_duanjie'))}拼点翻面并积累「断界」，翻面后摸牌。` +
+    `<li>${get.poptip('bts_glossary_xingqi_faq')}时${get.poptip('bts_sk_nidong')}赋予「${get.poptip('bts_glossary_yishi_shunfa_faq')}」，令下次${get.poptip('bts_sk_duanjie')}立即摸一张牌`;
 
 export const character = {
     bts_ch_waerte: {
@@ -38,11 +38,11 @@ export const skill = {
             target.addMark('bts_mk_skip_turn', 1); // 源 L2123：跳过下个回合（由 resolver 结算）
             player.addMark('bts_mk_skill-clear', 1); // 源 gamerule_ex L1016：本回合发动过必杀技（st_niuqu 用）
             lib.bts.api.addAngry(player, 1); // 源 L2124
-            if (lib.bts.api.god(player)) player.addMark('bts_mk_skill_moment', 1); // 源 L2126：仪式瞬发
+            if (lib.bts.api.god(player)) player.addMark('bts_mk_skill_moment', 1); // 源 L2126：立即摸牌
         },
         ai: {
             // AI 口径：4 怒→净耗 3（施放回 1 怒，源 L2124）；跳过敌方下个回合≈废其一整轮行动，
-            // 对存活强敌收益最大；星启附加「仪式瞬发」为断界资源（源 L2126）。（源 animal.lua L2118-2132）
+            // 对存活强敌收益最大；星启赋予「立即摸牌」为断界资源（源 L2126）。（源 animal.lua L2118-2132）
             order(item, player) {
                 if (lib.bts.aiGuard.blocked(player, 'bts_sk_nidong'))
                     return -1;
@@ -131,7 +131,7 @@ export const skill = {
             } else {
                 await player.turnOver();
             }
-            // 仪式：技时瞬发则摸1并移除；否则叠1层仪式标记，翻面时一并摸牌
+            // 有「立即摸牌」则摸1并移除；否则叠1层「断界」层数，翻面时一并摸牌
             if (player.countMark('bts_mk_skill_moment') > 0) {
                 player.removeMark('bts_mk_skill_moment', 1);
                 await player.draw(player, 1);
@@ -142,7 +142,7 @@ export const skill = {
         group: ['bts_sk_duanjie_ritual'],
         subSkill: {
             ritual: {
-                // 源 L2170 为断界结算（翻面后自动摸仪式层数牌，无询问）→ forced。
+                // 源 L2170 为断界结算（翻面后自动摸等同层数的牌，无询问）→ forced。
                 audio: 'bts_sk_duanjie',
                 trigger: { player: 'turnOverAfter' },
                 forced: true,
@@ -152,18 +152,18 @@ export const skill = {
                 async content(event, trigger, player) {
                     const n = player.countMark('bts_sk_duanjie');
                     player.removeMark('bts_sk_duanjie', n);
-                    await player.draw(player, n); // 源 L2170：翻面后摸仪式层数张牌
+                    await player.draw(player, n); // 源 L2170：翻面后摸「断界」层数张牌
                 },
             },
         },
         ai: {
             // AI 口径：弃 1 杀+拼点（引擎随机抽牌，胜负各半）：没赢者翻面≈失去下个回合，期望≈半轴；
-            // 仪式瞬发直接摸 1（源 L2170）、敌方手牌少时胜率更高；自己手牌少时翻面风险大。（源 animal.lua L2152-2217）
+            // 「立即摸牌」直接摸 1（源 L2170）、敌方手牌少时胜率更高；自己手牌少时翻面风险大。（源 animal.lua L2152-2217）
             order(item, player) {
                 if (lib.bts.aiGuard.blocked(player, 'bts_sk_duanjie'))
                     return -1;
                 let val = 4;
-                if (player.countMark('bts_mk_skill_moment') > 0) val += 1; // 仪式瞬发：+1 摸牌
+                if (player.countMark('bts_mk_skill_moment') > 0) val += 1; // 立即摸牌：+1 摸牌
                 if (
                     game.hasPlayer(
                         (t) =>
@@ -188,12 +188,12 @@ export const skill = {
                         : -0.75,
             },
         },
-        // 仪式层数在头像可见（真技能 mark:true 范式，素材文件名即技能 ID）
+        // 「断界」层数在头像可见（真技能 mark:true 范式，素材文件名即技能 ID）
         mark: true,
         intro: {
             name: '断界',
             content: (storage) =>
-                `当前有${storage}层${get.poptip('bts_glossary_yishi_faq')}；当你翻面后，摸等量牌。`,
+                `当前有${storage}层；当你翻面后，摸等量牌，然后清空。`,
         },
         markimage: `${extensionPath}/image/mark/bts_sk_duanjie.png`,
     },
@@ -211,14 +211,14 @@ export const translate = {
     'bts_ch_waerte_skin8': '皮肤8',
     bts_ch_waerte: '瓦尔特',
     bts_sk_nidong: '拟洞',
-    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，其跳过下个回合，你回复1点${get.poptip('bts_glossary_nuqi_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，你下次${get.poptip('bts_glossary_yishi_shunfa_faq')}。`,
-
+    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，`
+        + `其跳过下个回合，你回复1点${get.poptip('bts_glossary_nuqi_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，你附加1层「${get.poptip('bts_glossary_yishi_shunfa_faq')}」（可叠加）：`
+        + `你下次发动${get.poptip('bts_sk_duanjie')}时立即摸一张牌，本次不积累「断界」层数。`,
     bts_sk_niuqu: '扭曲',
     bts_sk_niuqu_info: `锁定技，当你对其他角色造成伤害后，若你与其武将牌朝向不同或你于此阶段内发动过${get.poptip('bts_glossary_bisha_faq')}，其弃置一张手牌。`,
-
     bts_sk_duanjie: '断界',
-    bts_sk_duanjie_info:
-        `出牌阶段，你可以弃置一张【杀】并与一名角色拼点，没赢的角色翻面。${get.poptip('bts_glossary_yishi_faq')}：当你翻面后，摸${get.poptip('bts_glossary_yishi_faq')}层数张牌。`,
+    bts_sk_duanjie_info: `出牌阶段，你可以弃置一张【杀】并与一名角色拼点，没赢的角色翻面。若你拥有「${get.poptip('bts_glossary_yishi_shunfa_faq')}」，移除1层并立即摸一张牌，本次不积累「断界」层数；`
+        + `否则你获得1层「断界」。当你翻面后，摸等同「断界」层数的牌，然后移除全部「断界」。`,
 
     '$bts_sk_nidong1': "这份力量的沉重，你一无所知",
     '$bts_sk_nidong2': "见识一下星辰粉碎的样子吧…生存还是毁灭，你别无选择",
@@ -228,22 +228,23 @@ export const translate = {
     '$bts_sk_duanjie2': "我不会手下留情",
     '~bts_ch_waerte': "交给…你们了……",
     bts_mk_skip_turn: '跳过回合',
-    bts_mk_skill_moment: '仪式瞬发',
-    bts_mk_skill_moment_info: `来源：${get.poptip('bts_sk_nidong')}（${get.poptip('bts_glossary_xingqi_faq')}时）赋予；使下次${get.poptip('bts_sk_duanjie')}发动时直接摸一张牌`,
+    bts_mk_skip_turn_info: `来源：${get.poptip('bts_sk_nidong')}赋予；你的准备阶段跳过判定、摸牌、出牌和弃牌阶段，然后移除此标记`,
+    bts_mk_skill_moment: '立即摸牌',
+    bts_mk_skill_moment_info: `来源：${get.poptip('bts_sk_nidong')}（${get.poptip('bts_glossary_xingqi_faq')}时）赋予；你下次发动${get.poptip('bts_sk_duanjie')}时立即摸一张牌，本次不积累「断界」层数`,
 };
 
 export const simpleTranslate = {
-    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失4${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色跳过下个回合，回复1点${get.poptip('bts_glossary_nuqi_faq')}；若${get.poptip('bts_glossary_xingqi_faq')}则下次${get.poptip('bts_glossary_yishi_shunfa_faq')}`,
-    bts_sk_niuqu_info: `锁；你造成伤害后，若与目标朝向不同或本阶段用过${get.poptip('bts_glossary_bisha_faq')}，其弃1张手牌`,
-    bts_sk_duanjie_info:
-        `出牌阶段，弃1张【杀】与1名角色拼点，没赢者翻面；翻面后摸${get.poptip('bts_glossary_yishi_faq')}层数张牌`,
+    bts_sk_nidong_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-4${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色跳过下个回合，+1${get.poptip('bts_glossary_nuqi_faq')}；`
+        + `若${get.poptip('bts_glossary_xingqi_faq')}则+1层「${get.poptip('bts_glossary_yishi_shunfa_faq')}」（下次${get.poptip('bts_sk_duanjie')}立即摸1张、不积累层数）`,
+    bts_sk_niuqu_info: `锁；你造成伤害后，若与目标朝向不同或本阶段用过${get.poptip('bts_glossary_bisha_faq')}，其-1手牌`,
+    bts_sk_duanjie_info: `出牌阶段，-1杀与1名角色拼点，没赢者翻面；有「${get.poptip('bts_glossary_yishi_shunfa_faq')}」则-1层并立即摸1张（不积累层数），否则+1层「断界」；翻面后摸等量牌并清空`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
 export const marks = {
     bts_mk_skill_moment: {
-        // 仪式瞬发：拟洞（星启）赋予的瞬时计数，下次断界直接摸牌并移除；图标已就位（image/mark/bts_mk_skill_moment.png）
+        // 立即摸牌：拟洞（星启）赋予的瞬时计数，下次断界直接摸牌并移除；图标已就位（image/mark/bts_mk_skill_moment.png）
         markKind: 'mark',
         glossaryId: 'bts_glossary_yishi_shunfa_faq',
     },

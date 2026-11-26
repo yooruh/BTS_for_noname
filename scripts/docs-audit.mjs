@@ -9,7 +9,7 @@
  *   1. `npm run <script>` 是否存在于 zip/package.json 的 `scripts` 段；若命中 `AIscript` 段
  *      （AI 专用、npm 不识别）则单列为 npm-ai-script 并给出直调命令；
  *   2. `node scripts/...mjs` / `node _others/debug/...mjs` 脚本路径是否存在（按 zip/ 与仓库根双基准解析）；
- *   3. 反引号内的 zip/、_others/、文档/、群友投稿/ 路径是否存在；
+ *   3. 反引号内的 zip/、_others/、文档/、群友投稿/ 路径是否存在（`_tmp_*` 运行时临时路径除外）；
  *   4. Markdown 链接指向的 .md 是否存在；
  *   5. 文档/README.md 索引是否覆盖全部现行文档，域名、用途、权威、关键词是否合法且不重复；
  *   6. 索引「维护」列登记的生成器是否存在，该文档页首是否有对应的 `> 生成器：` 标识；
@@ -59,7 +59,13 @@ const SKIP_FILES = new Set([
     '文档/太阳神音频差异对照.md',
 ]);
 const ALLOWED_MISSING_SCRIPTS = new Set(['build:android', 'playtest:auto']);
-const SKIP_PATH_RE = /(?:^|\/)(?:xxx|\.\.\.|probe_client\.js|_tmp_keys_audit\.mjs|_tmp_serve2?\.mjs|_tmp_diff_overlay\.mjs|_tmp_suffix_keys\.mjs|_tmp_apk_[^/]+|sgsv2_src|太阳神三国杀V2|v1\.11\.6_)/;
+// 占位/示例路径（不是真实文件）。
+const SKIP_PATH_RE = /(?:^|\/)(?:xxx|\.\.\.|probe_client\.js|sgsv2_src|太阳神三国杀V2|v1\.11\.6_)/;
+// 运行时临时路径：`_tmp_*` 由 dev.mjs（overlay 热修树）、playtest/dev（临时脚本）按需创建，
+// 干净工作区里本就不存在。文档可以引用它们，不算失效引用（命名约定见 _others/debug/TOOLS.md）。
+// `_others/debug/data/` 是调试运行产物（playtest.jsonl、persist.json 等）：playtest clean 后按需重建，
+// 同样不作为失效引用判定。
+const RUNTIME_PATH_RE = /(?:^|\/)_tmp_[^/]+(?:\/|$)|(?:^|\/)_others\/debug\/data\//;
 
 function relOf(file) {
     return relative(WORKSPACE, file).replace(/\\/g, '/');
@@ -85,6 +91,7 @@ function checkPath(file, index, raw, kind) {
     if (!value || value.includes(' ')) return;
     if (/[*<>{}?|…]/.test(value)) return; // 通配/占位/命令片段
     if (SKIP_PATH_RE.test(value)) return;
+    if (RUNTIME_PATH_RE.test(value)) return;
     if (/^[a-z]+:\/\//i.test(value)) return;
     const candidates = [resolve(WORKSPACE, value)];
     if (!value.endsWith('.md')) candidates.push(resolve(WORKSPACE, `${value}.md`));

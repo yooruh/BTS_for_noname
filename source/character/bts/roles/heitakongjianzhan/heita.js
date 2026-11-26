@@ -117,14 +117,28 @@ export const skill = {
     },
 
     // ── 一锤（源 st_yichui = TriggerSkill Damage/Pindian + ViewAsSkill n=2，L2936-3061）：多目标拼点 ──
+    // 当前机制（与源差异：不要求黑塔自身体力高于已损失，改为拼点目标须体力高于已损失；没赢者无条件结算）
     bts_sk_yichui: {
         trigger: { source: 'damageEnd' },
         filter(event, player) {
-            return (
-                event.num > 0 &&
-                player.hp > player.maxHp - player.hp &&
-                player.getCards('h').some((c) => get.name(c) === 'sha') &&
-                player.countCards('h') > 1
+            if (!(event.num > 0)) return false;
+            // 弃置的【杀】与拼点牌须为两张不同手牌（拼点牌限非装备牌），否则无法完成发动
+            const hand = player.getCards('h');
+            if (
+                !hand.some(
+                    (card) =>
+                        get.name(card) === 'sha' &&
+                        hand.some((other) => other !== card && get.type(other) !== 'equip'),
+                )
+            )
+                return false;
+            // 需存在体力值大于已损失体力值且有手牌的其他存活角色（与 filterTarget 同款判据），否则无目标可选、不提示发动
+            return game.hasPlayer(
+                (target) =>
+                    target !== player &&
+                    target.isAlive() &&
+                    target.countCards('h') > 0 &&
+                    target.hp > target.maxHp - target.hp,
             );
         },
         async cost(event, trigger, player) {
@@ -140,54 +154,51 @@ export const skill = {
                 event.result = { bool: false };
                 return;
             }
-            // 选一张非装备牌作为拼点牌（与所有目标共用）
+            // 拼点牌与拼点目标一体化（chooseCardTarget）：一次对话完成选牌+选目标并确认，
+            // 不再「选拼点牌 → 选目标」两次确认。
             const pindian = await player
-                .chooseCard(
-                    'h',
-                    (card) =>
+                .chooseCardTarget({
+                    prompt: '一锤：选择一张拼点牌与拼点目标',
+                    position: 'h',
+                    filterCard: (card) =>
                         card !== slash.cards[0] && get.type(card) !== 'equip',
-                    '一锤：选择一张拼点牌',
-                )
-                // AI 口径：拼点牌结算后损失——点数优先（赢面）、价值折价；
-                // 池内最高点数<7 时全部给 ≤0 分（取消发动，避免白损两张牌）
-                .set('ai', (card) => {
-                    if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
-                    let best = 0;
-                    for (const c of player.getCards('h')) {
-                        if (get.type(c) === 'equip' || c === slash.cards[0])
-                            continue;
-                        best = Math.max(best, get.number(c));
-                    }
-                    if (best < 7) return -1;
-                    return get.number(card) - get.value(card) / 3;
+                    selectCard: 1,
+                    selectTarget: [1, Infinity],
+                    filterTarget: (card, source, target) =>
+                        target !== source &&
+                        target.countCards('h') > 0 &&
+                        target.hp > target.maxHp - target.hp,
+                    // AI 口径：拼点牌结算后损失——点数优先（赢面）、价值折价；
+                    // 池内最高点数<7 时全部给 ≤0 分（取消发动，避免白损两张牌）
+                    ai1: (card) => {
+                        if (!card || typeof card !== 'object') return -1; // 技能按钮候选（非牌）不选
+                        let best = 0;
+                        for (const c of player.getCards('h')) {
+                            if (get.type(c) === 'equip' || c === slash.cards[0])
+                                continue;
+                            best = Math.max(best, get.number(c));
+                        }
+                        if (best < 7) return -1;
+                        return get.number(card) - get.value(card) / 3;
+                    },
+                    // AI 口径：只与敌方拼点；目标体力>已损失（filterTarget 已限），
+                    // 其输了受1伤+摸2，赢或平你反而受伤 → 敌方按估值给正分
+                    ai2: (target) => {
+                        if (target === player) return -1;
+                        if (get.attitude(player, target) >= 0) return -1;
+                        return 2 - get.attitude(player, target) / 4;
+                    },
                 })
                 .forResult();
             if (!pindian.bool) {
                 event.result = { bool: false };
                 return;
             }
-            // 选至少一名有手牌的其他角色
-            const targets = await player
-                .chooseTarget(
-                    '一锤：选择拼点目标',
-                    [1, Infinity],
-                    (c, p, t) => t !== p && t.countCards('h') > 0,
-                    // AI 口径：只与敌方拼点；「体力>已损失」者输了才受罚（1伤+摸2），
-                    // 低于半血的目标不结算（其赢了你反而受伤）→ 不给分（源 L3026-3055 条件）
-                    (target) => {
-                        if (target === player) return -1;
-                        if (get.attitude(player, target) >= 0) return -1;
-                        if (target.hp <= target.maxHp - target.hp) return -1;
-                        return 2 - get.attitude(player, target) / 4;
-                    },
-                )
-                .forResult();
-            if (!targets.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = targets;
-            event.result.cost_data = { pindian: pindian.cards[0], cards: slash.cards };
+            event.result = pindian;
+            event.result.cost_data = {
+                pindian: pindian.cards[0],
+                cards: slash.cards,
+            };
         },
         async content(event, t, player) {
             // 多目标拼点：黑塔的拼点牌固定，逐一比较（event=技能事件，cost 结果在此）
@@ -199,41 +210,29 @@ export const skill = {
                 })
                 .forResult();
             if (result.cancelled) return;
-            const targets = event.targets;
-            for (let i = 0; i < targets.length; i++) {
-                const x = targets[i];
-                const num1 = result.num1[i],
-                    num2 = result.num2[i];
-                // 源 L3026-3055：输家（体力>已损失）受伤并摸2；平局时黑塔为输家、目标为赢家，双方均结算
-                const tie = num1 === num2;
-                const loser = tie || num1 < num2 ? player : x;
-                const winner = tie || num1 < num2 ? x : player;
-                if (loser.isAlive() && loser.hp > loser.maxHp - loser.hp) {
-                    const d = loser.damage(player, 1, 'nocard');
-                    d.reason = 'bts_sk_yichui';
-                    await d;
-                    if (loser.isAlive()) {
-                        await loser.draw(player, 2);
-                        if (
-                            tie &&
-                            winner.isAlive() &&
-                            winner.hp > winner.maxHp - winner.hp
-                        ) {
-                            const d2 = winner.damage(player, 1, 'nocard');
-                            d2.reason = 'bts_sk_yichui';
-                            await d2;
-                            if (winner.isAlive()) await winner.draw(player, 2);
-                        }
-                    }
+            // 每次拼点独立结算：没赢的角色（平局时双方都没赢）各受1点伤害并摸两张
+            for (let index = 0; index < event.targets.length; index++) {
+                const target = event.targets[index];
+                const num1 = result.num1[index];
+                const num2 = result.num2[index];
+                const losers = [];
+                if (num1 <= num2) losers.push(player);
+                if (num2 <= num1) losers.push(target);
+                for (const loser of losers) {
+                    if (!loser.isAlive()) continue;
+                    const damage = loser.damage(player, 1, 'nocard');
+                    damage.reason = 'bts_sk_yichui';
+                    await damage;
+                    if (loser.isAlive()) await loser.draw(player, 2);
                 }
             }
         },
         ai: {
             result: {
                 player: 1,
-                // 多目标：输掉拼点者「1伤+摸2」，仅高于半血者结算（低于半血只承担你输牌的风险）
+                // 多目标：没赢者受1伤并摸2（filterTarget 已保证其体力>已损失），敌方取负值、友方不介入
                 target: (player, target) =>
-                    target.hp > target.maxHp - target.hp ? -1 : 0,
+                    get.attitude(player, target) < 0 ? -1 : 0,
             },
         },
     },
@@ -246,15 +245,12 @@ export const translate = {
     'bts_ch_heita_skin3': '皮肤3',
     bts_ch_heita: '黑塔',
     bts_sk_xiaomofa: '魔法',
-    bts_sk_xiaomofa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名体力值相同的其他角色，对这些角色各造成1点通常伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，视为${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
-
+    bts_sk_xiaomofa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名体力值相同的其他角色，`
+        + `对这些角色各造成1点通常伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，视为${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
     bts_sk_xiaolv: '效率',
-    bts_sk_xiaolv_info:
-        '锁定技，当其他角色受到伤害后，若你对其造成过伤害且其体力值小于已损失的体力值，你视为对其使用霜【杀】。每名角色限一次。',
-
+    bts_sk_xiaolv_info: '锁定技，当其他角色受到伤害后，若你对其造成过伤害且其体力值小于已损失的体力值，你视为对其使用霜【杀】。每名角色限一次。',
     bts_sk_yichui: '一锤',
-    bts_sk_yichui_info:
-        '当你造成伤害后，若你的体力值大于已损失的体力值，你可以弃置一张【杀】并选择一张非装备牌作为拼点牌，与至少一名有手牌的其他角色各拼点；每次拼点，没赢的角色（平局时双方）若体力值大于已损失体力值，受到你造成的1点伤害并摸两张牌。',
+    bts_sk_yichui_info: '当你造成伤害后，你可以弃置一张【杀】并选择一张非装备牌作为拼点牌，与至少一名体力值大于已损失体力值且有手牌的其他角色各拼点；每次拼点，没赢的角色受到你造成的1点伤害并摸两张牌。',
 
     '$bts_sk_xiaomofa1': "知道我是谁吗？",
     '$bts_sk_xiaomofa2': "没见过这么大的钻石吧？送给你啦~",
@@ -266,11 +262,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_xiaomofa_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}对至少1名同体力其他角色各造成1点通常伤害（${get.poptip('bts_glossary_xingqi_faq')}${get.poptip('bts_glossary_nature_frost_faq')}）`,
-    bts_sk_xiaolv_info:
-        '锁；其他角色受伤后，若你伤过他且其体力<已损失体力，视为对其用霜杀（每角色限一次）',
-    bts_sk_yichui_info:
-        '造成伤害后，若体力>已损失体力，可弃1杀+1非装备牌与任意名角色拼点，输家（平局双方，体力>已损失）受1伤并摸2张',
+    bts_sk_xiaomofa_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}对至少1名同体力其他角色各造成1点通常伤害（${get.poptip('bts_glossary_xingqi_faq')}${get.poptip('bts_glossary_nature_frost_faq')}）`,
+    bts_sk_xiaolv_info: '锁；其他角色受伤后，若你伤过他且其体力<已损失体力，视为对其用霜杀（每角色限一次）',
+    bts_sk_yichui_info: '造成伤害后，可-1杀，与任意名体力>已损失且有手牌的其他角色拼点（拼点牌为1张非装备牌）；每次没赢的角色受1点伤害并+2牌',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

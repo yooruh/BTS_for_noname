@@ -181,9 +181,9 @@ export const translate = {
     bts_abnormal_jielu: '揭露',
 };
 export const simpleTranslate = {
-    bts_sk_biwan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+2${get.poptip('bts_glossary_abnormal_jielu_faq')}`,
+    bts_sk_biwan_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+2${get.poptip('bts_glossary_abnormal_jielu_faq')}`,
     bts_sk_jizhu_info: `他人回合内受异常伤害后可令其+1${get.poptip('bts_glossary_zhongdu_faq')}`,
-    bts_sk_shizhui_info: `结束阶段可弃杀令全部${get.poptip('bts_glossary_zhongdu_faq')}角色各+1${get.poptip('bts_glossary_zhongdu_faq')}`,
+    bts_sk_shizhui_info: `结束阶段可-1杀令全部${get.poptip('bts_glossary_zhongdu_faq')}角色各+1${get.poptip('bts_glossary_zhongdu_faq')}`,
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
@@ -234,6 +234,10 @@ export const buffSkills = {
         },
         async content(event, trigger, player) {
             if (event.triggername === 'phaseDrawBegin2') {
+                game.log(
+                    player,
+                    `因【${get.translation('bts_abnormal_jielu')}】，额定摸牌-1`,
+                );
                 trigger.num = Math.max(0, trigger.num - 1);
                 return;
             }
@@ -242,6 +246,10 @@ export const buffSkills = {
                 n = 2; // 惊喜标记：改为失去2点并移除（源 L1581-1584）
                 player.removeMark('bts_sk_jingxi', player.countMark('bts_sk_jingxi'));
             }
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_jielu')}】，失去${n}点体力`,
+            );
             player.loseHp(n);
         },
     },

@@ -242,15 +242,16 @@ export const skill = {
 export const translate = {
     bts_ch_yaoguang: '爻光',
     bts_sk_changyao: '裳爻',
-    bts_sk_changyao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，执行一次不消耗${get.poptip('bts_glossary_funnypoint_faq')}、且按20枚（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为40枚）${get.poptip('bts_glossary_funnypoint_faq')}换算的${get.poptip('bts_glossary_funny_time_faq')}；此时刻内，每名角色各有 0.0116%（+${get.poptip('bts_glossary_bless_funny_faq')}每层10%）的概率将${get.poptip('bts_glossary_funny_act_faq')}执行十次。`,
+    bts_sk_changyao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，执行一次不消耗${get.poptip('bts_glossary_funnypoint_faq')}、且按20枚（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为40枚）${get.poptip('bts_glossary_funnypoint_faq')}换算的${get.poptip('bts_glossary_funny_time_faq')}；`
+        + `此时刻内，每名角色各有 0.0116%（+${get.poptip('bts_glossary_bless_funny_faq')}每层10%）的概率将${get.poptip('bts_glossary_funny_act_faq')}执行十次。`,
     bts_sk_guangying: '光映',
     bts_sk_guangying_info: `当拥有${get.poptip('bts_glossary_funny_act_faq')}的角色使用装备牌结算完毕后，你可以弃置一张【杀】，为其附加3层${get.poptip('bts_glossary_bless_funnypoint_faq')}。`,
     bts_sk_qianguang_funny: '千光',
-    bts_sk_qianguang_funny_info: `锁定技，${get.poptip('bts_glossary_funny_skill_faq')}，其他角色的回合结束时，若你于此回合内失去过牌，你执行${get.poptip('bts_glossary_funny_act_faq')}并与该角色拼点，若你没赢，其执行你的${get.poptip('bts_glossary_funny_act_faq')}。欢愉行动：摸两张牌。`,
+    bts_sk_qianguang_funny_info: `锁定技，${get.poptip('bts_glossary_funny_skill_faq')}，其他角色的回合结束时，若你于此回合内失去过牌，你执行${get.poptip('bts_glossary_funny_act_faq')}并与该角色拼点，`
+        + `若你没赢，其执行你的${get.poptip('bts_glossary_funny_act_faq')}。欢愉行动：摸两张牌。`,
 
     bts_bless_funnypoint: '笑点祝福',
     bts_bless_funnypoint_info: `来源：${get.poptip('bts_sk_guangying')}赋予；当你使用或弃置【杀】后，获得3枚${get.poptip('bts_glossary_funnypoint_faq')}；回合结束自然减少1层`,
-
     // ── 语音台词（源 L20321-20341；音频齐备，未命中的键将来再补）──
     '$bts_sk_changyao1': '世人总道天意难违……',
     '$bts_sk_changyao2': '本座偏要，执此一签，观照诸天。',
@@ -264,9 +265,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_changyao_info: `失5${get.poptip('bts_glossary_nuqi_faq')}发动不耗笑点、按20/40枚（${get.poptip('bts_glossary_xingqi_faq')}）换算的${get.poptip('bts_glossary_funny_time_faq')}；此时刻内全场各有0.0116%+概率连发十次行动`,
-    bts_sk_guangying_info: `欢愉角色用装备结算后，可弃1【杀】为其+3层${get.poptip('bts_glossary_bless_funnypoint_faq')}`,
-    bts_sk_qianguang_funny_info: `锁，${get.poptip('bts_glossary_funny_skill_faq')}；其他角色回合结束时，若你本回合失去过牌，你先行动（摸2）再与之拼点，你没赢则由其行动；欢愉行动：摸2`,
+    bts_sk_changyao_info: `-5${get.poptip('bts_glossary_nuqi_faq')}发动不耗笑点、按20/40枚（${get.poptip('bts_glossary_xingqi_faq')}）换算的${get.poptip('bts_glossary_funny_time_faq')}；此时刻内全场各有0.0116%+概率连发十次行动`,
+    bts_sk_guangying_info: `欢愉角色用装备结算后，可-1杀为其+3层${get.poptip('bts_glossary_bless_funnypoint_faq')}`,
+    bts_sk_qianguang_funny_info: `锁；${get.poptip('bts_glossary_funny_skill_faq')}；其他角色回合结束时，若你本回合失去过牌，你先行动（+2牌）再与之拼点，你没赢则由其行动；欢愉行动：+2牌`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

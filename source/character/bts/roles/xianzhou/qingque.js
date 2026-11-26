@@ -201,9 +201,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_anke_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}摸4`,
-    bts_sk_qiongyu_info: `锁；准备阶段摸1并+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
-    bts_sk_laoyue_info: `出牌阶段可弃杀摸2，或四同花视为杀并移1层${get.poptip('bts_glossary_abnormal_confuse_faq')}、结束出牌`,
+    bts_sk_anke_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}+4牌`,
+    bts_sk_qiongyu_info: `锁；准备阶段+1牌并+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
+    bts_sk_laoyue_info: `出牌阶段，可-1杀+2牌；或将四张同花色手牌视为用杀，移除1层你的${get.poptip('bts_glossary_abnormal_confuse_faq')}并结束出牌阶段`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

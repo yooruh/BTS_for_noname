@@ -2,8 +2,8 @@
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';export const sort = 'heitakongjianzhan';
 export const title = '雷·毁灭·「黑塔」防卫科负责人'; // 属性·命途
 export const intro =
-    `${B('阿兰')}是续航反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_kuangcai'))}花${get.poptip('bts_glossary_nuqi_faq')}拿走多人手牌，${B(get.poptip('bts_sk_zhitong'))}免疫异常伤害但会触发${get.poptip('bts_glossary_yishi_faq')}，${B(get.poptip('bts_sk_jiejin'))}受伤后叠${get.poptip('bts_glossary_bless_busi_faq')}并反伤。` +
-    `<li>${get.poptip('bts_sk_zhitong')}触发${get.poptip('bts_glossary_yishi_faq')}后失去技能，注意时机`;
+    `${B('阿兰')}是续航反击：${get.poptip('bts_glossary_bisha_faq')}${B(get.poptip('bts_sk_kuangcai'))}花${get.poptip('bts_glossary_nuqi_faq')}拿走多人手牌，${B(get.poptip('bts_sk_zhitong'))}免疫异常伤害但防止伤害后再次受伤会失去此技能，${B(get.poptip('bts_sk_jiejin'))}受伤后叠${get.poptip('bts_glossary_bless_busi_faq')}并反伤。` +
+    `<li>${get.poptip('bts_sk_zhitong')}防止异常伤害后，再受到一次伤害就会失去此技能，注意时机`;
 
 export const character = {
     bts_ch_alan: {
@@ -82,7 +82,7 @@ export const skill = {
     },
 
     // ── 锁定技·至痛（源 st_zhitong = TriggerSkill Compulsory DamageInflicted/Damaged，L2839-2861）──
-    // 锁定技（forced，含 lose 子技）：防止异常伤害与仪式失技能均自动结算 → 不配 ai。
+    // 锁定技（forced，含 lose 子技）：防止异常伤害与防止后失技能均自动结算 → 不配 ai。
     bts_sk_zhitong: {
         trigger: { player: 'damageBegin2' },
         forced: true,
@@ -149,9 +149,10 @@ export const translate = {
     'bts_ch_alan_skin1': '皮肤1',
     bts_ch_alan: '阿兰',
     bts_sk_kuangcai: '狂裁',
-    bts_sk_kuangcai_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择X名有手牌的其他角色（X为你已损失的体力值且至少为1，若你为${get.poptip('bts_glossary_xingqi_faq')}则无限制），获得这些角色各一张牌（手牌或装备牌）。`,
+    bts_sk_kuangcai_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择X名有手牌的其他角色（X为你已损失的体力值且至少为1，`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}则无限制），获得这些角色各一张牌（手牌或装备牌）。`,
     bts_sk_zhitong: '至痛',
-    bts_sk_zhitong_info:`锁定技，当你受到由异常造成的伤害时，防止此伤害。${get.poptip('bts_glossary_yishi_faq')}：当你受到伤害后，失去此技能。`,
+    bts_sk_zhitong_info: `锁定技，当你受到由异常造成的伤害时，防止此伤害。若你以此法防止过伤害，你下一次受到伤害后，失去此技能。`,
     bts_sk_jiejin: '解禁',
     bts_sk_jiejin_info: `当你受到伤害后，若你的体力值不小于1，你可以附加1层${get.poptip('bts_glossary_bless_busi_faq')}，对来源造成1点伤害。`,
 
@@ -165,8 +166,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_kuangcai_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}获得最多X名（X=已损失体力，${get.poptip('bts_glossary_xingqi_faq')}无限制）有手牌角色各1张牌`,
-    bts_sk_zhitong_info: '锁；防止异常造成的伤害，之后受到伤害后失去此技能',
+    bts_sk_kuangcai_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}+最多X名（X=已损失体力，${get.poptip('bts_glossary_xingqi_faq')}无限制）有手牌角色各1牌`,
+    bts_sk_zhitong_info: '锁；防止异常造成的伤害；若曾以此法防止伤害，受到伤害后失去此技能',
     bts_sk_jiejin_info: `受到伤害后，若体力≥1可+1${get.poptip('bts_glossary_bless_busi_faq')}并对来源造成1点伤害`,
 };
 

@@ -163,11 +163,12 @@ export const translate = {
     '~bts_ch_tuopa': "还没填…事假申请……",
     bts_abnormal_fuzhai: '负债',
     bts_mk_zhangfu: '涨幅',
+    bts_mk_zhangfu_info: `来源：${get.poptip('bts_sk_niukui')}赋予；任意负债角色受伤后+1层${get.poptip('bts_glossary_abnormal_fuzhai_faq')}；你使用虚拟【杀】后+1枚，超过1枚（星启为2枚）时清空并失去${get.poptip('bts_sk_zhangfu')}`,
 };
 export const simpleTranslate = {
-    bts_sk_niukui_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}获得${get.poptip('bts_sk_zhangfu')}`,
+    bts_sk_niukui_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}获得${get.poptip('bts_sk_zhangfu')}`,
     bts_sk_jinrong_info: `锁；角色${get.poptip('bts_glossary_abnormal_fuzhai_faq')}≥4时移除其3层并视为对其用杀`,
-    bts_sk_touzhi_info: `准备阶段可弃杀令1名其他角色+3${get.poptip('bts_glossary_abnormal_fuzhai_faq')}`,
+    bts_sk_touzhi_info: `准备阶段可-1杀令1名其他角色+3${get.poptip('bts_glossary_abnormal_fuzhai_faq')}`,
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 

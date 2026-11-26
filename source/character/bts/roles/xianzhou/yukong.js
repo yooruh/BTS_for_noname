@@ -152,7 +152,8 @@ export const translate = {
     'bts_ch_yukong_skin2': '皮肤2',
     bts_ch_yukong: '驭空',
     bts_sk_guanyun: '贯云',
-    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点伤害；若你为${get.poptip('bts_glossary_xingqi_faq')}，你与任意名其他角色各附加2层${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}。`,
+    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对一名其他角色造成1点伤害；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，你与任意名其他角色各附加2层${get.poptip('bts_glossary_bless_fatal_faq')}和${get.poptip('bts_glossary_bless_critical_faq')}。`,
     bts_sk_tianque: '天阙',
     bts_sk_tianque_info: `准备阶段开始时，你可以弃置一张【杀】，获得1层${get.poptip('bts_glossary_bless_god_faq')}。`,
     bts_sk_qizha: '七札',
@@ -168,9 +169,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成1伤害，${get.poptip('bts_glossary_xingqi_faq')}时自身与所选角色各+2${get.poptip('bts_glossary_bless_fatal_faq')}/${get.poptip('bts_glossary_bless_critical_faq')}`,
-    bts_sk_tianque_info: `准备阶段可弃杀获得${get.poptip('bts_glossary_xingqi_faq')}`,
-    bts_sk_qizha_info: `锁；回合结束+1${get.poptip('bts_glossary_bless_cifu_faq')}`,
+    bts_sk_guanyun_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}对1名其他角色造成1点伤害，${get.poptip('bts_glossary_xingqi_faq')}时自身与所选角色各+2${get.poptip('bts_glossary_bless_fatal_faq')}/${get.poptip('bts_glossary_bless_critical_faq')}`,
+    bts_sk_tianque_info: `准备阶段可-1杀+1层${get.poptip('bts_glossary_xingqi_faq')}`,
+    bts_sk_qizha_info: `锁；回合结束时+1${get.poptip('bts_glossary_bless_cifu_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

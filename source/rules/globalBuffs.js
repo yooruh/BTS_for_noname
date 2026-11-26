@@ -20,6 +20,11 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            // 伤害性质无 UI 回显，须留日志（否则玩家只看到掉血/不回怒，不知为何）。
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_fatal')}】，此伤害视为致命伤害`,
+            );
             lib.bts.api.markDamage(trigger, '_fatal');
         },
     },
@@ -39,6 +44,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_through')}】，此伤害视为贯通伤害（无视护盾）`,
+            );
             lib.bts.api.markDamage(trigger, '_through');
         },
         // 「破防具」（定夺：持贯通祝福 = 青釭剑式无视防具，范围仅祝福持有者）。
@@ -69,6 +78,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_critical')}】，此伤害视为暴击伤害`,
+            );
             lib.bts.api.markDamage(trigger, '_critical');
         },
     },
@@ -93,6 +106,10 @@ export const buffSkills = {
             // 「防止濒死」范式：不 cancel 濒死事件（否则结算不完、_status.dying 不清），而设
             // trigger.nodying（dying step1/2 查 event.nodying，content.js L11752/11785）——
             // 濒死正常收尾且不回复体力（源 EnterDying return true）。同范式：baie 燔世还原、wandi 登神。
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_busi')}】，防止了濒死状态`,
+            );
             trigger.nodying = true;
         },
     },
@@ -122,6 +139,10 @@ export const buffSkills = {
             return event.player === player && event.num > 0;
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_yingzi')}】，额定摸牌+1`,
+            );
             trigger.num += 1;
         },
     },
@@ -141,6 +162,10 @@ export const buffSkills = {
                 n += game.filterPlayer(
                     (p) => p.hasSkill('bts_sk_shengji') && p.isAlive(),
                 ).length;
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_zhiyu')}】，回复${n}点体力`,
+            );
             // 源 L1577：RecoverStruct(nil) 无来源——须 nosource，否则 source=持有者会再触发
             // 娜塔莎·生机 recoverBegin 造成双倍回复（源 recover.who=nil → 生机 filter 恒 false）。
             await player.recover('nosource', n);
@@ -170,9 +195,18 @@ export const buffSkills = {
         async content(event, trigger, player) {
             if (event.triggername === 'useSkillAfter') {
                 if (!lib.bts.api.getBless(player, 'zengfu', 2)) return;
-                await player.draw(player, lib.bts.api.getBless(player, 'zengfu', -1) - 1);
+                const num = lib.bts.api.getBless(player, 'zengfu', -1) - 1;
+                game.log(
+                    player,
+                    `因【${get.translation('bts_bless_zengfu')}】，发动必杀技后摸${num}张牌`,
+                );
+                await player.draw(player, num);
                 return;
             }
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_zengfu')}】，此必杀技伤害+1`,
+            );
             trigger.num += 1; // 增幅祝福：必杀技伤害+1
         },
     },
@@ -210,6 +244,11 @@ export const buffSkills = {
             return event.source === player && event.num > 0;
         },
         async content(event, trigger, player) {
+            // 伤害基数直接下调，无任何 UI 回显，须写日志说明原因。
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_freeze')}】，此伤害-1`,
+            );
             trigger.num -= 1;
         },
         mod: {
@@ -233,6 +272,10 @@ export const buffSkills = {
             return event.player === player && event.num > 0;
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_fossilize')}】，此伤害视为暴击伤害`,
+            );
             lib.bts.api.markDamage(trigger, '_critical');
         },
         mod: {
@@ -283,6 +326,10 @@ export const buffSkills = {
             return event.player === player;
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_burn')}】，受到1点无来源伤害`,
+            );
             const damage = player.damage(1, 'nosource');
             damage.reason = 'bts_abnormal_burn';
             await damage;
@@ -306,11 +353,19 @@ export const buffSkills = {
         },
         async content(event, trigger, player) {
             if (event.triggername === 'phaseDrawBegin') {
+                game.log(
+                    player,
+                    `因【${get.translation('bts_abnormal_numb')}】，受到1点无来源伤害`,
+                );
                 const damage = player.damage(1, 'nosource');
                 damage.reason = 'bts_abnormal_numb';
                 await damage;
                 return;
             }
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_numb')}】，额定摸牌-1`,
+            );
             trigger.num = Math.max(0, trigger.num - 1); // 源 DrawNCards L1473-1476
         },
     },
@@ -331,6 +386,10 @@ export const buffSkills = {
                 n = 2; // 惊喜标记：改为失去2点并移除（源 L1581-1584）
                 player.removeMark('bts_sk_jingxi', player.countMark('bts_sk_jingxi'));
             }
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_poison')}】，失去${n}点体力`,
+            );
             player.loseHp(n);
         },
         mod: {
@@ -389,6 +448,10 @@ export const buffSkills = {
             return event.player === player && event.card?.name === 'juedou';
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_diyu')}】，使用【决斗】失去1点体力`,
+            );
             await player.loseHp(1);
         },
     },
@@ -404,6 +467,10 @@ export const buffSkills = {
         async content(event, trigger, player) {
             const curse = lib.bts.api.getCurse(player);
             if (curse > 0) {
+                game.log(
+                    player,
+                    `因【${get.translation('bts_curse')}】，此伤害+${curse}并移除${curse}层诅咒`,
+                );
                 trigger.num += curse;
                 lib.bts.api.removeCurse(player, curse);
             }
@@ -426,6 +493,11 @@ export const buffSkills = {
             const shield = lib.bts.api.getShield(player);
             if (shield > 0) {
                 const absorbed = Math.min(shield, trigger.num);
+                // 吸收量无 UI 回显（只看到伤害变小），须留日志说明护盾抵扣了几点。
+                game.log(
+                    player,
+                    `因【${get.translation('bts_shield')}】，抵挡${absorbed}点伤害`,
+                );
                 trigger.num -= absorbed;
                 lib.bts.api.removeShield(player, absorbed);
                 // 抵扣后广播 bts_shield_removed；「特权」（三月七）等由自身技能监听结算
@@ -501,24 +573,31 @@ export const buffSkills = {
 
 export const translate = {
     bts_bless_fatal: '致命祝福',
-    bts_bless_fatal_info: `来源：${get.poptip('bts_sk_moshu')}、${get.poptip('bts_sk_tongxing')}、${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_tianhe')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_youyu')}赋予；伤害视为${get.poptip('bts_glossary_bless_fatal_faq')}（受伤者无法回复${get.poptip('bts_glossary_nuqi_faq')}）；回合结束自然减少1层`,
+    bts_bless_fatal_info: `来源：${get.poptip('bts_sk_moshu')}、${get.poptip('bts_sk_tongxing')}、${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_tianhe')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_youyu')}赋予；`
+        + `伤害视为${get.poptip('bts_glossary_bless_fatal_faq')}（受伤者无法回复${get.poptip('bts_glossary_nuqi_faq')}）；回合结束自然减少1层`,
     bts_bless_through: '贯通祝福',
-    bts_bless_through_info: `来源：${get.poptip('bts_sk_yaoduan')}、${get.poptip('bts_sk_pishi')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_shengjian')}、${get.poptip('bts_sk_cunqiang')}、${get.poptip('bts_sk_xingqu')}赋予；伤害无视${get.poptip('bts_glossary_hudun_faq')}；你无视其他角色的防具；回合结束自然减少1层`,
+    bts_bless_through_info: `来源：${get.poptip('bts_sk_yaoduan')}、${get.poptip('bts_sk_pishi')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_shengjian')}、${get.poptip('bts_sk_cunqiang')}、${get.poptip('bts_sk_xingqu')}赋予；`
+        + `伤害无视${get.poptip('bts_glossary_hudun_faq')}；你无视其他角色的防具；回合结束自然减少1层`,
     bts_bless_critical: '暴击祝福',
-    bts_bless_critical_info: `来源：${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_enci')}赋予；伤害视为${get.poptip('bts_glossary_bless_critical_faq')}；回合结束自然减少1层`,
+    bts_bless_critical_info: `来源：${get.poptip('bts_sk_zansong')}、${get.poptip('bts_sk_guanyun')}、${get.poptip('bts_sk_liwu')}、${get.poptip('bts_sk_enci')}赋予；`
+        + `伤害视为${get.poptip('bts_glossary_bless_critical_faq')}；回合结束自然减少1层`,
     bts_bless_busi: '不死祝福',
     // 不含「无悔」：新版源 st_wuhui 不再授予不死祝福（V2.2 重做血仇路线；L8079-8092/L14274）。
     bts_bless_busi_info: `来源：${get.poptip('bts_sk_jiejin')}、${get.poptip('bts_sk_shuhu')}赋予；防止濒死；归零且体力<1时立即濒死；回合结束自然减少1层`,
     bts_bless_maxhp: '体力上限祝福',
-    bts_bless_maxhp_info: `来源：${get.poptip('bts_glossary_xuechou_faq')}、${get.poptip('bts_sk_yuchen')}、${get.poptip('bts_sk_chenhun')}赋予；每层+1${get.poptip('bts_glossary_bless_maxhp_faq')}（${get.poptip('bts_glossary_bless_yuguotianqing_faq')}时翻倍）；回合结束自然减少1层`,
+    bts_bless_maxhp_info: `来源：${get.poptip('bts_glossary_xuechou_faq')}、${get.poptip('bts_sk_yuchen')}、${get.poptip('bts_sk_chenhun')}赋予；`
+        + `每层+1${get.poptip('bts_glossary_bless_maxhp_faq')}（${get.poptip('bts_glossary_bless_yuguotianqing_faq')}时翻倍）；`
+        + `回合结束自然减少1层`,
     bts_bless_god: '星启祝福',
-    bts_bless_god_info: `来源：${get.poptip('bts_sk_tianque')}、${get.poptip('bts_sk_xingchen')}赋予；视为处于${get.poptip('bts_glossary_xingqi_faq')}状态；回合结束自然减少1层`,
+    bts_bless_god_info: `来源：${get.poptip('bts_sk_tianque')}、${get.poptip('bts_sk_xingchen')}赋予；视为处于${get.poptip('bts_glossary_xingqi_faq')}状态：发动${get.poptip('bts_glossary_bisha_faq')}造成的伤害+1；`
+        + `回合结束自然减少1层`,
     bts_bless_yingzi: '契约祝福',
     bts_bless_yingzi_info: `来源：${get.poptip('bts_sk_shengju')}、${get.poptip('bts_sk_sibao')}赋予；额定摸牌+1；回合结束自然减少1层`,
     bts_bless_zhiyu: '治愈祝福',
     bts_bless_zhiyu_info: `来源：${get.poptip('bts_sk_jingyan')}、${get.poptip('bts_sk_xinsheng')}、${get.poptip('bts_sk_jiuhu')}赋予；准备阶段回复1；回合结束自然减少1层`,
     bts_bless_zengfu: '增幅祝福',
-    bts_bless_zengfu_info: `来源：${get.poptip('bts_sk_yuewang')}、${get.poptip('bts_glossary_abnormal_luandie_faq')}、${get.poptip('bts_sk_zaixian')}赋予；${get.poptip('bts_glossary_bisha_faq')}伤害+1，用后摸牌；回合结束自然减少1层`,
+    bts_bless_zengfu_info: `来源：${get.poptip('bts_sk_yuewang')}、${get.poptip('bts_glossary_abnormal_luandie_faq')}、${get.poptip('bts_sk_zaixian')}赋予；`
+        + `${get.poptip('bts_glossary_bisha_faq')}伤害+1，用后摸牌；回合结束自然减少1层`,
     bts_bless_cifu: '赐福祝福',
     bts_bless_cifu_info: `来源：${get.poptip('bts_sk_qizha')}、${get.poptip('bts_sk_heyun')}赋予；无属性杀→虚数；回合结束自然减少1层`,
     bts_abnormal_freeze: '冻结',

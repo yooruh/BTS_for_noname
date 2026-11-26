@@ -115,36 +115,33 @@ export const skill = {
         trigger: { player: 'phaseZhunbeiBegin' },
         filter(event, player) {
             // 源 L3254：askForUseCard filter_pattern="Slash" 兜底 —— 须有【杀】可弃
-            //（否则手牌非空但无【杀】时选牌处无可弃杀卡死）
-            return player.getCards('h').some((card) => get.name(card) === 'sha');
+            //（否则手牌非空但无【杀】时选牌处无可弃杀卡死）；另需存在其他存活角色（filterTarget 要求 t!==p）
+            return (
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
+            );
         },
         async cost(event, trigger, player) {
-            const r = await player
-                .chooseBool('慢捻：是否弃置一张【杀】并选择至少一名其他角色？')
-                .forResult();
-            if (!r.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) => get.name(card) === 'sha',
-                    '弃置一张【杀】',
-                )
-                .forResult();
-            if (!cards.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const targets = await player
-                .chooseTarget(
-                    '慢捻：选择至少一名其他角色',
-                    [1, Infinity],
-                    (c, p, t) => t !== p,
+            // 弃【杀】与选目标一体化：chooseCardTarget 一次对话完成选择并确认，取消即不发动。
+            // ai1/ai2 兼作发动决策（两侧最高分≤0→引擎自动取消）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '慢捻：弃置一张【杀】并选择至少一名其他角色',
+                    position: 'h',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                    selectCard: 1,
+                    selectTarget: [1, Infinity],
+                    filterTarget: (card, source, target) =>
+                        target !== source,
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
                     // AI 口径：弦外音=弃置他人手牌后的追击，只给友方；且仅当「友方≥2 或有多余【杀】」
                     // 才值得弃1【杀】换祝福（否则不选目标→取消发动）（源 L3134-3163）
-                    (t) => {
+                    ai2: (target) => {
                         const allies = game.countPlayer(
                             (q) =>
                                 q.isAlive() &&
@@ -154,19 +151,13 @@ export const skill = {
                         const worth =
                             allies >= 2 || player.countCards('h', 'sha') >= 2;
                         if (!worth) return -1;
-                        return get.attitude(player, t) > 0 ? 2 : -1;
+                        return get.attitude(player, target) > 0 ? 2 : -1;
                     },
-                )
+                })
                 .forResult();
-            if (!targets.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = targets;
-            event.result.cost_data = { cards: cards.cards };
         },
         async content(event, t, player) {
-            await player.discard(event.cost_data.cards); // 源：弃【杀】移入 content 结算
+            await player.discard(event.cards); // 源：弃【杀】移入 content 结算
             await lib.bts.api.addBless(player, 'xianwaiyin', 3); // 源 AddBless(xianwaiyin)
             for (const x of event.targets || []) // event=技能事件，cost 结果目标
                 await lib.bts.api.addBless(x, 'xianwaiyin', 3, player);
@@ -186,11 +177,12 @@ export const translate = {
     'bts_ch_ruanmei_skin1': '皮肤1',
     bts_ch_ruanmei: '阮梅',
     bts_sk_yaoduan: '摇缎',
-    bts_sk_yaoduan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，你附加2层${get.poptip('bts_glossary_bless_canmei_faq')}，和这些角色各附加2层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}。（若你为${get.poptip('bts_glossary_xingqi_faq')}则上述改为3层）`,
-
+    bts_sk_yaoduan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `你附加2层${get.poptip('bts_glossary_bless_canmei_faq')}，和这些角色各附加2层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}。`
+        + `（若你为${get.poptip('bts_glossary_xingqi_faq')}则上述改为3层）`,
     bts_sk_fenxing: '分型',
-    bts_sk_fenxing_info: `当其他角色失去所有手牌后，若你拥有${get.poptip('bts_glossary_bless_canmei_faq')}且其不处于${get.poptip('bts_glossary_abnormal_zhanfang_faq')}，你可以令其附加1层${get.poptip('bts_glossary_abnormal_zhanfang_faq')}。`,
-
+    bts_sk_fenxing_info: `当其他角色失去所有手牌后，若你拥有${get.poptip('bts_glossary_bless_canmei_faq')}且其不处于${get.poptip('bts_glossary_abnormal_zhanfang_faq')}，`
+        + `你可以令其附加1层${get.poptip('bts_glossary_abnormal_zhanfang_faq')}。`,
     bts_sk_mannian: '慢捻',
     bts_sk_mannian_info: `准备阶段开始时，你可以弃置一张【杀】并选择至少一名其他角色，你与这些角色各附加3层${get.poptip('bts_glossary_bless_xianwaiyin_faq')}。`,
 
@@ -209,9 +201,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yaoduan_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_bless_canmei_faq')}+2${get.poptip('bts_glossary_guantong_faq')}并令至少1名其他角色各+2${get.poptip('bts_glossary_guantong_faq')}（${get.poptip('bts_glossary_xingqi_faq')}改3）`,
-    bts_sk_fenxing_info: `其他角色失去所有手牌后，若你有${get.poptip('bts_glossary_bless_canmei_faq')}且其未${get.poptip('bts_glossary_abnormal_zhanfang_faq')}，可令其+1层${get.poptip('bts_glossary_abnormal_zhanfang_faq')}`,
-    bts_sk_mannian_info: `准备阶段，弃1张【杀】令至少1名其他角色与你各+3${get.poptip('bts_glossary_bless_xianwaiyin_faq')}`,
+    bts_sk_yaoduan_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}+2${get.poptip('bts_glossary_bless_canmei_faq')}+2${get.poptip('bts_glossary_guantong_faq')}并令至少1名其他角色各+2${get.poptip('bts_glossary_guantong_faq')}（${get.poptip('bts_glossary_xingqi_faq')}改3）`,
+    bts_sk_fenxing_info: `其他角色失去所有手牌后，若你有${get.poptip('bts_glossary_bless_canmei_faq')}且其未${get.poptip('bts_glossary_abnormal_zhanfang_faq')}，`
+        + `可令其+1层${get.poptip('bts_glossary_abnormal_zhanfang_faq')}`,
+    bts_sk_mannian_info: `准备阶段，-1杀令至少1名其他角色与你各+3${get.poptip('bts_glossary_bless_xianwaiyin_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -239,6 +232,10 @@ export const buffSkills = {
             ).length;
         },
         async content(event, trigger, player) {
+            game.log(
+                trigger.player,
+                `因【${get.translation('bts_bless_canmei')}】，额定摸牌+1`,
+            );
             trigger.num += 1;
         },
     },
@@ -283,6 +280,10 @@ export const buffSkills = {
             return event.player === player && next === 'phaseDraw';
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_zhanfang')}】，跳过了摸牌阶段`,
+            );
             player.skip('phaseDraw');
         },
     },

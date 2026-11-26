@@ -158,9 +158,9 @@ export const translate = {
     bts_bless_shengge_info: `来源：${get.poptip('bts_sk_jinmei')}赋予；达到≥10层时移除10层回${get.poptip('bts_glossary_nuqi_faq')}；回合结束自然减少1层`,
 };
 export const simpleTranslate = {
-    bts_sk_jinmei_info: `${get.poptip('bts_glossary_bisha_faq')}；失2${get.poptip('bts_glossary_nuqi_faq')}弃目标牌，或失4${get.poptip('bts_glossary_nuqi_faq')}对目标造成通常伤害`,
-    bts_sk_gongzheng_info: `锁；锦囊后全场各弃1手牌`,
-    bts_sk_chonggao_info: `锁；杀指定目标后回1${get.poptip('bts_glossary_nuqi_faq')}`,
+    bts_sk_jinmei_info: `${get.poptip('bts_glossary_bisha_faq')}；-2${get.poptip('bts_glossary_nuqi_faq')}-目标1牌，或-4${get.poptip('bts_glossary_nuqi_faq')}对目标造成通常伤害`,
+    bts_sk_gongzheng_info: `锁；当你使用锦囊牌结算后，你-每名角色1手牌`,
+    bts_sk_chonggao_info: `锁；当你使用杀指定目标后，+1${get.poptip('bts_glossary_nuqi_faq')}`,
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 

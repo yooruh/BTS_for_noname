@@ -59,8 +59,11 @@ export const skill = {
     bts_sk_qiongguan: {
         trigger: { player: 'phaseZhunbeiBegin' },
         filter(event, player) {
-            // 源 L6678-6680：准备阶段且可弃手牌
-            return player.getCards('h').some((card) => get.name(card) === 'sha');
+            // 源 L6678-6680：准备阶段且可弃手牌；另需存在其他存活角色（filterTarget 要求 t!==source）
+            return (
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
+            );
         },
         async cost(event, trigger, player) {
             // 源 L6680：askForUseCard("@@st_qiongguan") —— 弃【杀】选目标
@@ -172,8 +175,7 @@ export const translate = {
     bts_sk_qiongguan: '穷观',
     // 源描述 L12020：「这些角色于你的下个回合开始前受到伤害时，伤害转移给你。」
     // 原写「本回合」与实际窗口（-start 标记于下个准备阶段清理）不符，改按源口径。
-    bts_sk_qiongguan_info:
-        '准备阶段开始时，你可以弃置一张【杀】并选择任意名其他角色，这些角色于你的下个回合开始前受到伤害时，由你承受等量伤害。',
+    bts_sk_qiongguan_info: '准备阶段开始时，你可以弃置一张【杀】并选择任意名其他角色，这些角色于你的下个回合开始前受到伤害时，由你承受等量伤害。',
     bts_sk_piji: '否极',
     bts_sk_piji_info: `锁定技，每局限一次，当你进入濒死状态且已失去至少2点体力时，获得1枚${get.poptip('bts_glossary_st_piji_faq')}标记并将体力回复至仅失去1点体力。`,
 
@@ -187,8 +189,8 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_tianlv_info: `${get.poptip('bts_glossary_bisha_faq')}；有${get.poptip('bts_glossary_st_piji_faq')}时失5${get.poptip('bts_glossary_nuqi_faq')}并清空${get.poptip('bts_glossary_st_piji_faq')}`,
-    bts_sk_qiongguan_info: '准备阶段可弃杀标记其他角色，其于你的下个回合开始前受伤害时由你承伤',
+    bts_sk_tianlv_info: `${get.poptip('bts_glossary_bisha_faq')}；有${get.poptip('bts_glossary_st_piji_faq')}时-5${get.poptip('bts_glossary_nuqi_faq')}并清空${get.poptip('bts_glossary_st_piji_faq')}`,
+    bts_sk_qiongguan_info: '准备阶段可-1杀标记其他角色，其于你的下个回合开始前受伤害时由你承伤',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

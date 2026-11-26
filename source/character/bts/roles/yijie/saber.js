@@ -303,7 +303,10 @@ export const translate = {
     bts_mk_shengjian: '圣剑状态',
     bts_ch_saber: 'Saber',
     bts_sk_shengjian: '圣剑',
-    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对至少一名其他角色各造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，令你的【杀】于下次使用【决斗】前视为【决斗】（无目标数限制），然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你附加2层${get.poptip('bts_glossary_bless_through_faq')}，获得1枚${get.poptip('bts_glossary_fate_faq')}标记，然后若标记数为：1，你回复4点${get.poptip('bts_glossary_nuqi_faq')}；3，你弃全部${get.poptip('bts_glossary_fate_faq')}标记。`,
+    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，对至少一名其他角色各造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，`
+        + `令你的【杀】于下次使用【决斗】前视为【决斗】（无目标数限制），然后若你为${get.poptip('bts_glossary_xingqi_faq')}，你附加2层${get.poptip('bts_glossary_bless_through_faq')}，`
+        + `获得1枚${get.poptip('bts_glossary_fate_faq')}标记，然后若标记数为：1，你回复4点${get.poptip('bts_glossary_nuqi_faq')}；3，`
+        + `你弃全部${get.poptip('bts_glossary_fate_faq')}标记。`,
     bts_sk_fengwang: '风王',
     bts_sk_fengwang_info: `出牌阶段，你可以弃置一张【杀】，对攻击范围内一名其他角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，累积${get.poptip('bts_sk_luxin')}。`,
     bts_sk_luxin: '炉心',
@@ -321,8 +324,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，你的杀下次当决斗（无目标数限制）；${get.poptip('bts_glossary_xingqi_faq')}则+2层${get.poptip('bts_glossary_bless_through_faq')}并+1${get.poptip('bts_glossary_fate_faq')}（1回4${get.poptip('bts_glossary_nuqi_faq')}/3弃全部）`,
-    bts_sk_fengwang_info: `出牌阶段弃杀对范围内角色造成风伤并攒${get.poptip('bts_sk_luxin')}`,
+    bts_sk_shengjian_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}对至少1名其他角色各造成${get.poptip('bts_glossary_nature_wind_dmg_faq')}通常伤害，`
+        + `你的杀于下次使用决斗前视为决斗（无目标数限制）；${get.poptip('bts_glossary_xingqi_faq')}则+2层${get.poptip('bts_glossary_bless_through_faq')}并+1${get.poptip('bts_glossary_fate_faq')}（1回4${get.poptip('bts_glossary_nuqi_faq')}/3弃全部）`,
+    bts_sk_fengwang_info: `出牌阶段，-1杀对攻击范围内1名其他角色造成1点风属性伤害，积累1枚${get.poptip('bts_sk_luxin')}`,
     bts_sk_luxin_info: `锁；任角色发动${get.poptip('bts_glossary_bisha_faq')}后+1${get.poptip('bts_sk_luxin')}`,
 };
 

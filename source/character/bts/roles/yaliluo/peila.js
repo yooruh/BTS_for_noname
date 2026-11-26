@@ -210,7 +210,8 @@ export const translate = {
     bts_sk_caiji: '采集',
     bts_sk_caiji_info: `锁定技，当你使用【杀】指定处于异常或拥有诅咒的目标后，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_mice: '秘策',
-    bts_sk_mice_info: `当一名其他角色的回合结束后，若其拥有${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}，你可以弃置一张【杀】，移除其1层${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}。`,
+    bts_sk_mice_info: `当一名其他角色的回合结束后，若其拥有${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}，你可以弃置一张【杀】，`
+        + `移除其1层${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}。`,
 
     '$bts_sk_yazhi1': "敌方数据收集完毕",
     '$bts_sk_yazhi2': "收网标记激活，接下来就是愉快的反击时间了",
@@ -222,9 +223,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_yazhi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1诅咒`,
+    bts_sk_yazhi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1诅咒`,
     bts_sk_caiji_info: `锁；用杀指定异常/诅咒目标后，+1${get.poptip('bts_glossary_nuqi_faq')}`,
-    bts_sk_mice_info: `其他角色回合结束后若其有${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}，可弃1杀移除1层`,
+    bts_sk_mice_info: `其他角色回合结束后若其有${get.poptip('bts_glossary_bless_faq')}/${get.poptip('bts_glossary_hudun_faq')}，可-1杀移除1层`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

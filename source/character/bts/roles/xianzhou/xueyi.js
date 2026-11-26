@@ -1,10 +1,10 @@
 // 雪衣（源 animal.lua L5996-6086）—— 天罚、业报和诸恶。
-// 技能：天罚（必杀技·有元素则增伤+移除元素）、业报（他人弃手牌/得元素积累，10枚时暗杀）、诸恶（量子角色受伤弃杀补暗伤）。
+// 技能：天罚（必杀技·有元素则增伤+移除元素）、业报（他人弃手牌/得元素积累，10枚时量子杀）、诸恶（量子角色受伤弃杀补量子属性伤害）。
 import { lib, game, ui, get, ai, _status, styleText, X, Y, Z, B, O } from '../../shared.js';
 export const sort = 'xianzhou';
 export const title = '量子·毁灭·十王司判官'; // 属性·命途
 export const intro =
-    `${B('雪衣')}专打带${get.poptip('bts_glossary_yuansu_faq')}的目标，${get.poptip('bts_glossary_ebao_faq')}攒到9枚就追一刀${get.poptip('bts_glossary_nature_dark_faq')}暗杀。`;
+    `${B('雪衣')}专打带${get.poptip('bts_glossary_yuansu_faq')}的目标，${get.poptip('bts_glossary_ebao_faq')}攒到10枚就追一刀量子【杀】。`;
 
 export const character = {
     bts_ch_xueyi: {
@@ -75,7 +75,7 @@ export const skill = {
 
     // ── 锁定技·业报（源 st_yebao = TriggerSkill Compulsory CardsMoveOneTime/MarkChanged，L6028-6067）──
     // 其他角色弃置手牌（任意张）或获得元素后，你获得1枚业报；
-    // 业报达到9枚且你曾伤害该角色时，弃10枚并视为对其使用暗【杀】。
+    // 业报达到10枚且你曾伤害该角色时，弃10枚并视为对其使用量子【杀】。
     bts_sk_yebao: {
         // 源 st_yebao（animal.lua L6028-6067）：CardsMoveOneTime 任意手牌因「弃置」（DISCARD）
         // 进入弃牌堆即触发（无空城要求，源描述「手牌被弃置后」亦一致），
@@ -100,14 +100,14 @@ export const skill = {
             // 源 L6051：p:gainMark("@ebao")
             player.addMark('bts_mk_ebao', 1);
             const target = trigger.player;
-            // 源 L6052-6058：业报≥10（按描述定夺）且曾伤害该角色 → 弃10并视为使用暗【杀】
+            // 源 L6052-6058：业报≥10（按描述定夺）且曾伤害该角色 → 弃10并视为使用量子【杀】
             if (
                 player.countMark('bts_mk_ebao') >= 10 &&
                 target?.isAlive() &&
                 player.countMark(`bts_damage_link_${target.playerid}`)
             ) {
                 player.removeMark('bts_mk_ebao', 10); // 源 L6054：loseMark("@ebao", 10)
-                // 源 L6056：ViewAsCardOnly "_st_yebao_dark" —— 暗【杀】
+                // 源 L6056：ViewAsCardOnly "_st_yebao_dark" —— 量子【杀】
                 await player.useCard(
                     {
                         name: 'sha',
@@ -183,9 +183,10 @@ export const translate = {
     'bts_ch_xueyi_skin1': '皮肤1',
     bts_ch_xueyi: '雪衣',
     bts_sk_tianfa: '天罚',
-    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对攻击范围内一名其他角色造成1点伤害；若其拥有${get.poptip('bts_glossary_yuansu_faq')}，改为造成3点伤害并移除其${get.poptip('bts_glossary_yuansu_faq')}。`,
+    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}，对攻击范围内一名其他角色造成1点伤害；`
+        + `若其拥有${get.poptip('bts_glossary_yuansu_faq')}，改为造成3点伤害并移除其${get.poptip('bts_glossary_yuansu_faq')}。`,
     bts_sk_yebao: '业报',
-    bts_sk_yebao_info: `锁定技，其他角色弃置手牌或失去${get.poptip('bts_glossary_yuansu_faq')}后，你获得1枚${get.poptip('bts_glossary_ebao_faq')}；达到10枚且你曾伤害该角色时，弃10枚并视为对其使用暗【杀】。`,
+    bts_sk_yebao_info: `锁定技，其他角色弃置手牌或失去${get.poptip('bts_glossary_yuansu_faq')}后，你获得1枚${get.poptip('bts_glossary_ebao_faq')}；达到10枚且你曾伤害该角色时，弃10枚并视为对其使用量子【杀】。`,
     bts_sk_zhue: '诸恶',
     bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受到伤害后，你可以弃置一张【杀】，对其造成1点${get.poptip('bts_glossary_nature_dark_dmg_faq')}伤害。`,
 
@@ -197,13 +198,14 @@ export const translate = {
     '$bts_sk_zhue2': "邪煞退散",
     '~bts_ch_xueyi': "对不起，姐姐不能……",
     bts_mk_ebao: '恶报',
-    bts_mk_ebao_info: `来源：${get.poptip('bts_sk_yebao')}赋予；${get.poptip('bts_sk_yebao')}：满9暗杀`,
+    bts_mk_ebao_info: `来源：${get.poptip('bts_sk_yebao')}赋予；${get.poptip('bts_sk_yebao')}：满10枚弃10枚，视为对其使用量子【杀】`,
 };
 
 export const simpleTranslate = {
-    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}；失3${get.poptip('bts_glossary_nuqi_faq')}对范围内角色造成伤害，有${get.poptip('bts_glossary_yuansu_faq')}则造成3伤并移除${get.poptip('bts_glossary_yuansu_faq')}`,
-    bts_sk_yebao_info: `锁；他人弃手牌或失${get.poptip('bts_glossary_yuansu_faq')}后+1${get.poptip('bts_glossary_ebao_faq')}，10枚时暗杀伤害关联目标`,
-    bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受伤后可弃杀对其造成暗伤`,
+    bts_sk_tianfa_info: `${get.poptip('bts_glossary_bisha_faq')}；-3${get.poptip('bts_glossary_nuqi_faq')}对攻击范围内一名其他角色造成1点伤害；若其拥有${get.poptip('bts_glossary_yuansu_faq')}，`
+        + `改为造成3点伤害并移除其${get.poptip('bts_glossary_yuansu_faq')}`,
+    bts_sk_yebao_info: `锁；其他角色弃置手牌或失去${get.poptip('bts_glossary_yuansu_faq')}后，你+1枚${get.poptip('bts_glossary_ebao_faq')}；达到10枚且你曾伤害过该角色时，-10枚并视为对其用量子杀`,
+    bts_sk_zhue_info: `${get.poptip('bts_glossary_nature_dark_faq')}角色受到伤害后，可-1杀对其造成1点量子属性伤害`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -213,6 +215,6 @@ export const glossary = [
     {
         id: 'bts_glossary_ebao_faq',
         name: '|恶报|',
-        info: `雪衣专属：${get.poptip('bts_sk_yebao')}获得；满10弃10枚，对最近伤害者使用暗【杀】。`,
+        info: `雪衣专属：${get.poptip('bts_sk_yebao')}获得；满10弃10枚，对最近伤害者使用量子【杀】。`,
     },
 ];

@@ -109,67 +109,42 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // 源 L3429：askForUseCard("@@st_dianguang")
+            // 弃【杀】与选目标一体化：chooseCardTarget 一次对话完成选择并确认，取消即不发动。
             // AI 口径：代价=放弃摸牌（≈2张）+弃1张【杀】（≈0.8）；收益=敌方+2层麻痹（=2回合：各受1点
             // 无来源伤害+额定摸牌-1）。已是麻痹目标（续期）或血线≤2（2回合内击杀/濒死压力）时收益
-            // 明确高于成本才发动；弃后至少留1张手牌防自废防御。（源 AI：有可伤害敌方即换；原实现
-            // 未配 ai→chooseBool 无条件确认、chooseTarget 默认态度2会把目标选成友方，属 AI 缺陷）
-            const worth = () => {
-                if (player.countCards('h') < 2) return false;
-                let best = 0;
-                for (const t of game.players) {
-                    if (!t.isAlive() || t === player) continue;
-                    if (get.attitude(player, t) >= 0) continue;
-                    let v = 2.4; // 2层麻痹
-                    if (lib.bts.api.getAbnor(t, 'numb')) v += 0.6; // 续期叠加
-                    if (t.hp <= 2) v += 0.8; // 血线低：击杀/濒死压力
-                    best = Math.max(best, v);
-                }
-                return best >= 3.0; // 收益须明显高于≈2.5的成本
-            };
-            const result = await player
-                .chooseBool(
-                    '电光：是否放弃摸牌并弃置一张【杀】并选择一名角色令其附加2层麻痹？',
-                )
-                .set('ai', worth)
-                .forResult();
-            if (!result.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) => get.name(card) === 'sha',
-                    '弃置一张【杀】',
-                )
-                // AI 口径：弃分值最低的【杀】（≥6 视为过贵→放弃发动；同风堇·虹光 ai1 范式）
-                .set('ai', (card) =>
-                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
-                )
-                .forResult();
-            if (!cards.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const target = await player
-                .chooseTarget('电光：选择一名角色', [1, 1], () => true)
-                // AI 口径：只对敌方（麻痹=减益，默认态度2会误选友方）；续期与低血线优先
-                //（chooseTarget 的 ai 实参签名 (target, targets)，首参即候选目标）
-                .set('ai', (target) => {
-                    if (target === player || get.attitude(player, target) >= 0)
-                        return -1;
-                    let s = 1;
-                    if (lib.bts.api.getAbnor(target, 'numb')) s += 0.6; // 已有麻痹：续期
-                    s += Math.max(0, 3 - target.hp) * 0.4; // 血线低优先
-                    return s;
+            // 明确高于成本才发动；弃后至少留1张手牌防自废防御。
+            // ai1/ai2 兼作发动决策：ai1 对「弃后不留手牌」的【杀】给负分，ai2 对非敌方给负分；
+            // 两侧最高分≤0 时引擎自动取消（cost 型触发技不询顶层 check）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '电光：弃置一张【杀】，令一名角色附加2层麻痹',
+                    position: 'h',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                    filterTarget: () => true,
+                    // AI 口径：弃分值最低的【杀】（≥6 视为过贵→放弃发动；同风堇·虹光 ai1 范式）；
+                    // 手牌≤1 时无牌可留，直接给负分取消
+                    ai1: (card) => {
+                        if (typeof card !== 'object' || !card) return -1;
+                        if (player.countCards('h') < 2) return -1;
+                        return 6 - get.value(card);
+                    },
+                    // AI 口径：只对敌方（麻痹=减益，默认态度2会误选友方）；续期与低血线优先，
+                    // 收益门槛对齐原 worth（≈3.0 明显高于成本）
+                    ai2: (target) => {
+                        if (
+                            target === player ||
+                            get.attitude(player, target) >= 0
+                        )
+                            return -1;
+                        let s = 2.4; // 2层麻痹
+                        if (lib.bts.api.getAbnor(target, 'numb')) s += 0.6; // 已有麻痹：续期
+                        if (target.hp <= 2) s += 0.8; // 血线低：击杀/濒死压力
+                        return s >= 3.0 ? s : -1;
+                    },
                 })
                 .forResult();
-            if (!target.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = target;
-            event.result.cards = cards.cards; // 弃牌留待 content 结算
         },
         async content(event, trigger, player) {
             // event=技能事件；cost 所选目标在技能事件 event.targets（标准约定）
@@ -201,11 +176,11 @@ export const translate = {
     'bts_ch_xiluwa_skin5': '皮肤5',
     bts_ch_xiluwa: '希露瓦',
     bts_sk_rechao: '热潮',
-    bts_sk_rechao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名处于${get.poptip('bts_glossary_mabi_faq')}的其他角色，这些角色各附加2层${get.poptip('bts_glossary_mabi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}，也可选择不处于${get.poptip('bts_glossary_mabi_faq')}的角色，仅附加1层）。`,
-
+    bts_sk_rechao_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名处于${get.poptip('bts_glossary_mabi_faq')}的其他角色，`
+        + `这些角色各附加2层${get.poptip('bts_glossary_mabi_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}，也可选择不处于${get.poptip('bts_glossary_mabi_faq')}的角色，`
+        + `仅附加1层）。`,
     bts_sk_hexian: '和弦',
     bts_sk_hexian_info: `锁定技，出牌阶段开始时，若你没有手牌，你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
-
     bts_sk_dianguang: '电光',
     bts_sk_dianguang_info: `摸牌阶段开始时，你可以放弃摸牌并弃置一张【杀】并选择一名角色，令其附加2层${get.poptip('bts_glossary_mabi_faq')}。`,
 
@@ -219,9 +194,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_rechao_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令至少1名${get.poptip('bts_glossary_mabi_faq')}角色各+2${get.poptip('bts_glossary_mabi_faq')}（${get.poptip('bts_glossary_xingqi_faq')}可对非${get.poptip('bts_glossary_mabi_faq')}角色+1）`,
+    bts_sk_rechao_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}令至少1名${get.poptip('bts_glossary_mabi_faq')}角色各+2${get.poptip('bts_glossary_mabi_faq')}（${get.poptip('bts_glossary_xingqi_faq')}可对非${get.poptip('bts_glossary_mabi_faq')}角色+1）`,
     bts_sk_hexian_info: `锁；出牌阶段开始时，若无手牌则+1${get.poptip('bts_glossary_nuqi_faq')}`,
-    bts_sk_dianguang_info: `摸牌阶段，放弃摸牌并弃1张【杀】令1名角色+2${get.poptip('bts_glossary_mabi_faq')}`,
+    bts_sk_dianguang_info: `摸牌阶段，放弃摸牌并-1杀令1名角色+2${get.poptip('bts_glossary_mabi_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

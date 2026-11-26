@@ -1,9 +1,13 @@
-/* 崩铁杀扩展样式：势力名完整、紧密显示。
+/* 崩铁杀扩展样式：势力名完整、紧密显示（仅限本扩展势力）。
  *
  * 势力注册走无名杀本体的 addGroup 注册表（precontent.js registerKingdoms）：
  *  - config.color → 引擎 dynamicStyle 按 data-nature 生成势力发光色；
  *  - config.image → 注册 group_<id> 势力牌（身份模式「选择势力」界面显示 PNG 图标）。
- * 本文件只处理「固定宽度位置显示长势力名」的布局适配（选将分组 tab、武将卡势力标签、竖排名称）。
+ *
+ * 作用域：.button.character > .identity、.player > .name_seat 是引擎通用结构，
+ * 直接改写会波及本体与其他扩展。势力相关规则统一挂到 content.js 打上的标记类
+ * （bts-kingdom-label / bts-kingdom-seat），只命中 character/bts/factions.js
+ * 中 KINGDOMS 的势力；本体势力与别的扩展不受影响。
  *
  * ⚠ 本体的 layout.css 在扩展 CSS 之后加载，同特异性规则会覆盖扩展样式，
  *   故以下规则统一加 !important。
@@ -21,30 +25,11 @@
  *  ≤3 字一行；4~5 字首行 2 字+其余第二行；≥6 字每行 3 字。
  */
 
-/* 势力名文字不再加描边（用户要求改回，不做故意加黑），
- * 通过加大字号让势力名在标签内更清晰。 */
-
-/* ── 选将界面的分组 tab ──────────────────────────────────────────────
- * 本体样式：font-size 26px + white-space: nowrap，栏宽 106~136px，
- * 完整势力名（如「黑塔空间站」5 字）会被截断。
- * 调整为：默认字体 + 负字距（更紧密）+ 稍小字号，必要时折行，
- * 保证 2~5 字势力名都能完整、紧凑地显示；官方 1~2 字势力不受影响。 */
-.dialog.character > .packnode > div,
-.dialog.choose-character > .packnode > div {
-    font-family: 'STHeiti', 'SimHei', 'Microsoft JhengHei', 'Microsoft YaHei',
-        'WenQuanYi Micro Hei', 'Suits', Helvetica, Arial, sans-serif !important;
-    font-size: 17px !important;
-    line-height: 1.2 !important;
-    letter-spacing: -2px !important;
-    white-space: normal !important;
-    text-align: center !important;
-    word-break: break-all !important;
-}
-
 /* ── 游戏中竖排名称（.name_seat，writing-mode: vertical-rl，势力色 data-nature）──
  * 本体字号随 .name 继承且字距松散；收紧字号/行高并给负字距
- * （竖排下 letter-spacing 沿书写方向，即纵向字距），长名更紧密完整。 */
-.player > .name_seat {
+ * （竖排下 letter-spacing 沿书写方向，即纵向字距），长名更紧密完整。
+ * .bts-kingdom-seat 由 content.js installKingdomSeatHook 只标在本扩展角色上。 */
+.player > .name_seat.bts-kingdom-seat {
     font-family: 'STHeiti', 'SimHei', 'Microsoft JhengHei', 'Microsoft YaHei',
         'WenQuanYi Micro Hei', 'Suits', Helvetica, Arial, sans-serif !important;
     font-size: 15px !important;
@@ -56,13 +41,13 @@
  * 本体直接内联完整势力名（如「黑塔空间站」5 字），小标签内会溢出/截断。
  * 文字按排版规律由 content.js 折行（2/3 字一行），此处限宽兜底；
  * 字号加大至 13px 保证可读，不加描边。
- * 背景色由 lib.translate[`<势力key>Color`] 提供（precontent 已注册，旧样式/部分模式可见）。 */
-.dialog .button.character > .identity,
-.button.character > .identity {
+ * 背景色由 lib.translate[`<势力key>Color`] 提供（precontent 已注册，旧样式/部分模式可见）。
+ * .bts-kingdom-label 由 content.js installKingdomLayoutHook 只标在本扩展势力的武将卡上。 */
+.button.character > .identity.bts-kingdom-label {
     max-width: 40px !important;
 }
-.button.character > .identity > div,
-.button.character > .identity > div > div {
+.button.character > .identity.bts-kingdom-label > div,
+.button.character > .identity.bts-kingdom-label > div > div {
     font-family: 'STHeiti', 'SimHei', 'Microsoft JhengHei', 'Microsoft YaHei',
         'WenQuanYi Micro Hei', 'Suits', Helvetica, Arial, sans-serif !important;
     font-size: 13px !important;

@@ -166,6 +166,12 @@ export const skill = {
     bts_sk_baihua: {
         trigger: { global: 'damageEnd' },
         logTarget: 'player',
+        // frequent:'check'：每次他人受伤都会评估；check 成立（受伤者为你方）时引擎自动确认，
+        // 免去每次手点；治疗敌方无收益，不成立时照常弹询问。
+        check(trigger, player) {
+            return get.attitude(player, trigger.player) > 0;
+        },
+        frequent: 'check',
         filter(event, player) {
             // 源 L6506：受伤者≠你、技能未失效（-start 为 0）。damageEnd 晚于濒死链——被此伤害打死者
             // 此时 isAlive() 已 false 而 isDamaged() 对尸体恒真，不设门会向尸体询问并回血（非法态）；
@@ -181,8 +187,10 @@ export const skill = {
         async cost(event, trigger, player) {
             // 源 L6506：askForSkillInvoke —— 是否发动；AI 口径：治疗受伤友方1点并+1白花
             //（2枚开启轮转治疗），敌方不救（源 st_baihua，animal.lua L6498-6518）
-            event.result = await player
-                .chooseBool('白花：是否令受伤角色回复1点体力？')
+            const ask = player.chooseBool('白花：是否令受伤角色回复1点体力？');
+            // frequent 型触发技的自动确认须由 cost 转发 frequentSkill（本体·狂骨范式）
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
                 .set('ai', () => get.attitude(player, trigger.player) > 0)
                 .forResult();
         },
@@ -235,7 +243,9 @@ export const translate = {
     'bts_ch_luocha_skin7': '皮肤7',
     bts_ch_luocha: '罗刹',
     bts_sk_guizang: '归葬',
-    bts_sk_guizang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，各移除其1层${get.poptip('bts_glossary_bless_faq')}或1点${get.poptip('bts_glossary_hudun_faq')}，你获得1枚${get.poptip('bts_glossary_baihua_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加1层诅咒。`,
+    bts_sk_guizang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `各移除其1层${get.poptip('bts_glossary_bless_faq')}或1点${get.poptip('bts_glossary_hudun_faq')}，你获得1枚${get.poptip('bts_glossary_baihua_faq')}；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加1层诅咒。`,
     bts_sk_lunzhuan: '轮转',
     bts_sk_lunzhuan_info: `${get.poptip('bts_glossary_baihua_faq')}不少于2枚时，其他受伤角色造成伤害后，你可以令其回复1点体力；准备阶段开始时清空${get.poptip('bts_glossary_baihua_faq')}。`,
     bts_sk_baihua: '白花',
@@ -254,9 +264,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_guizang_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}拆掉目标${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}，+1${get.poptip('bts_glossary_baihua_faq')}，${get.poptip('bts_glossary_xingqi_faq')}时再挂诅咒`,
-    bts_sk_lunzhuan_info: `${get.poptip('bts_glossary_baihua_faq')}攒到2枚后，受伤角色造成伤害时可奶回；准备阶段清空`,
-    bts_sk_baihua_info: `别人受伤后可奶回并+1${get.poptip('bts_glossary_baihua_faq')}，不弃杀就暂时失效`,
+    bts_sk_guizang_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，各移除目标1层${get.poptip('bts_glossary_bless_faq')}或1点${get.poptip('bts_glossary_hudun_faq')}，`
+        + `你+1枚${get.poptip('bts_glossary_baihua_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，这些角色各附加1层诅咒`,
+    bts_sk_lunzhuan_info: `${get.poptip('bts_glossary_baihua_faq')}不少于2枚时，其他受伤角色造成伤害后，可令其+1体力；准备阶段开始时清空${get.poptip('bts_glossary_baihua_faq')}`,
+    bts_sk_baihua_info: `其他角色受伤后，可令其+1体力并+1枚${get.poptip('bts_glossary_baihua_faq')}；然后可-1杀，否则此技能于你下回合开始前无效`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

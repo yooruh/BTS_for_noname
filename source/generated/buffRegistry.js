@@ -109,7 +109,6 @@ export const MARKS_REGISTRY = {
         'bts_mk_shuowang',
         'bts_mk_skill_moment',
         'bts_mk_skip_turn',
-        'bts_mk_wanglai_chengren',
         'bts_mk_wushe',
         'bts_mk_xingqi',
         'bts_mk_xingzhi',
@@ -134,7 +133,6 @@ export const MARKS_REGISTRY = {
     ],
     'record': [
         'bts_mk_baihua-start',
-        'bts_mk_caibao_done',
         'bts_mk_canku-start',
         'bts_mk_canmeng_active',
         'bts_mk_canmeng_damage',

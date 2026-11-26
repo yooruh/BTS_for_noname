@@ -181,10 +181,18 @@ export const skill = {
                     event.card?.storage?.bts_sk_fuyuan && event.num > 0
                 );
             // 源 L7064-7071：使用必杀技（max_ 技能牌）或结束阶段开始。
-            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）
-            return (
-                triggername === 'phaseJieshuBegin' ||
-                lib.skill[event.skill]?.bts_bisha === true
+            // 无名杀以 bts_bisha 标签判定（勿用子串匹配如 includes('st_')）。
+            // 另需存在可用【杀】命中的其他角色（cost 的 filterTarget 同款判据），否则无目标可选。
+            if (
+                triggername !== 'phaseJieshuBegin' &&
+                lib.skill[event.skill]?.bts_bisha !== true
+            )
+                return false;
+            return game.hasPlayer(
+                (target) =>
+                    target !== player &&
+                    target.isAlive() &&
+                    player.canUse({ name: 'sha', isCard: true }, target, true),
             );
         },
         async cost(event, trigger, player) {
@@ -224,11 +232,16 @@ export const skill = {
             if (event.triggername === 'damageBegin1') {
                 const target = trigger.player;
                 trigger.cancel();
-                if (target.countCards('h') > 0) {
+                const handCards = target.getCards('h', (card) =>
+                    lib.filter.cardDiscardable(card, target),
+                );
+                if (handCards.length) {
+                    // 弃置数按可用手牌封顶（源「弃置伤害值张」在牌不足时不得发出无法完成的请求）
+                    const num = Math.min(trigger.num, handCards.length);
                     await target.chooseToDiscard(
-                        `浮元：弃置${get.cnNumber(trigger.num)}张手牌`,
+                        `浮元：弃置${get.cnNumber(num)}张手牌`,
                         'h',
-                        [trigger.num, trigger.num],
+                        [num, num],
                         true,
                     );
                 }
@@ -291,14 +304,15 @@ export const marks = {
 export const translate = {
     bts_ch_lingsha: '灵砂',
     bts_sk_liaoxia: '燎霞',
-    bts_sk_liaoxia_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并令至少一名其他角色各附加2层${get.poptip('bts_glossary_abnormal_chunzui_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，弃置这些角色各一张手牌。`,
+    bts_sk_liaoxia_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并令至少一名其他角色各附加2层${get.poptip('bts_glossary_abnormal_chunzui_faq')}；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，弃置这些角色各一张手牌。`,
     bts_sk_fenyun: '氛氲',
-    bts_sk_fenyun_info:
-        '当你获得或失去技能后，你可以令一名受伤角色回复1点体力。',
+    bts_sk_fenyun_info: '当你获得或失去技能后，你可以令一名受伤角色回复1点体力。',
     bts_sk_feicai: '飞彩',
     bts_sk_feicai_info: `受到伤害后，你可以弃置一张【杀】，获得${get.poptip('bts_glossary_fuyuan_faq')}。`,
     bts_sk_fuyuan: '浮元',
-    bts_sk_fuyuan_info: `发动${get.poptip('bts_glossary_bisha_faq')}后或结束阶段开始时，你可以视为对攻击范围内一名其他角色使用【杀】：此【杀】造成伤害时防止伤害，令其弃置等同于伤害值的手牌并附加${get.poptip('bts_glossary_nature_flame_faq')}，令因你而回复过体力的角色中体力值最少的角色回复1点体力；累计发动3次后失去此技能。`,
+    bts_sk_fuyuan_info: `发动${get.poptip('bts_glossary_bisha_faq')}后或结束阶段开始时，你可以视为对攻击范围内一名其他角色使用【杀】：此【杀】造成伤害时防止伤害，令其弃置等同于伤害值的手牌并附加${get.poptip('bts_glossary_nature_flame_faq')}，`
+        + `令因你而回复过体力的角色中体力值最少的角色回复1点体力；累计发动3次后失去此技能。`,
 
     '$bts_sk_liaoxia1': "金鳞燃犀，洞若观火",
     '$bts_sk_liaoxia2': "世间种种…不过是过眼云烟",
@@ -315,10 +329,11 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_liaoxia_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+2${get.poptip('bts_glossary_abnormal_chunzui_faq')}，${get.poptip('bts_glossary_xingqi_faq')}各弃1手牌`,
-    bts_sk_fenyun_info: '得失技能后可令1名受伤角色回复1',
-    bts_sk_feicai_info: `受伤后可弃杀获得${get.poptip('bts_glossary_fuyuan_faq')}`,
-    bts_sk_fuyuan_info: `${get.poptip('bts_glossary_bisha_faq')}后或结束阶段可用${get.poptip('bts_glossary_fuyuan_faq')}杀：防伤、弃N牌+炎、治疗最低关联者；3次后失去`,
+    bts_sk_liaoxia_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+2${get.poptip('bts_glossary_abnormal_chunzui_faq')}，`
+        + `${get.poptip('bts_glossary_xingqi_faq')}各-1手牌`,
+    bts_sk_fenyun_info: '获得或失去技能后，可令1名受伤角色+1体力',
+    bts_sk_feicai_info: `受伤后可-1杀+1${get.poptip('bts_glossary_fuyuan_faq')}`,
+    bts_sk_fuyuan_info: `${get.poptip('bts_glossary_bisha_faq')}后或结束阶段可用${get.poptip('bts_glossary_fuyuan_faq')}杀：防伤、-N牌+炎、+最低关联者体力；3次后失去`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

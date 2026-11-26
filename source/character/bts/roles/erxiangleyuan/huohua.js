@@ -281,9 +281,12 @@ export const translate = {
     'bts_ch_huohua_skin1': '皮肤1',
     bts_ch_huohua: '火花',
     bts_sk_kuanghuan: '狂欢',
-    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各以 14.4%+（${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率失去4点体力。`,
+    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `这些角色各以 14.4%+（${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）的概率失去4点体力。`,
     bts_sk_lianxian_funny: '连线',
-    bts_sk_lianxian_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段限两次，你可以执行${get.poptip('bts_glossary_funny_act_faq')}，若手牌不足5张补至5张；你弃置一张牌后，若此牌为【杀】或你拥有${get.poptip('bts_glossary_bless_funny_faq')}，你获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。欢愉行动：你弃置一张【杀】（处于${get.poptip('bts_glossary_funny_time_faq')}时可弃任意牌）。`,
+    bts_sk_lianxian_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，出牌阶段限两次，你可以执行${get.poptip('bts_glossary_funny_act_faq')}，`
+        + `若手牌不足5张补至5张；你弃置一张牌后，若此牌为【杀】或你拥有${get.poptip('bts_glossary_bless_funny_faq')}，你获得1枚${get.poptip('bts_glossary_funnypoint_faq')}。`
+        + `欢愉行动：你弃置一张【杀】（处于${get.poptip('bts_glossary_funny_time_faq')}时可弃任意牌）。`,
     bts_sk_huashou: '花手',
     bts_sk_huashou_info: `锁定技，当你执行${get.poptip('bts_glossary_funny_act_faq')}后，弃置牌堆底五张牌。`,
     bts_sk_xuanmu: '炫目',
@@ -305,12 +308,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令目标各14.4%+倍${get.poptip('bts_glossary_bless_faq')}失4体力`,
-    bts_sk_lianxian_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；限两次执行${get.poptip('bts_glossary_funny_act_faq')}（弃杀），手牌补至5`,
+    bts_sk_kuanghuan_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令目标各以14.4%+${get.poptip('bts_glossary_bless_faq')}每层10%的概率-4体力`,
+    bts_sk_lianxian_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}；出牌阶段限两次，可执行${get.poptip('bts_glossary_funny_act_faq')}（-1杀），手牌不足5张则补至5张`,
     bts_sk_huashou_info: `执行${get.poptip('bts_glossary_funny_act_faq')}后弃牌堆底5张`,
-    bts_sk_xuanmu_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若有${get.poptip('bts_glossary_huanju_shengge_faq')}，+13${get.poptip('bts_glossary_funnypoint_faq')}并摸4`,
-    bts_sk_feiteng_info: `锁；他人失去体力时，笑点≥10且有${get.poptip('bts_glossary_huanju_shengge_faq')}则失去值+1`,
-    bts_sk_tianmi_info: `锁；他人失去体力时，手牌≥5且有${get.poptip('bts_glossary_huanju_shengge_faq')}则失去值+1`,
+    bts_sk_xuanmu_info: `锁；发动${get.poptip('bts_glossary_bisha_faq')}后若有${get.poptip('bts_glossary_huanju_shengge_faq')}，+13${get.poptip('bts_glossary_funnypoint_faq')}并+4牌`,
+    bts_sk_feiteng_info: `锁；他人-体力时，笑点≥10且有${get.poptip('bts_glossary_huanju_shengge_faq')}则失去值+1`,
+    bts_sk_tianmi_info: `锁；他人-体力时，手牌≥5且有${get.poptip('bts_glossary_huanju_shengge_faq')}则失去值+1`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

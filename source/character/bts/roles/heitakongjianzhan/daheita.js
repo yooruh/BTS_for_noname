@@ -114,60 +114,39 @@ export const skill = {
     bts_sk_geju: {
         trigger: { player: 'phaseJieshuBegin' },
         filter(event, player) {
-            return player.countCards('h') > 0;
+            // 须有【杀】可弃且存在其他存活角色，否则表面满足却无牌/无目标可选（filterCard/filterTarget 同款判据）
+            return (
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
+            );
         },
         async cost(event, trigger, player) {
-            // AI：有【杀】且存在敌方才发动（chooseBool 默认 choice=true，不配 ai 时 AI 无条件接手，易白弃）。
-            const hasValue =
-                player.getCards('h').some((card) => get.name(card) === 'sha') &&
-                game.hasPlayer(
-                    (t) => t !== player && get.attitude(player, t) < 0,
-                );
-            const r = await player
-                .chooseBool(
-                    '格局：是否弃置一张【杀】并选择一名其他角色？',
-                    () => hasValue,
-                )
-                .forResult();
-            if (!r.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) => get.name(card) === 'sha',
-                    '弃置一张【杀】',
-                )
-                .forResult();
-            if (!cards.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const target = await player
-                .chooseTarget(
-                    '格局：选择一名其他角色',
-                    [1, 1],
-                    (c, p, t) => t !== p,
+            // 弃【杀】与选目标一体化：chooseCardTarget 一次对话完成选择并确认，取消即不发动。
+            // 发动决策由 ai1/ai2 承担（两侧最高分≤0→引擎自动取消，不会白弃）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '格局：弃置一张【杀】并选择一名其他角色',
+                    position: 'h',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                    filterTarget: (card, source, target) =>
+                        target !== source,
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
                     // 目标估值：优先敌方（态度为负），其中优先低体力（击杀压力）；友方排斥。
-                    // 签名 (target, targets)：引擎 ai.basic.chooseTarget 以此实参调用（basic.js:204），
-                    // 原 (c,p,t) 形参把首参当 card 误读（恒返回≤0 → AI 目标选择必然失败），此按实参修正。
-                    (target) => {
+                    ai2: (target) => {
                         const attitude = get.attitude(player, target);
                         if (attitude >= 0) return -1;
                         return -attitude * 10 - target.hp * 2;
                     },
-                )
+                })
                 .forResult();
-            if (!target.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = target;
-            event.result.cost_data = { cards: cards.cards };
         },
         async content(event, t, player) {
-            await player.discard(event.cost_data.cards); // 源：弃置【杀】移入 content 结算
+            await player.discard(event.cards); // 源：弃置【杀】移入 content 结算
             const x = event.targets[0]; // event=技能事件（自选弃牌/目标经 cost 拷入）
             const damage = x.damage(player, 1, 'nocard');
             damage.reason = 'bts_sk_geju';
@@ -230,11 +209,16 @@ export const marks = {
 export const translate = {
     bts_ch_daheita: '大黑塔',
     bts_sk_mofa: '魔法',
-    bts_sk_mofa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，对其中体力值最大的所有角色造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}通常伤害（若你拥有至少99枚${get.poptip('bts_glossary_midi_faq')}标记数则无视体力限制），然后你获得1枚${get.poptip('bts_glossary_linggan_faq')}标记，若如此做，此回合结束时，你执行一个额外的回合。若你为${get.poptip('bts_glossary_xingqi_faq')}，额外获得1枚${get.poptip('bts_glossary_linggan_faq')}标记，然后若以此法选择的目标数为1，伤害值+1。`,
+    bts_sk_mofa_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `对其中体力值最大的所有角色造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}通常伤害（若你拥有至少99枚${get.poptip('bts_glossary_midi_faq')}标记数则无视体力限制），`
+        + `然后你获得1枚${get.poptip('bts_glossary_linggan_faq')}标记，若如此做，此回合结束时，你执行一个额外的回合。若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `额外获得1枚${get.poptip('bts_glossary_linggan_faq')}标记，然后若以此法选择的目标数为1，伤害值+1。`,
     bts_sk_shijie: '视界',
     bts_sk_shijie_info: `锁定技，准备阶段开始时，你获得等同于角色数+25的${get.poptip('bts_glossary_midi_faq')}标记；锁定技，当一名角色造成伤害后，你获得等同于造成的伤害值的平方的${get.poptip('bts_glossary_midi_faq')}标记，若之为通常伤害，获得的标记值翻倍再平方。`,
     bts_sk_geju: '格局',
-    bts_sk_geju_info: `结束阶段开始时，你可以弃置一张【杀】并选择一名其他角色，对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害，若你拥有${get.poptip('bts_glossary_linggan_faq')}标记，弃1枚${get.poptip('bts_glossary_linggan_faq')}标记，弃置于此回合内受到过由你造成的伤害的所有角色各一张手牌，然后若你拥有至少41枚${get.poptip('bts_glossary_midi_faq')}标记，X%你弃41枚${get.poptip('bts_glossary_midi_faq')}标记并对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
+    bts_sk_geju_info: `结束阶段开始时，你可以弃置一张【杀】并选择一名其他角色，对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害，若你拥有${get.poptip('bts_glossary_linggan_faq')}标记，`
+        + `弃1枚${get.poptip('bts_glossary_linggan_faq')}标记，弃置于此回合内受到过由你造成的伤害的所有角色各一张手牌，然后若你拥有至少41枚${get.poptip('bts_glossary_midi_faq')}标记，`
+        + `X%你弃41枚${get.poptip('bts_glossary_midi_faq')}标记并对其造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}伤害。`,
 
     '$bts_sk_mofa1': "好奇心，可是很危险的",
     '$bts_sk_mofa2': "谜题千千万万，但谜底却是…乌有之物",
@@ -250,9 +234,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_mofa_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}对体力最大的目标各造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}通常伤害（${get.poptip('bts_glossary_midi_faq')}≥99无视限制），+1${get.poptip('bts_glossary_linggan_faq')}并执行额外回合（${get.poptip('bts_glossary_xingqi_faq')}额外+1${get.poptip('bts_glossary_linggan_faq')}，且单目标时伤害+1）`,
-    bts_sk_shijie_info: `锁；准备阶段获得角色数+25${get.poptip('bts_glossary_midi_faq')}；任何角色造成伤害后你获得${get.poptip('bts_glossary_midi_faq')}（通常伤害翻倍再平方）`,
-    bts_sk_geju_info: `结束阶段，弃1杀对1名其他角色造成1点霜伤；有${get.poptip('bts_glossary_linggan_faq')}则弃1${get.poptip('bts_glossary_linggan_faq')}弃本回合由你伤过的受伤者各1手牌；${get.poptip('bts_glossary_midi_faq')}≥41时有X%弃41${get.poptip('bts_glossary_midi_faq')}再霜伤`,
+    bts_sk_mofa_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}对体力最大的目标各造成1点${get.poptip('bts_glossary_nature_frost_dmg_faq')}通常伤害（${get.poptip('bts_glossary_midi_faq')}≥99无视限制），`
+        + `+1${get.poptip('bts_glossary_linggan_faq')}并执行额外回合（${get.poptip('bts_glossary_xingqi_faq')}额外+1${get.poptip('bts_glossary_linggan_faq')}，`
+        + `且单目标时伤害+1）`,
+    bts_sk_shijie_info: `锁；准备阶段+（角色数+25）${get.poptip('bts_glossary_midi_faq')}；任何角色造成伤害后你+${get.poptip('bts_glossary_midi_faq')}（通常伤害翻倍再平方）`,
+    bts_sk_geju_info: `结束阶段，-1杀对1名其他角色造成1点霜伤；有${get.poptip('bts_glossary_linggan_faq')}则-1${get.poptip('bts_glossary_linggan_faq')}-本回合由你伤过的受伤者各1手牌；`
+        + `${get.poptip('bts_glossary_midi_faq')}≥41时有X%-41${get.poptip('bts_glossary_midi_faq')}再霜伤`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

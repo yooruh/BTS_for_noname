@@ -8,6 +8,7 @@
  *   node scripts/check.mjs --invisible [--fix]    BOM/零宽/控制字符检查
  *   node scripts/check.mjs --globals              角色包级标识符是否被技能引用
  *   node scripts/check.mjs --logskill             logSkill 重复 + cost 结算约定检查
+ *   node scripts/check.mjs --bufflog              buff/异常生效日志检查
  *   node scripts/check.mjs --choosetarget         active 技能 content 选目标时机检查
  *   node scripts/check.mjs --skill-embed          技能效果自注册纪律（占位滤器 / rules 层代执行）
  *   node scripts/check.mjs --skins                核对 image/character 与角色 id（孤儿/缺失头像）
@@ -317,6 +318,65 @@ function logskillCheck() {
     return real.length > 0;
 }
 
+// ── bufflog：祝福/异常生效须留日志 ──────────────────────────────────────────
+// 背景：buff/异常定义普遍 silent（引擎不写自动「发动」日志）。若 content 只改数值或状态而
+// 不写 game.log，玩家只看到伤害/摸牌/体力变化，不知道是哪个 buff 造成的（冻结「伤害-1」事故族）。
+// 只查「数值或状态直接改动」；纯加/减标记由引擎标记日志承担（addMark/addBless/addAbnormal）。
+// 豁免：技能块内注释 audit-bufflog: skip。
+const BUFF_LOG_SKIP_RE = /audit-bufflog\s*:\s*skip/;
+const BUFF_LOG_KEY_RE =
+    /^ {4}(['"]?)(bts_(?:bless|abnormal)_[a-z0-9_]+|bts_curse|bts_shield)\1: \{/gm;
+// trigger.num 只认赋值/自运算（读值当参数不算改动，如 addAbnormal(..., trigger.num)）。
+const BUFF_LOG_MUTATE_RE =
+    /trigger\.num\s*[+\-*/]?=|trigger\.cancel\(|trigger\.nodying|setDamageNature|markDamage|\.loseHp\(|\.damage\(|\.draw\(|\.recover\(|\.skip\(/;
+
+function bufflogCheck() {
+    const files = [...allRoleFiles()];
+    const rulesRoot = resolve(ROOT, 'source', 'rules');
+    if (existsSync(rulesRoot)) {
+        const collect = (dir) => {
+            for (const entry of readdirSync(dir)) {
+                const full = join(dir, entry);
+                if (statSync(full).isDirectory()) collect(full);
+                else if (entry.endsWith('.js')) files.push(full);
+            }
+        };
+        collect(rulesRoot);
+    }
+    const violations = [];
+    for (const file of files) {
+        const text = readFileSync(file, 'utf8');
+        const rel = relative(ROOT, file).replace(/\\/g, '/');
+        let m;
+        BUFF_LOG_KEY_RE.lastIndex = 0;
+        while ((m = BUFF_LOG_KEY_RE.exec(text))) {
+            const braceIdx = m.index + m[0].lastIndexOf('{');
+            const close = matchingBrace(text, braceIdx);
+            if (close === -1) continue;
+            const block = text.slice(m.index, close + 1);
+            const cleaned = stripCommentsAndStrings(block);
+            if (!BUFF_LOG_MUTATE_RE.test(cleaned)) continue;
+            if (/\bgame\.log\(|\.logSkill\(/.test(cleaned)) continue;
+            violations.push({
+                rel,
+                line: lineOf(text, m.index),
+                name: m[2],
+                skip: BUFF_LOG_SKIP_RE.test(block),
+            });
+        }
+    }
+    const real = violations.filter((v) => !v.skip);
+    for (const v of violations) {
+        const msg =
+            'buff 直接改动伤害/摸牌/体力/阶段等数值或状态却无 game.log；玩家无法得知是哪个 buff 生效';
+        if (v.skip) log.warn(`[SKIP bufflog] ${v.rel}:${v.line} ${v.name} — ${msg}（audit-bufflog: skip）`);
+        else log.error(`[bufflog] ${v.rel}:${v.line} ${v.name}：${msg}`);
+    }
+    if (real.length) console.error(`\n违规 ${real.length} 处（另有 ${violations.length - real.length} 处已豁免）。`);
+    else log.ok(`audit-bufflog 通过：${violations.length} 处豁免/无违规，共扫描 ${files.length} 份文件。`);
+    return real.length > 0;
+}
+
 // ── skill-embed：技能效果自注册纪律 ────────────
 // 规则 A（角色文件）：禁用无参占位滤器 `filter() { return false; }`——技能效果必须挂在
 //   技能自身（trigger/content 或欢愉 bts_funny 注册字段），不得由 rules API 按 hasSkill 代执行。
@@ -496,6 +556,8 @@ const INTERNAL_MARKS = new Set([
     'bts_sk_yuqi',
     'bts_sk_zaixian',
     'bts_sk_zhitong',
+    // 计数子技（subSkill，nopop，仅角标）：累计承认数
+    'bts_sk_wanglai_chengren_count',
 ]);
 const MARK_METHOD_RE =
     /\.(?:addMark|countMark|removeMark|setMark|changeMark)\s*\(\s*['"]([^'"]+)['"]/g;
@@ -879,6 +941,7 @@ function printUsage() {
   node scripts/check.mjs --invisible [--fix]    BOM/零宽/控制字符检查（--fix 才写盘）
   node scripts/check.mjs --globals              包级标识符引用检查
   node scripts/check.mjs --logskill             logSkill/cost 约定检查
+  node scripts/check.mjs --bufflog              buff/异常生效日志检查
   node scripts/check.mjs --choosetarget         active 选目标时机检查
   node scripts/check.mjs --skill-embed          技能效果自注册纪律（占位滤器 / rules 层代执行）
   node scripts/check.mjs --skins                头像孤儿/缺失核对
@@ -900,8 +963,9 @@ async function main() {
         .map((a) => a.replace(/^--/, ''))
         .filter((a) =>
             [
-                'invisible', 'globals', 'logskill', 'choosetarget', 'skill-embed',
-                'skins', 'marks', 'mirror', 'pitfalls', 'privacy', ...PITFALL_NAMES,
+                'invisible', 'globals', 'logskill', 'bufflog', 'choosetarget',
+                'skill-embed', 'skins', 'marks', 'mirror', 'pitfalls', 'privacy',
+                ...PITFALL_NAMES,
             ].includes(a),
         );
     // 是否应用 invisible 修复（写盘）；命令 --fix 置 true，交互选 invisible 后用 y/N 二次确认
@@ -922,6 +986,7 @@ async function main() {
                     { label: 'invisible — BOM/零宽/控制字符（--invisible）', value: 'invisible' },
                     { label: 'globals — 包级标识符引用（--globals）', value: 'globals' },
                     { label: 'logskill — logSkill/cost 约定（--logskill）', value: 'logskill' },
+                    { label: 'bufflog — buff/异常生效日志（--bufflog）', value: 'bufflog' },
                     { label: 'choosetarget — active 选目标时机（--choosetarget）', value: 'choosetarget' },
                     { label: 'skill-embed — 技能效果自注册纪律（--skill-embed）', value: 'skill-embed' },
                     { label: 'skins — 头像孤儿/缺失（--skins）', value: 'skins' },
@@ -948,6 +1013,7 @@ async function main() {
             if (name === 'invisible') had = invisibleCheck({ fix });
             else if (name === 'globals') had = globalsCheck();
             else if (name === 'logskill') had = logskillCheck();
+            else if (name === 'bufflog') had = bufflogCheck();
             else if (name === 'choosetarget') had = choosetargetCheck();
             else if (name === 'skill-embed') had = skillEmbedCheck();
             else if (name === 'skins') had = await skinsCheck();

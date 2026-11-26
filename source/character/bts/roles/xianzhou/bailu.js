@@ -84,6 +84,12 @@ export const skill = {
         limited: true,
         skillAnimation: true,
         animationColor: 'water',
+        // frequent:'check'：濒死事件频发，jishiWorth 成立（濒死者为友方）时引擎自动确认，
+        // 免去每次手点；不成立（敌方濒死）时照常弹询问。check 与 cost 内联 ai 共用 jishiWorth。
+        check(trigger, player) {
+            return jishiWorth(player, trigger.player);
+        },
+        frequent: 'check',
         filter(event, player) {
             return (
                 event.player &&
@@ -93,12 +99,14 @@ export const skill = {
         },
         async cost(event, trigger, player) {
             // cost 型触发技：引擎不询顶层 check，发动与否由此处内联 ai 定
-            event.result = await player
-                .chooseBool(
-                    '济世：是否令' +
-                        get.translation(trigger.player) +
-                        '将体力回复至1点？',
-                )
+            const ask = player.chooseBool(
+                '济世：是否令' +
+                    get.translation(trigger.player) +
+                    '将体力回复至1点？',
+            );
+            // frequent 型触发技的自动确认须由 cost 转发 frequentSkill（本体·狂骨范式）
+            if (event.frequentSkill) ask.set('frequentSkill', event.skill);
+            event.result = await ask
                 .set('ai', () => jishiWorth(player, trigger.player))
                 .forResult();
         },
@@ -197,11 +205,9 @@ export const translate = {
     bts_sk_leiyin: '雷音',
     bts_sk_leiyin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去4点${get.poptip('bts_glossary_nuqi_faq')}，你与至少一名其他角色各附加2层${get.poptip('bts_glossary_bless_shengxi_faq')}。`,
     bts_sk_zhulu: '珠露',
-    bts_sk_zhulu_info:
-        '其他角色受到伤害后，你可以弃置一张【杀】，令其回复1点体力，然后令一名以此法回复过体力的角色回复1点体力。',
+    bts_sk_zhulu_info: '其他角色受到伤害后，你可以弃置一张【杀】，令其回复1点体力，然后令一名以此法回复过体力的角色回复1点体力。',
     bts_sk_xuanhu: '悬壶',
-    bts_sk_xuanhu_info:
-        '限定技，其他角色进入濒死状态时，你可以令其将体力值回复至1点。',
+    bts_sk_xuanhu_info: '限定技，其他角色进入濒死状态时，你可以令其将体力值回复至1点。',
 
     '$bts_sk_leiyin1': "就让你们看看……",
     '$bts_sk_leiyin2': "这葫芦里卖的什么药！",
@@ -214,8 +220,8 @@ export const translate = {
     bts_bless_shengxi_info: `来源：${get.poptip('bts_sk_leiyin')}赋予；附加或受伤后移除1层并回复1；回合结束自然减少1层`,
 };
 export const simpleTranslate = {
-    bts_sk_leiyin_info: `${get.poptip('bts_glossary_bisha_faq')}；失4${get.poptip('bts_glossary_nuqi_faq')}令自己与至少1名其他角色各+2${get.poptip('bts_glossary_bless_shengxi_faq')}`,
-    bts_sk_xuanhu_info: '限定；他人濒死时可令其回复至1体力',
+    bts_sk_leiyin_info: `${get.poptip('bts_glossary_bisha_faq')}；-4${get.poptip('bts_glossary_nuqi_faq')}令自己与至少1名其他角色各+2${get.poptip('bts_glossary_bless_shengxi_faq')}`,
+    bts_sk_xuanhu_info: '限；他人濒死时可令其回复至1体力',
 };
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
 
@@ -239,6 +245,10 @@ export const buffSkills = {
             return event.player === player && event.num > 0 && player.isDamaged();
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_bless_shengxi')}】，移除1层并回复1点体力`,
+            );
             await lib.bts.api.removeBless(player, 'shengxi', 1);
             await player.recover(player);
         },

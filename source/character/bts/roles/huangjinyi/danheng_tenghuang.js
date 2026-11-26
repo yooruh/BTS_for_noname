@@ -43,17 +43,28 @@ export const skill = {
                 (player.hasSkill('bts_sk_aishi') ? 1 : 0);
             lib.bts.api.addShield(target, shield, player);
             // 源 L8983-8996：for i=1..2n askForUseCard("@@st_pishi_slash!") —— 连续虚拟【杀】
+            // 候选唯一（攻击范围内只剩一名其他角色）时直接对该角色用【杀】，不再逐刀弹窗。
             for (let index = 0; index < shield * 2; index++) {
-                const result = await player
-                    .chooseTarget(
-                        '辟世：选择一名角色视为使用【杀】',
-                        [1, 1],
-                        (card, source, target) =>
-                            target !== source && source.inRange(target),
-                        (target) => -get.attitude(player, target),
-                    )
-                    .forResult();
-                if (!result.bool) break;
+                const candidates = game.filterPlayer(
+                    (target) => target !== player && player.inRange(target),
+                );
+                if (!candidates.length) break;
+                let targets;
+                if (candidates.length === 1) {
+                    targets = candidates.slice();
+                } else {
+                    const result = await player
+                        .chooseTarget(
+                            '辟世：选择一名角色视为使用【杀】',
+                            [1, 1],
+                            (card, source, target) =>
+                                target !== source && source.inRange(target),
+                            (target) => -get.attitude(player, target),
+                        )
+                        .forResult();
+                    if (!result.bool) break;
+                    targets = result.targets;
+                }
                 await player.useCard(
                     {
                         name: 'sha',
@@ -61,7 +72,7 @@ export const skill = {
                         skill: 'bts_sk_pishi',
                         storage: { bts_sk_pishi: true },
                     },
-                    result.targets,
+                    targets,
                 );
             }
             // 源 L8997-9003：星启时对所有拥有护盾的角色 AddBless(@bless_through)
@@ -254,7 +265,10 @@ export const translate = {
     'bts_ch_danheng_tenghuang_skin8': '皮肤8',
     bts_ch_danheng_tenghuang: '丹恒·腾荒',
     bts_sk_pishi: '辟世',
-    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名角色，令其获得1点${get.poptip('bts_glossary_hudun_faq')}，然后你可连续两次视为使用【杀】；若你为${get.poptip('bts_glossary_xingqi_faq')}，上述${get.poptip('bts_glossary_hudun_faq')}和【杀】次数翻倍，所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加2层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}；若你拥有${get.poptip('bts_sk_aishi')}，${get.poptip('bts_glossary_hudun_faq')}额外+1。`,
+    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名角色，令其获得1点${get.poptip('bts_glossary_hudun_faq')}，`
+        + `然后你可连续两次视为使用【杀】；若你为${get.poptip('bts_glossary_xingqi_faq')}，上述${get.poptip('bts_glossary_hudun_faq')}和【杀】次数翻倍，`
+        + `所有拥有${get.poptip('bts_glossary_hudun_faq')}的角色各附加2层${get.poptip('bts_glossary_guantong_faq')}${get.poptip('bts_glossary_bless_faq')}；`
+        + `若你拥有${get.poptip('bts_sk_aishi')}，${get.poptip('bts_glossary_hudun_faq')}额外+1。`,
     bts_sk_bahuang: '八荒',
     bts_sk_bahuang_info: `扣减体力后，你可以弃置一张【杀】，令一名角色获得1点${get.poptip('bts_glossary_hudun_faq')}。`,
     bts_sk_shengde: '生德',
@@ -270,9 +284,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}加${get.poptip('bts_glossary_hudun_faq')}并连续虚拟杀，${get.poptip('bts_glossary_xingqi_faq')}翻倍且有盾者各+2${get.poptip('bts_glossary_guantong_faq')}`,
-    bts_sk_bahuang_info: `扣血后可弃杀令1名角色+1${get.poptip('bts_glossary_hudun_faq')}`,
-    bts_sk_shengde_info: `角色失${get.poptip('bts_glossary_hudun_faq')}后可移除其一种异常`,
+    bts_sk_pishi_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}加${get.poptip('bts_glossary_hudun_faq')}并连续虚拟杀，`
+        + `${get.poptip('bts_glossary_xingqi_faq')}翻倍且有盾者各+2${get.poptip('bts_glossary_guantong_faq')}`,
+    bts_sk_bahuang_info: `-体力后可-1杀令1名角色+1${get.poptip('bts_glossary_hudun_faq')}`,
+    bts_sk_shengde_info: `角色-${get.poptip('bts_glossary_hudun_faq')}后可移除其一种异常`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

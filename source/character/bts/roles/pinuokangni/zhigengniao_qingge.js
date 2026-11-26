@@ -366,7 +366,8 @@ export const translate = {
     bts_ch_qingkongyueshou: '晴空乐手',
     bts_ch_zhigengniao_qingge_and_qingkongyueshou: '知更鸟&晴空乐手',
     bts_sk_kuangxiang: '狂想',
-    bts_sk_kuangxiang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色回复1点${get.poptip('bts_glossary_nuqi_faq')}且于你的下个准备阶段开始前额定摸牌数+1。本回合结束时，其还会执行一个额外回合。`,
+    bts_sk_kuangxiang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色回复1点${get.poptip('bts_glossary_nuqi_faq')}且于你的下个准备阶段开始前额定摸牌数+1。`
+        + `本回合结束时，其还会执行一个额外回合。`,
     bts_sk_xunyou: '巡游',
     bts_sk_xunyou_info: `锁定技，一名角色造成伤害、回复体力或附加${get.poptip('bts_glossary_hudun_faq')}后，你获得2枚${get.poptip('bts_glossary_qifen_faq')}标记。`,
     bts_sk_kuangxiang_buff: '狂想增益',
@@ -376,14 +377,15 @@ export const translate = {
     bts_sk_wanfeng: '晚风',
     bts_sk_wanfeng_info: `锁定技，当${get.poptip('bts_ch_qingkongyueshou')}被移除后，此回合结束时，你执行一个额外的回合。`,
     bts_sk_xintiao: '心跳',
-    bts_sk_xintiao_info: `锁定技，当${get.poptip('bts_ch_qingkongyueshou')}登场时，若已存在${get.poptip('bts_ch_qingkongyueshou')}，你获得6枚${get.poptip('bts_glossary_qifen_faq')}标记，否则你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
+    bts_sk_xintiao_info: `锁定技，当${get.poptip('bts_ch_qingkongyueshou')}登场时，若已存在${get.poptip('bts_ch_qingkongyueshou')}，你获得6枚${get.poptip('bts_glossary_qifen_faq')}标记，`
+        + `否则你回复1点${get.poptip('bts_glossary_nuqi_faq')}。`,
     bts_sk_hesheng: '和声',
-    bts_sk_hesheng_info: `锁定技，当你拥有至少12枚${get.poptip('bts_glossary_qifen_faq')}标记后，你翻面；此后每回合开始时，弃X枚${get.poptip('bts_glossary_qifen_faq')}标记（X为标记数的一半且至少为12，向下取整），对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，然后若你没有${get.poptip('bts_glossary_qifen_faq')}标记，移除${get.poptip('bts_ch_qingkongyueshou')}。`,
+    bts_sk_hesheng_info: `锁定技，当你拥有至少12枚${get.poptip('bts_glossary_qifen_faq')}标记后，你翻面；此后每回合开始时，弃X枚${get.poptip('bts_glossary_qifen_faq')}标记（X为标记数的一半且至少为12，`
+        + `向下取整），对上个对你造成伤害的角色造成1点${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害，然后若你没有${get.poptip('bts_glossary_qifen_faq')}标记，`
+        + `移除${get.poptip('bts_ch_qingkongyueshou')}。`,
     bts_mk_qifen: '气氛',
     bts_pet_qingkongyueshou: '晴空乐手',
-
-
-
+    bts_pet_qingkongyueshou_info: `来源：${get.poptip('bts_sk_yueshou')}召唤；忆灵体力：本体受伤等量扣减、回复等量回补（封顶忆灵上限），归零后离场`,
     bts_mk_qifen_info: `来源：${get.poptip('bts_sk_xunyou')}赋予；${get.poptip('bts_sk_hesheng')}：满12翻面爆发`,
 
     '$bts_sk_hesheng1': "心弦拨奏——Bessie~",
@@ -406,10 +408,11 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_kuangxiang_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色回怒并额外回合`,
+    bts_sk_kuangxiang_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，令1名其他角色+1${get.poptip('bts_glossary_nuqi_faq')}且额定摸牌数+1；本回合结束时，其执行一个额外回合`,
     bts_sk_xunyou_info: `锁；全局伤害/回复/${get.poptip('bts_glossary_hudun_faq')}后+2${get.poptip('bts_glossary_qifen_faq')}`,
-    bts_sk_yueshou_info: `成为非技能牌目标后可弃杀召唤${get.poptip('bts_ch_qingkongyueshou')}`,
-    bts_sk_hesheng_info: `锁；${get.poptip('bts_glossary_qifen_faq')}≥12时翻面，此后每回合开始弃${get.poptip('bts_glossary_qifen_faq')}（向下取整）风伤上个伤害你者；${get.poptip('bts_glossary_qifen_faq')}耗尽时移除${get.poptip('bts_ch_qingkongyueshou')}`,
+    bts_sk_yueshou_info: `成为非技能牌目标后可-1杀召唤${get.poptip('bts_ch_qingkongyueshou')}`,
+    bts_sk_hesheng_info: `锁；${get.poptip('bts_glossary_qifen_faq')}≥12时翻面，此后每回合开始时-${get.poptip('bts_glossary_qifen_faq')}（向下取整）风伤上个伤害你者；`
+        + `${get.poptip('bts_glossary_qifen_faq')}耗尽时移除${get.poptip('bts_ch_qingkongyueshou')}`,
 };
 
 // 默认读音有误（更→gēng、乐→yuè）：按叁岛式写「中文名 → 带声调拼音数组」覆盖。
@@ -424,6 +427,6 @@ export const glossary = [
     {
         id: 'bts_glossary_qifen_faq',
         name: '|气氛|',
-        info: `知更鸟·晴歌专属：${get.poptip('bts_sk_xunyou')}获得；满12由${get.poptip('bts_sk_hesheng')}翻面并造成${get.poptip('bts_glossary_nature_feng_faq')}伤害。`,
+        info: `知更鸟·晴歌专属：${get.poptip('bts_sk_xunyou')}获得；满12由${get.poptip('bts_sk_hesheng')}翻面并造成${get.poptip('bts_glossary_nature_wind_faq')}伤害。`,
     },
 ];

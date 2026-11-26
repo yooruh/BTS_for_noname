@@ -183,61 +183,40 @@ export const skill = {
     bts_sk_guiren: {
         trigger: { player: 'phaseDrawEnd' },
         filter(event, player) {
-            // 源 L4228：摸牌阶段结束且手牌有【杀】可弃
-            return player.getCards('h').some((card) => get.name(card) === 'sha');
+            // 源 L4228：摸牌阶段结束且手牌有【杀】可弃。
+            // 另需存在「其他存活角色」这一合法目标，否则表面满足却无目标可选（filterTarget 要求 t!==p）。
+            return (
+                player.getCards('h').some((card) => get.name(card) === 'sha') &&
+                game.hasPlayer((target) => target !== player && target.isAlive())
+            );
         },
         async cost(event, trigger, player) {
             // 源 L4229：askForUseCard("@@st_guiren")
-            // AI 口径：代价=弃1张【杀】；收益=1点无来源伤害+摸1张（近似换牌）。存在敌方即可发动
-            //（源 AI Enemies_ThrowSlash_AI：有可伤害敌方即换；原实现未配 ai→chooseBool 无条件确认、
-            // chooseTarget 默认态度2会把目标选成友方，属 AI 缺陷，此按收益矩阵修复）
-            const worth = () =>
-                game.hasPlayer(
-                    (t) => t !== player && t.isAlive() && get.attitude(player, t) < 0,
-                );
-            const result = await player
-                .chooseBool('归刃：是否弃置一张【杀】并选择一名其他角色？')
-                .set('ai', worth)
-                .forResult();
-            if (!result.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const cards = await player
-                .chooseCard(
-                    'h',
-                    (card) => get.name(card) === 'sha',
-                    '弃置一张【杀】',
-                )
-                // AI 口径：弃分值最低的【杀】（≥6 视为过贵→放弃发动；同风堇·虹光 ai1 范式）
-                .set('ai', (card) =>
-                    typeof card === 'object' && card ? 6 - get.value(card) : -1,
-                )
-                .forResult();
-            if (!cards.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            const target = await player
-                .chooseTarget(
-                    '归刃：选择一名其他角色',
-                    [1, 1],
-                    (card, source, target) => target !== source,
-                )
-                // AI 口径：只打敌方（默认态度2会误选友方）；血线越低越优先（1点伤害的击杀压力）
-                //（chooseTarget 的 ai 实参签名 (target, targets)，首参即候选目标）
-                .set('ai', (target) => {
-                    const att = get.attitude(player, target);
-                    if (target === player || att >= 0) return -1;
-                    return 2 - target.hp * 0.3;
+            // 弃【杀】与选目标一体化：chooseCardTarget 一次对话完成选择并确认，取消即不发动。
+            // AI 口径：代价=弃1张【杀】；收益=1点无来源伤害+摸1张（近似换牌）。存在敌方才发动
+            //（源 AI Enemies_ThrowSlash_AI：有可伤害敌方即换）。ai1/ai2 兼作发动决策，
+            // 两侧最高分≤0 时引擎自动取消（cost 型触发技不询顶层 check）。
+            event.result = await player
+                .chooseCardTarget({
+                    prompt: '归刃：弃置一张【杀】并选择一名其他角色',
+                    position: 'h',
+                    filterCard: (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                    filterTarget: (card, source, target) => target !== source,
+                    // AI 口径：弃分值最低的【杀】（≥6 视为过贵→放弃发动；同风堇·虹光 ai1 范式）
+                    ai1: (card) =>
+                        typeof card === 'object' && card
+                            ? 6 - get.value(card)
+                            : -1,
+                    // AI 口径：只打敌方（默认态度2会误选友方）；血线越低越优先（1点伤害的击杀压力）
+                    ai2: (target) => {
+                        const att = get.attitude(player, target);
+                        if (target === player || att >= 0) return -1;
+                        return 2 - target.hp * 0.3;
+                    },
                 })
                 .forResult();
-            if (!target.bool) {
-                event.result = { bool: false };
-                return;
-            }
-            event.result = target;
-            event.result.cards = cards.cards; // 弃牌留待 content 结算
         },
         async content(event, trigger, player) {
             // event=技能事件；cost 所选目标在技能事件 event.targets（标准约定）
@@ -263,12 +242,13 @@ export const translate = {
     'bts_ch_xier_skin2': '皮肤2',
     bts_ch_xier: '希儿',
     bts_sk_luandie: '乱蝶',
-    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色（移除其拥有的${get.poptip('bts_glossary_abnormal_luandie_faq')}数代替失去等量的${get.poptip('bts_glossary_nuqi_faq')}），你附加2层${get.poptip('bts_glossary_bless_zengfu_faq')}，对其造成1点伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，以此法对其造成伤害前，令其附加1层${get.poptip('bts_glossary_abnormal_luandie_faq')}。`,
+    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色（移除其拥有的${get.poptip('bts_glossary_abnormal_luandie_faq')}数代替失去等量的${get.poptip('bts_glossary_nuqi_faq')}），`
+        + `你附加2层${get.poptip('bts_glossary_bless_zengfu_faq')}，对其造成1点伤害，若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `以此法对其造成伤害前，令其附加1层${get.poptip('bts_glossary_abnormal_luandie_faq')}。`,
     bts_sk_zaixian: '再现',
     bts_sk_zaixian_info: `锁定技，当你杀死一名角色后，此回合结束时你进入一个额外的摸牌阶段和一个额外的出牌阶段，并各附加1层${get.poptip('bts_glossary_bless_zengfu_faq')}；若于上述额外出牌阶段中发动${get.poptip('bts_glossary_bisha_faq')}杀死一名角色，则再各进入一个（可连击）。`,
     bts_sk_guiren: '归刃',
-    bts_sk_guiren_info:
-        '摸牌阶段结束时，你可以弃置一张【杀】并选择一名其他角色，对其造成1点伤害，然后摸1张牌。',
+    bts_sk_guiren_info: '摸牌阶段结束时，你可以弃置一张【杀】并选择一名其他角色，对其造成1点伤害，然后摸1张牌。',
 
     '$bts_sk_luandie1': "这就让你解脱",
     '$bts_sk_luandie2': "随蝴蝶一起消散吧，旧日的幻影",
@@ -281,9 +261,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}（可用目标${get.poptip('bts_glossary_abnormal_luandie_faq')}数抵扣）对1名其他角色造成1点伤害，+2${get.poptip('bts_glossary_bless_zengfu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}造成伤害前令其+1${get.poptip('bts_glossary_abnormal_luandie_faq')}）`,
-    bts_sk_zaixian_info: `锁；杀死角色后回合结束进入额外摸牌+出牌阶段各1并+1${get.poptip('bts_glossary_bless_zengfu_faq')}，期间${get.poptip('bts_glossary_bisha_faq')}再杀可连击`,
-    bts_sk_guiren_info: '摸牌阶段结束，弃1杀对1名其他角色造成1点伤害并摸1张牌',
+    bts_sk_luandie_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}（可用目标${get.poptip('bts_glossary_abnormal_luandie_faq')}数抵扣）对1名其他角色造成1点伤害，`
+        + `+2${get.poptip('bts_glossary_bless_zengfu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}造成伤害前令其+1${get.poptip('bts_glossary_abnormal_luandie_faq')}）`,
+    bts_sk_zaixian_info: `锁；杀死角色后回合结束时进入额外摸牌阶段+出牌阶段各1并+1${get.poptip('bts_glossary_bless_zengfu_faq')}，期间${get.poptip('bts_glossary_bisha_faq')}再杀可连击`,
+    bts_sk_guiren_info: '摸牌阶段结束时，-1杀对1名其他角色造成1点伤害并+1牌',
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

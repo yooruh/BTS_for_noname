@@ -154,21 +154,32 @@ export const skill = {
             const target = targetResult.targets[0];
             let cards = [];
             if (!lib.bts.api.getBless(target, 'fatal')) {
-                const cardResult = await player
-                    .chooseCard(
-                        'h',
-                        (card) =>
-                            get.name(card) === 'sha' &&
-                            lib.filter.cardDiscardable(card, player),
-                        '目标没有致命祝福，须弃置一张【杀】',
-                    )
-                    .set('ai', (card) => 6 - get.value(card)) // 弃价值最低的【杀】；全为负分则取消不发动
-                    .forResult();
-                if (!cardResult.bool) {
-                    event.result = { bool: false };
-                    return;
+                // 唯一可弃【杀】直接作为代价，不再弹「选一张【杀】」的窗口
+                const pool = player.getCards(
+                    'h',
+                    (card) =>
+                        get.name(card) === 'sha' &&
+                        lib.filter.cardDiscardable(card, player),
+                );
+                if (pool.length === 1) {
+                    cards = pool;
+                } else {
+                    const cardResult = await player
+                        .chooseCard(
+                            'h',
+                            (card) =>
+                                get.name(card) === 'sha' &&
+                                lib.filter.cardDiscardable(card, player),
+                            '目标没有致命祝福，须弃置一张【杀】',
+                        )
+                        .set('ai', (card) => 6 - get.value(card)) // 弃价值最低的【杀】；全为负分则取消不发动
+                        .forResult();
+                    if (!cardResult.bool) {
+                        event.result = { bool: false };
+                        return;
+                    }
+                    cards = cardResult.cards;
                 }
-                cards = cardResult.cards;
             }
             event.result = { bool: true, targets: [target], cards };
         },
@@ -259,12 +270,15 @@ export const translate = {
     'bts_ch_xingqiri_skin3': '皮肤3',
     bts_ch_xingqiri: '星期日',
     bts_sk_zansong: '赞颂',
-    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色回复1点${get.poptip('bts_glossary_nuqi_faq')}并附加3层${get.poptip('bts_glossary_bless_fatal_faq')}；若你为${get.poptip('bts_glossary_xingqi_faq')}，其额外附加3层${get.poptip('bts_glossary_bless_critical_faq')}，若其${get.poptip('bts_glossary_bless_critical_faq')}数大于${get.poptip('bts_glossary_bless_fatal_faq')}数，移除差值一半的${get.poptip('bts_glossary_bless_critical_faq')}并附加等量的${get.poptip('bts_glossary_bless_fatal_faq')}。`,
+    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}，令一名其他角色回复1点${get.poptip('bts_glossary_nuqi_faq')}并附加3层${get.poptip('bts_glossary_bless_fatal_faq')}；`
+        + `若你为${get.poptip('bts_glossary_xingqi_faq')}，其额外附加3层${get.poptip('bts_glossary_bless_critical_faq')}，`
+        + `若其${get.poptip('bts_glossary_bless_critical_faq')}数大于${get.poptip('bts_glossary_bless_fatal_faq')}数，`
+        + `移除差值一半的${get.poptip('bts_glossary_bless_critical_faq')}并附加等量的${get.poptip('bts_glossary_bless_fatal_faq')}。`,
     bts_sk_enci: '恩赐',
-    bts_sk_enci_info: `摸牌阶段开始时，你可以跳过摸牌阶段和出牌阶段并选择一名其他角色（若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，你弃置一张【杀】），此回合结束时，令其附加1层${get.poptip('bts_glossary_bless_critical_faq')}，其执行一个额外的回合，若其拥有其武将牌上没有的技能，其再执行一个额外的出牌阶段。`,
+    bts_sk_enci_info: `摸牌阶段开始时，你可以跳过摸牌阶段和出牌阶段并选择一名其他角色（若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，你弃置一张【杀】），此回合结束时，令其附加1层${get.poptip('bts_glossary_bless_critical_faq')}，`
+        + `其执行一个额外的回合，若其拥有其武将牌上没有的技能，其再执行一个额外的出牌阶段。`,
     bts_sk_qingsu: '倾诉',
-    bts_sk_qingsu_info:
-        '锁定技，准备阶段开始时，你观看牌堆顶七张牌并保持原序置于牌堆顶。',
+    bts_sk_qingsu_info: '锁定技，准备阶段开始时，你观看牌堆顶七张牌并保持原序置于牌堆顶。',
 
     '$bts_sk_zansong1': "以此身躯……",
     '$bts_sk_zansong2': "与你同道，护你左右，领你远行",
@@ -276,8 +290,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色回1${get.poptip('bts_glossary_nuqi_faq')}并+3${get.poptip('bts_glossary_bless_fatal_faq')}（${get.poptip('bts_glossary_xingqi_faq')}额外+3${get.poptip('bts_glossary_bless_critical_faq')}，${get.poptip('bts_glossary_bless_critical_faq')}>${get.poptip('bts_glossary_bless_fatal_faq')}时差值一半折转${get.poptip('bts_glossary_bless_fatal_faq')}）`,
-    bts_sk_enci_info: `摸牌阶段可跳摸牌/出牌选1名其他角色（其无${get.poptip('bts_glossary_bless_fatal_faq')}才弃1【杀】），回合末其+1${get.poptip('bts_glossary_bless_critical_faq')}并额外回合，有武将牌外技能再+1出牌阶段`,
+    bts_sk_zansong_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1${get.poptip('bts_glossary_nuqi_faq')}并+3${get.poptip('bts_glossary_bless_fatal_faq')}（${get.poptip('bts_glossary_xingqi_faq')}额外+3${get.poptip('bts_glossary_bless_critical_faq')}，`
+        + `${get.poptip('bts_glossary_bless_critical_faq')}>${get.poptip('bts_glossary_bless_fatal_faq')}时差值一半折转${get.poptip('bts_glossary_bless_fatal_faq')}）`,
+    bts_sk_enci_info: `摸牌阶段开始时，可跳过摸牌阶段和出牌阶段并选择1名其他角色（若其没有${get.poptip('bts_glossary_bless_fatal_faq')}，你-1杀）；此回合结束时，其+1层${get.poptip('bts_glossary_bless_critical_faq')}并执行一个额外回合，`
+        + `若其拥有武将牌上没有的技能，再执行一个额外出牌阶段`,
     bts_sk_qingsu_info: '锁；准备阶段看牌堆顶7张并保序放回',
 };
 

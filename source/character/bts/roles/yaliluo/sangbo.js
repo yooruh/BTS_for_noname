@@ -167,11 +167,10 @@ export const translate = {
     'bts_ch_sangbo_skin2': '皮肤2',
     bts_ch_sangbo: '桑博',
     bts_sk_jingxi: '惊喜',
-    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，令其附加1层${get.poptip('bts_glossary_zhongdu_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，其获得1枚${get.poptip('bts_sk_jingxi')}标记。`,
-
+    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去3点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，`
+        + `令其附加1层${get.poptip('bts_glossary_zhongdu_faq')}，若你为${get.poptip('bts_glossary_xingqi_faq')}，其获得1枚${get.poptip('bts_sk_jingxi')}标记。`,
     bts_sk_sifeng: '撕风',
     bts_sk_sifeng_info: `锁定技，当你造成无属性伤害时，判定，若结果为黑色，此伤害视为${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害。`,
-
     bts_sk_hengtiao: '横跳',
     bts_sk_hengtiao_info: `出牌阶段，你可以弃置一张【杀】并选择一名其他角色，视为对其使用【顺手牵羊】，然后其与所有处于${get.poptip('bts_glossary_zhongdu_faq')}的角色各判定，结果为黑桃的角色各附加1层${get.poptip('bts_glossary_zhongdu_faq')}。`,
 
@@ -185,9 +184,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1${get.poptip('bts_glossary_zhongdu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+1${get.poptip('bts_sk_jingxi')}标记）`,
+    bts_sk_jingxi_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-3${get.poptip('bts_glossary_nuqi_faq')}令1名其他角色+1${get.poptip('bts_glossary_zhongdu_faq')}（${get.poptip('bts_glossary_xingqi_faq')}+1${get.poptip('bts_sk_jingxi')}标记）`,
     bts_sk_sifeng_info: `锁；造成无属性伤害时判定，黑色则视为${get.poptip('bts_glossary_nature_wind_dmg_faq')}伤害`,
-    bts_sk_hengtiao_info: `出牌阶段，弃1杀对1名其他角色顺手牵羊，其与所有${get.poptip('bts_glossary_zhongdu_faq')}角色判定黑桃则各+1${get.poptip('bts_glossary_zhongdu_faq')}`,
+    bts_sk_hengtiao_info: `出牌阶段，-1杀，视为对1名其他角色使用顺手牵羊，然后其与所有处于${get.poptip('bts_glossary_zhongdu_faq')}的角色判定，黑桃者各+1层${get.poptip('bts_glossary_zhongdu_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

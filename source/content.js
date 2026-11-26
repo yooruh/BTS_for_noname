@@ -14,6 +14,7 @@ import {
     installUntargetableGuard,
 } from './rules/index.js';
 import { registerCharacterPack } from './tool/pack/registry.js';
+import { KINGDOMS } from './character/bts/factions.js';
 import {
     registerPoptips,
     registerNaturePathPoptips,
@@ -27,8 +28,19 @@ import { installCordovaFileCompat } from './tool/utils/cordovaCompat.js';
 import { installDBCompat } from './tool/utils/dbCompat.js';
 
 // ── 势力名排版（武将卡右上角势力标签）────────────────────────────────────────
+// 只处理本扩展势力（character/bts/factions.js 的 KINGDOMS）：本体与其他扩展的势力
+// 标签、竖排名条保持引擎原样。扩展样式按 bts-kingdom-label / bts-kingdom-seat 收窄
+// 作用域（style/css/extension.css），不再命中引擎的通用选择器。
 // 规律：≤3 字一行；4~5 字首行 2 字+余下第二行；≥6 字每行 3 字。hook
 // ui.create.buttonPresets.character（引擎把完整势力名直写 `.identity > div`），创建与 refresh 后重排。
+const KINGDOM_IDS = new Set(KINGDOMS.map(([id]) => id));
+
+function isOwnKingdom(character) {
+    if (typeof character !== 'string') return false;
+    const info = get.character(character);
+    return !!(info && KINGDOM_IDS.has(info[1]));
+}
+
 function btsFormatKingdomName(text) {
     const chars = Array.from(text);
     const n = chars.length;
@@ -43,6 +55,9 @@ function btsFormatKingdomName(text) {
 function btsFormatIdentity(node) {
     const group = node && node.node && node.node.group;
     if (!group) return;
+    const owned = isOwnKingdom(node.link);
+    group.classList.toggle('bts-kingdom-label', owned);
+    if (!owned) return;
     for (const div of group.querySelectorAll(':scope > div')) {
         if (div.childElementCount !== 0) continue;
         const text = div.textContent;
@@ -77,6 +92,23 @@ function installKingdomLayoutHook() {
     ui.create.buttonPresets.character = wrapped;
 }
 
+// 游戏中竖排名条（.player > .name_seat，暗将/国战显示）只给本扩展角色打标，
+// 避免 extension.css 的字号/字距覆盖本体角色名。
+function installKingdomSeatHook() {
+    const Player = lib.element && lib.element.Player;
+    const proto = Player && Player.prototype;
+    const init = proto && proto.$init;
+    if (typeof init !== 'function' || init.__btsKingdomSeat) return;
+    const wrapped = function (character) {
+        const ret = init.apply(this, arguments);
+        const seat = this.node && this.node.name_seat;
+        if (seat) seat.classList.toggle('bts-kingdom-seat', isOwnKingdom(character));
+        return ret;
+    };
+    wrapped.__btsKingdomSeat = true;
+    proto.$init = wrapped;
+}
+
 function registerDeferredPacks(characterPacks) {
     for (const entry of Object.values(characterPacks)) {
         if (entry.registration !== 'deferred') continue;
@@ -106,8 +138,9 @@ export async function content(config, pack) {
     // 非游戏规则注册：引擎 IndexedDB 接口守卫（无 onError 的 getDB/putDB 调用不再产生
     // 「isTrusted」孤儿 rejection 崩溃弹窗，降级为可读日志；见 tool/utils/dbCompat.js）。
     installDBCompat();
-    // 非游戏规则注册（内联）：势力名排版 hook。
+    // 非游戏规则注册（内联）：势力名排版 hook + 竖排名条作用域标记。
     installKingdomLayoutHook();
+    installKingdomSeatHook();
     // 非游戏规则注册：势力图标点击解释（tool/ui/kingdomIcon.js；词条在下方 registerKingdomPoptips）。
     installKingdomIconPoptip();
     // 规则类注册：BGM 切换/还原机制（lib.bts.bgm；供角色技能调用 + 每局清栈）。
@@ -146,14 +179,13 @@ export async function content(config, pack) {
 // 更新内容数据（扩展更新弹窗 + 帮助「更新内容」分区）：
 // 由 `npm run build`（scripts/build.mjs）依据 release/releases.json 自动生成，勿手改。
 export const updateContent = [
-    { type: "players", data: ["bts_ch_feiying"] },
     {
         type: "text", addText: true, data: `<div style="text-align: left;font-size: 16px;">
-① 公开测试版本，非正式移植版，欢迎上报问题（部分与太阳神不一致的地方是故意为之）<br>
-② 新增了绯英，给现有的角色进行了重新势力分包<br>
-③ 优化了在线更新模块，以后应该能在游戏内更新崩铁杀<br>
+① 优化了打包逻辑，将较小存储占用的版本作为崩铁杀默认版本<br>
+② 优化了技能AI及技能描述和结算提示，简化了部分技能的操作<br>
+③ 调整了部分角色的强度<br>
 <hr>
-<li>本版本仍在开发中，未完成的角色、资源与机制将持续补充。</li>
+<li>由于太阳神已经支持了手机版，无名杀版本以后的开发方向将转为联机及单机的其他模式</li>
 </div>`
     }
 ];

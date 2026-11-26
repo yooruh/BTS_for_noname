@@ -20,6 +20,11 @@ export async function kafuka(target, from, num) {
     if (rm.numb) lib.bts.api.removeAbnormal(target, 'numb', rm.numb);
     if (rm.burn) lib.bts.api.removeAbnormal(target, 'burn', rm.burn);
     if (rm.poison) lib.bts.api.removeAbnormal(target, 'poison', rm.poison);
+    // 引爆造成的伤害/失体力无归因，须先写明来源，否则只看到莫名掉血。
+    const burst = ['numb', 'burn', 'poison']
+        .filter((name) => rm[name])
+        .map((name) => `${get.translation(`bts_abnormal_${name}`)}${rm[name]}`);
+    if (burst.length) game.log(target, `引爆异常：${burst.join('、')}`);
     for (let i = 0; i < rm.numb; i++) {
         const damage = target.damage(1, 'nosource');
         damage.reason = 'bts_abnormal_numb';
@@ -294,13 +299,13 @@ export const translate = {
     'bts_mk_canku-start': '残酷已发动',
     bts_ch_kafuka: '卡芙卡',
     bts_sk_chanyin: '颤音',
-    bts_sk_chanyin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，这些角色各附加1层${get.poptip('bts_glossary_mabi_faq')}，然后令这些角色各结算并移除全部${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}。`,
-
+    bts_sk_chanyin_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择至少一名其他角色，`
+        + `这些角色各附加1层${get.poptip('bts_glossary_mabi_faq')}，然后令这些角色各结算并移除全部${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}。`,
     bts_sk_canku: '残酷',
     bts_sk_canku_info: `锁定技，当其他角色使用【杀】指定目标后，若目标没有你，你选择一项：1.视为对相同目标使用【杀】且令此技能于你下回合开始前无效，若如此做，当你以此法对目标角色造成伤害时，防止此伤害，令其附加1层${get.poptip('bts_glossary_mabi_faq')}；2.令一名角色获得你一张牌，此技能于其回合开始前无效。`,
-
     bts_sk_mosuo: '摩挲',
-    bts_sk_mosuo_info: `出牌阶段，你可以弃置一张【杀】并选择一名处于${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}的其他角色，令其结算并移除${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}各1层。`,
+    bts_sk_mosuo_info: `出牌阶段，你可以弃置一张【杀】并选择一名处于${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}的其他角色，`
+        + `令其结算并移除${get.poptip('bts_glossary_mabi_faq')}、${get.poptip('bts_glossary_abnormal_burn_faq')}、${get.poptip('bts_glossary_zhongdu_faq')}各1层。`,
 
     '$bts_sk_chanyin1': "美妙的时光总有尽头",
     '$bts_sk_chanyin2': "该说再见了…BONG",
@@ -312,9 +317,10 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_chanyin_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1层${get.poptip('bts_glossary_mabi_faq')}，然后各引爆并移除全部${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}`,
-    bts_sk_canku_info: `锁；他人用杀指定目标且目标无你时，选一项：1.视为对相同目标用杀（伤改+1${get.poptip('bts_glossary_mabi_faq')}），用后本回合不再发动；2.令1名角色获得你1张牌`,
-    bts_sk_mosuo_info: `出牌阶段，弃1张【杀】令1名${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}角色各引爆并移除1层`,
+    bts_sk_chanyin_info: `${get.poptip('bts_glossary_bisha_faq')}；出牌阶段，-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色各+1层${get.poptip('bts_glossary_mabi_faq')}，`
+        + `然后各结算并移除全部${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}`,
+    bts_sk_canku_info: `锁；其他角色使用杀指定目标后，若目标中没有你，你选择一项：1.视为对相同目标用杀（此伤害改为令目标附加1层${get.poptip('bts_glossary_mabi_faq')}），此技能于你下回合开始前无效；2.令一名角色+你1牌，此技能于其回合开始前无效`,
+    bts_sk_mosuo_info: `出牌阶段，-1杀令1名${get.poptip('bts_glossary_mabi_faq')}/${get.poptip('bts_glossary_abnormal_burn_faq')}/${get.poptip('bts_glossary_zhongdu_faq')}角色各结算并移除1层`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

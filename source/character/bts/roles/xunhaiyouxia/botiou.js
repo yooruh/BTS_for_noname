@@ -280,9 +280,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_riluo_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}弃1牌，令目标${get.poptip('bts_glossary_nature_earth_faq')}翻面并与其决斗`,
-    bts_sk_chishuo_info: `出牌阶段可弃杀获得${get.poptip('bts_glossary_koudai_faq')}并指定${get.poptip('bts_glossary_bless_yingzi_faq')}目标，缔约期间杀当决斗、只能对${get.poptip('bts_glossary_bless_yingzi_faq')}目标用牌`,
-    bts_sk_zhuangtian_info: `锁；决斗伤害时目标弃至多3手牌（不超过${get.poptip('bts_glossary_koudai_faq')}数）`,
+    bts_sk_riluo_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}并-1牌，令一名其他角色获得${get.poptip('bts_glossary_nature_earth_faq')}、翻面，然后视为对其用决斗`,
+    bts_sk_chishuo_info: `出牌阶段，可-1杀选择一名其他角色，你+1${get.poptip('bts_glossary_koudai_faq')}；其下次进入濒死或失去所有手牌前，你的杀视为决斗，且除其与你外，其他角色不是你使用牌的合法目标`,
+    bts_sk_zhuangtian_info: `锁；你以决斗造成伤害时，目标-至多3手牌（不超过你的${get.poptip('bts_glossary_koudai_faq')}数）`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

@@ -152,13 +152,19 @@ export const marks = {
 export const translate = {
     bts_ch_feiying: '绯英',
     bts_sk_wushe: '无赦',
-    bts_sk_wushe_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去1点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，其以 14.6%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）失去1点体力，若未成功则你失去1点体力；若你为${get.poptip('bts_glossary_xingqi_faq')}，你获得1枚${get.poptip('bts_mk_wushe')}，${get.poptip('bts_mk_wushe')}为1枚时你回复2点${get.poptip('bts_glossary_nuqi_faq')}，不小于4枚时弃置全部${get.poptip('bts_mk_wushe')}。`,
+    bts_sk_wushe_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去1点${get.poptip('bts_glossary_nuqi_faq')}并选择一名其他角色，`
+        + `其以 14.6%（+${get.poptip('bts_glossary_bless_funny_faq')}每层+10%）失去1点体力，若未成功则你失去1点体力；若你为${get.poptip('bts_glossary_xingqi_faq')}，`
+        + `你获得1枚${get.poptip('bts_mk_wushe')}，${get.poptip('bts_mk_wushe')}为1枚时你回复2点${get.poptip('bts_glossary_nuqi_faq')}，`
+        + `不小于4枚时弃置全部${get.poptip('bts_mk_wushe')}。`,
     bts_sk_shaohua: '韶华',
-    bts_sk_shaohua_info: `锁定技，你失去${get.poptip('bts_glossary_nuqi_faq')}后，你附加等量的${get.poptip('bts_glossary_bless_funny_faq')}；你失去${get.poptip('bts_glossary_bless_funny_faq')}后，你回复等量的${get.poptip('bts_glossary_nuqi_faq')}；你的${get.poptip('bts_glossary_bless_funny_faq')}层数视为「${get.poptip('bts_glossary_bless_funny_faq')}+${get.poptip('bts_glossary_bless_fatal_faq')}」，且至少为5层；当你将要失去的体力值大于1时，你防止之，改为执行一次${get.poptip('bts_glossary_funny_act_faq')}。`,
+    bts_sk_shaohua_info: `锁定技，你失去${get.poptip('bts_glossary_nuqi_faq')}后，你附加等量的${get.poptip('bts_glossary_bless_funny_faq')}；你失去${get.poptip('bts_glossary_bless_funny_faq')}后，`
+        + `你回复等量的${get.poptip('bts_glossary_nuqi_faq')}；你的${get.poptip('bts_glossary_bless_funny_faq')}层数视为「${get.poptip('bts_glossary_bless_funny_faq')}+${get.poptip('bts_glossary_bless_fatal_faq')}」，`
+        + `且至少为5层；当你将要失去的体力值大于1时，你防止之，改为执行一次${get.poptip('bts_glossary_funny_act_faq')}。`,
     bts_sk_liaopan_funny: '缭判',
-    bts_sk_liaopan_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，当你执行${get.poptip('bts_glossary_funny_act_faq')}后，你可以弃置一张【杀】，获得10枚${get.poptip('bts_glossary_funnypoint_faq')}、摸三张牌并附加1层${get.poptip('bts_glossary_bless_funny_faq')}。`,
+    bts_sk_liaopan_funny_info: `${get.poptip('bts_glossary_funny_skill_faq')}，当你执行${get.poptip('bts_glossary_funny_act_faq')}后，你可以弃置一张【杀】，`
+        + `获得10枚${get.poptip('bts_glossary_funnypoint_faq')}、摸三张牌并附加1层${get.poptip('bts_glossary_bless_funny_faq')}。`,
     bts_mk_wushe: '无赦',
-
+    bts_mk_wushe_info: `来源：${get.poptip('bts_sk_wushe')}在${get.poptip('bts_glossary_xingqi_faq')}下赋予；1枚时+2${get.poptip('bts_glossary_nuqi_faq')}，达到4枚时全部弃置`,
     // ── 语音台词（源 L31781-31795）──
     // 音频：源按技能 id 分文件（audio/skill/<技能id><序号>.ogg），已逐个 ogg→mp3 转到本项目命名
     //（bts_sk_wushe1/2、bts_sk_shaohua1/2、bts_sk_liaopan_funny1/2）；阵亡音为 audio/skill/<武将id>.ogg
@@ -173,9 +179,12 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_wushe_info: `${get.poptip('bts_glossary_bisha_faq')}；失1${get.poptip('bts_glossary_nuqi_faq')}，目标 14.6% 失1体力、否则你失1体力；${get.poptip('bts_glossary_xingqi_faq')}积${get.poptip('bts_mk_wushe')}（1枚回2怒、4枚清空）`,
-    bts_sk_shaohua_info: `锁；失${get.poptip('bts_glossary_nuqi_faq')}换等量${get.poptip('bts_glossary_bless_funny_faq')}、反之换回；${get.poptip('bts_glossary_bless_funny_faq')}层数计${get.poptip('bts_glossary_bless_fatal_faq')}且≥5；失血>1改为执行${get.poptip('bts_glossary_funny_act_faq')}`,
-    bts_sk_liaopan_funny_info: `执行${get.poptip('bts_glossary_funny_act_faq')}后可弃【杀】：+10${get.poptip('bts_glossary_funnypoint_faq')}、摸3、+1层${get.poptip('bts_glossary_bless_funny_faq')}`,
+    bts_sk_wushe_info: `${get.poptip('bts_glossary_bisha_faq')}；-1${get.poptip('bts_glossary_nuqi_faq')}，目标以14.6%+${get.poptip('bts_glossary_bless_funny_faq')}每层10%的概率-1体力，`
+        + `未成功则你-1体力；若你为${get.poptip('bts_glossary_xingqi_faq')}，+1${get.poptip('bts_mk_wushe')}（1枚时+2${get.poptip('bts_glossary_nuqi_faq')}，`
+        + `≥4枚时-全部）`,
+    bts_sk_shaohua_info: `锁；-${get.poptip('bts_glossary_nuqi_faq')}换等量${get.poptip('bts_glossary_bless_funny_faq')}、反之换回；${get.poptip('bts_glossary_bless_funny_faq')}层数计${get.poptip('bts_glossary_bless_fatal_faq')}且≥5；`
+        + `若失去的体力值大于1，防止之并改为执行${get.poptip('bts_glossary_funny_act_faq')}`,
+    bts_sk_liaopan_funny_info: `执行${get.poptip('bts_glossary_funny_act_faq')}后可-1杀：+10${get.poptip('bts_glossary_funnypoint_faq')}、+3牌、+1层${get.poptip('bts_glossary_bless_funny_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音

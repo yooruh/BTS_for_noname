@@ -1006,28 +1006,33 @@ export const translate = {
     bts_ch_baie: '白厄',
     bts_ch_kaesilanna: '卡厄斯兰那',
     bts_sk_fanshi: '燔世',
-    bts_sk_fanshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，当你有12枚${get.poptip('bts_glossary_huozhong_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}且首次发动则为6枚）或你的体力上限不小于12时，弃等量${get.poptip('bts_glossary_huozhong_faq')}，`
+    bts_sk_fanshi_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，当你有12枚${get.poptip('bts_glossary_huozhong_faq')}（若你为${get.poptip('bts_glossary_xingqi_faq')}且首次发动则为6枚）或你的体力上限不小于12时，`
+        + `弃等量${get.poptip('bts_glossary_huozhong_faq')}，`
         + `变身为${get.poptip('bts_ch_kaesilanna')}。变身期间你不能正常使用牌，只能使用转化/虚拟牌或响应他人的牌。选择至少1名其他角色作为敌人保留在场，其余角色被除名（移出游戏），你的${get.poptip('bts_glossary_bless_maxhp_faq')}增至除名数的倍数，体力回复至上限；场上其余角色依次各执行一个额外回合，每当这些回合之一结束，你执行一个额外的出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）。变身期间进入濒死状态时，你回复至1点体力并中断波次。`
         + `波次结束后，你获得未除名者各一张牌，然后退出变身；退出时被除名者回归，你扣回此前增加的${get.poptip('bts_glossary_bless_maxhp_faq')}，体力取${get.poptip('bts_glossary_bless_maxhp_faq')}与你当前生命值的较小者，并获得一个额外的出牌阶段。`
         + `<li>若你拥有${get.poptip('bts_sk_aishi')}，波次结束时若流程内未进入过濒死状态，你可选择：①弃置所有手牌重复${get.poptip('bts_sk_fanshi')}流程，②获得6枚${get.poptip('bts_glossary_huozhong_faq')}`,
-
     bts_sk_fanshi_chuwai: '燔世·除名',
     bts_sk_fanshi_wave: '燔世·续',
     bts_sk_fanshi_drive: '燔世·续',
     bts_sk_fanshi_drive_skip: '燔世·续',
     bts_sk_shihun_tail: '弑魂·斩',
     bts_sk_shenju: '身炬',
-    bts_sk_shenju_info: `锁定技，其他角色令你回复体力、回复${get.poptip('bts_glossary_nuqi_faq')}、附加${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}、获得牌后，你受到伤害后，或你弃置【杀】后，若${get.poptip('bts_glossary_huozhong_faq')}少于15枚，你获得1枚${get.poptip('bts_glossary_huozhong_faq')}。`,
+    bts_sk_shenju_info: `锁定技，其他角色令你回复体力、回复${get.poptip('bts_glossary_nuqi_faq')}、附加${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}、获得牌后，`
+        + `你受到伤害后，或你弃置【杀】后，若${get.poptip('bts_glossary_huozhong_faq')}少于15枚，你获得1枚${get.poptip('bts_glossary_huozhong_faq')}。`,
     bts_sk_pidi: '辟地',
     bts_sk_pidi_info: `当你造成伤害后，你可以弃置一张【杀】获得1枚${get.poptip('bts_glossary_huozhong_faq')}。`,
     bts_sk_fanshi_huanyuan: '燔世·还原',
-    bts_sk_fanshi_huanyuan_info: `锁定技，每当一个因“${get.poptip('bts_sk_fanshi')}”获得的回合结束，你执行一个额外的出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）；变身期间你进入濒死状态时，回复至1点体力（不会死亡）并中断波次，波次随后结束时你获得未除名者各一张牌；若你拥有${get.poptip('bts_sk_aishi')}且流程内未进入过濒死状态，波次结束时你可以弃置所有手牌重复${get.poptip('bts_sk_fanshi')}流程，或获得6枚${get.poptip('bts_glossary_huozhong_faq')}并退出；退出变身时，被除名者回归，你扣回此前增加的${get.poptip('bts_glossary_bless_maxhp_faq')}（体力取${get.poptip('bts_glossary_bless_maxhp_faq')}与当前生命值的较小者）并获得一个额外的出牌阶段（不是回合）。你死亡时，仅令被除名者回归。`,
+    bts_sk_fanshi_huanyuan_info: `锁定技，每当一个因“${get.poptip('bts_sk_fanshi')}”获得的回合结束，你执行一个额外的出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）；`
+        + `变身期间你进入濒死状态时，回复至1点体力（不会死亡）并中断波次，波次随后结束时你获得未除名者各一张牌；若你拥有${get.poptip('bts_sk_aishi')}且流程内未进入过濒死状态，波次结束时你可以弃置所有手牌重复${get.poptip('bts_sk_fanshi')}流程，`
+        + `或获得6枚${get.poptip('bts_glossary_huozhong_faq')}并退出；退出变身时，被除名者回归，你扣回此前增加的${get.poptip('bts_glossary_bless_maxhp_faq')}（体力取${get.poptip('bts_glossary_bless_maxhp_faq')}与当前生命值的较小者）并获得一个额外的出牌阶段（不是回合）。`
+        + `你死亡时，仅令被除名者回归。`,
     bts_sk_xueji: '血棘',
     bts_sk_xueji_info: '出牌阶段，你可以弃置两张手牌，视为使用【决斗】，然后结束出牌阶段。',
     bts_sk_shihun: '弑魂',
     bts_sk_shihun_info: '出牌阶段，你可以弃置等同于其他角色数的手牌，并结束出牌阶段，令所有其他角色各执行一个额外回合，然后视为对这些角色使用【杀】',
     bts_sk_tiancai: '天裁',
-    bts_sk_tiancai_info: `出牌阶段，你可以将手牌摸至七张（至多摸四张），然后等同于摸牌数的次数令随机其他角色附加${get.poptip('bts_glossary_abnormal_lieyang_faq')}；所有处于${get.poptip('bts_glossary_abnormal_lieyang_faq')}的角色弃置一张手牌并移除1层${get.poptip('bts_glossary_abnormal_lieyang_faq')}。若你不为${get.poptip('bts_glossary_xingqi_faq')}或以此法获得的牌数小于4，结束出牌阶段。`,
+    bts_sk_tiancai_info: `出牌阶段，你可以将手牌摸至七张（至多摸四张），然后等同于摸牌数的次数令随机其他角色附加${get.poptip('bts_glossary_abnormal_lieyang_faq')}；所有处于${get.poptip('bts_glossary_abnormal_lieyang_faq')}的角色弃置一张手牌并移除1层${get.poptip('bts_glossary_abnormal_lieyang_faq')}。`
+        + `若你不为${get.poptip('bts_glossary_xingqi_faq')}或以此法获得的牌数小于4，结束出牌阶段。`,
     bts_mk_huozhong: '火种',
     bts_abnormal_lieyang: '烈阳',
     bts_mk_fanshi_used: '首次燔世已发动',
@@ -1058,12 +1063,16 @@ export const translate = {
 };
 // dynamicTranslate 已覆盖的键无需在 simpleTranslate 重复。
 export const simpleTranslate = {
-    bts_sk_shenju_info: `锁；别人奶你/给你牌、你受伤或弃杀后+1${get.poptip('bts_glossary_huozhong_faq')}（封顶15）`,
-    bts_sk_pidi_info: `造成伤害后，可弃杀+1${get.poptip('bts_glossary_huozhong_faq')}`,
-    bts_sk_fanshi_huanyuan_info: `锁；每个${get.poptip('bts_sk_fanshi')}回合结束你执行额外出牌阶段（${get.poptip('bts_sk_shihun')}回合不触发），每名未除名者各1回合；濒死回1并中断；波次后夺未除名者各1牌，${get.poptip('bts_sk_aishi')}未濒死可弃手牌重复或+6${get.poptip('bts_glossary_huozhong_faq')}；退出取小还原并+1额外出牌阶段`,
-    bts_sk_xueji_info: '弃2手牌当决斗用完就收手',
-    bts_sk_shihun_info: '按场上剩余的其他角色数弃手牌，等他们额外回合走完再一人一发虚拟杀',
-    bts_sk_tiancai_info: `摸到7张（至多4），随机给人挂${get.poptip('bts_glossary_abnormal_lieyang_faq')}，带${get.poptip('bts_glossary_abnormal_lieyang_faq')}的角色挨个弃牌；非${get.poptip('bts_glossary_xingqi_faq')}或摸不足4结束出牌阶段`,
+    bts_sk_shenju_info: `锁；其他角色令你+体力、+${get.poptip('bts_glossary_nuqi_faq')}、附加${get.poptip('bts_glossary_bless_faq')}或${get.poptip('bts_glossary_hudun_faq')}、令你+牌后，`
+        + `或你受伤后、弃杀后，若${get.poptip('bts_glossary_huozhong_faq')}少于15枚，你+1枚`,
+    bts_sk_pidi_info: `造成伤害后，可-1杀+1${get.poptip('bts_glossary_huozhong_faq')}`,
+    bts_sk_fanshi_huanyuan_info: `锁；因${get.poptip('bts_sk_fanshi')}获得的回合结束时，你执行一个额外的出牌阶段（${get.poptip('bts_sk_shihun')}等技能授予的回合不触发）；变身期间进入濒死时，`
+        + `回复至1点体力并中断波次；波次结束后，你+未除名者各1牌；若你拥有${get.poptip('bts_sk_aishi')}且流程内未进入过濒死，可-全部手牌重复流程，或+6枚${get.poptip('bts_glossary_huozhong_faq')}并退出；`
+        + `退出时体力取较小值还原，并获得一个额外的出牌阶段`,
+    bts_sk_xueji_info: '-2手牌，视为用决斗，然后结束出牌阶段',
+    bts_sk_shihun_info: '弃置等同于其他角色数的手牌并结束出牌阶段，令所有其他角色各执行一个额外回合，然后视为对这些角色使用杀',
+    bts_sk_tiancai_info: `将手牌摸至7张（至多+4牌），然后按摸牌数随机令其他角色各附加${get.poptip('bts_glossary_abnormal_lieyang_faq')}；所有处于${get.poptip('bts_glossary_abnormal_lieyang_faq')}的角色-1手牌并移除1层；`
+        + `若你不是${get.poptip('bts_glossary_xingqi_faq')}或摸牌数小于4，结束出牌阶段`,
 };
 export const dynamicTranslate = {
     bts_sk_fanshi(player) {

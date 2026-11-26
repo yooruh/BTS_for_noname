@@ -181,9 +181,9 @@ export const translate = {
 };
 
 export const simpleTranslate = {
-    bts_sk_chenni_info: `${get.poptip('bts_glossary_bisha_faq')}；失5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+1${get.poptip('bts_glossary_abnormal_baixie_faq')}`,
-    bts_sk_bonong_info: `锁；${get.poptip('bts_glossary_bless_gongwu_faq')}角色伤害令目标空城后可对其炎杀`,
-    bts_sk_tianshi_info: `结束阶段可弃杀令自己和1名其他角色各+1${get.poptip('bts_glossary_bless_gongwu_faq')}`,
+    bts_sk_chenni_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}令至少1名其他角色+1${get.poptip('bts_glossary_abnormal_baixie_faq')}`,
+    bts_sk_bonong_info: `锁；${get.poptip('bts_glossary_bless_gongwu_faq')}角色伤害令目标失去最后一张手牌后可对其炎杀`,
+    bts_sk_tianshi_info: `结束阶段可-1杀令自己和1名其他角色各+1${get.poptip('bts_glossary_bless_gongwu_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
@@ -255,6 +255,10 @@ export const buffSkills = {
             );
         },
         async content(event, trigger, player) {
+            game.log(
+                player,
+                `因【${get.translation('bts_abnormal_baixie')}】，受到属性伤害须弃置一张手牌`,
+            );
             await player.chooseToDiscard('败谢：弃置一张手牌', 'h', 1, true);
         },
     },

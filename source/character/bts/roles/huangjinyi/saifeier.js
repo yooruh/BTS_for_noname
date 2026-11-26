@@ -254,9 +254,12 @@ export const translate = {
     'bts_ch_saifeier_skin9': '皮肤9',
     bts_ch_saifeier: '赛飞儿',
     bts_sk_jingshang: '敬上',
-    bts_sk_jingshang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内一名区域里有牌的角色，视为对其使用【顺手牵羊】。你弃置全部${get.poptip('bts_glossary_qizha_faq')}标记，其附加弃置数量/4层诅咒（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为3）。`,
+    bts_sk_jingshang_info: `${get.poptip('bts_glossary_bisha_faq')}，出牌阶段，你可以失去5点${get.poptip('bts_glossary_nuqi_faq')}并选择攻击范围内一名区域里有牌的角色，`
+        + `视为对其使用【顺手牵羊】。你弃置全部${get.poptip('bts_glossary_qizha_faq')}标记，其附加弃置数量/4层诅咒（若你为${get.poptip('bts_glossary_xingqi_faq')}则改为3）。`,
     bts_sk_reqing: '热情',
-    bts_sk_reqing_info: `锁定技，当你使用【顺手牵羊】指定唯一目标后，其获得1枚${get.poptip('bts_glossary_zhugu_faq')}标记，其他角色失去全部${get.poptip('bts_glossary_zhugu_faq')}标记；当拥有${get.poptip('bts_glossary_zhugu_faq')}标记的角色受到伤害时，你获得等同于伤害值的${get.poptip('bts_glossary_qizha_faq')}标记，然后若伤害来源不为你，你可以视为对其使用【杀】（每回合限一次）。`,
+    bts_sk_reqing_info: `锁定技，当你使用【顺手牵羊】指定唯一目标后，其获得1枚${get.poptip('bts_glossary_zhugu_faq')}标记，其他角色失去全部${get.poptip('bts_glossary_zhugu_faq')}标记；`
+        + `当拥有${get.poptip('bts_glossary_zhugu_faq')}标记的角色受到伤害时，你获得等同于伤害值的${get.poptip('bts_glossary_qizha_faq')}标记，`
+        + `然后若伤害来源不为你，你可以视为对其使用【杀】（每回合限一次）。`,
     'bts_mk_reqing-clear': '热情追击已用',
     bts_sk_taoyin: '套银',
     bts_sk_taoyin_info: `结束阶段开始时，你可以弃置一张【杀】并选择距离1以内一名区域里有牌的其他角色，视为对其使用【顺手牵羊】，其附加1层${get.poptip('bts_glossary_abnormal_confuse_faq')}。`,
@@ -270,13 +273,14 @@ export const translate = {
     '$bts_sk_taoyin1': "财宝…让我吸吸！",
     '$bts_sk_taoyin2': "猫咪…大开口！",
     '~bts_ch_saifeier': "这就是…逐火……",
-    bts_mk_zhugu_info: `来源：${get.poptip('bts_sk_xunjue')}、${get.poptip('bts_sk_binguo')}赋予；${get.poptip('bts_sk_binguo')}：满7发动群杀`,
+    bts_mk_zhugu_info: `来源：${get.poptip('bts_sk_reqing')}赋予（使用【顺手牵羊】指定唯一目标）；其受到伤害时，你+等量${get.poptip('bts_glossary_qizha_faq')}`,
 };
 
 export const simpleTranslate = {
-    bts_sk_jingshang_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，顺手牵羊1个范围内有牌目标，清${get.poptip('bts_glossary_qizha_faq')}并按层数/4加诅咒`,
-    bts_sk_reqing_info: `锁；单目标顺手标${get.poptip('bts_glossary_zhugu_faq')}；${get.poptip('bts_glossary_zhugu_faq')}受伤+${get.poptip('bts_glossary_qizha_faq')}，非你来源时可追击杀（每回合一次）`,
-    bts_sk_taoyin_info: `结束阶段可弃杀对距离1有牌目标用顺手并+1${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
+    bts_sk_jingshang_info: `${get.poptip('bts_glossary_bisha_faq')}；-5${get.poptip('bts_glossary_nuqi_faq')}，视为对攻击范围内一名区域里有牌的角色使用顺手牵羊；-全部${get.poptip('bts_glossary_qizha_faq')}，其附加弃置数/4层诅咒`,
+    bts_sk_reqing_info: `锁；使用顺手牵羊指定唯一目标后，其获得${get.poptip('bts_glossary_zhugu_faq')}；拥有${get.poptip('bts_glossary_zhugu_faq')}的角色受到伤害时，`
+        + `你+等量${get.poptip('bts_glossary_qizha_faq')}，若来源不为你，可视为对其用杀（每回合限一次）`,
+    bts_sk_taoyin_info: `结束阶段，可-1杀，视为对距离1以内一名区域里有牌的其他角色使用顺手牵羊，其+1层${get.poptip('bts_glossary_abnormal_confuse_faq')}`,
 };
 
 export const pinyins = {}; // 如果默认的拼音正确，不需要再使用字符串数组定义拼音
